@@ -1,75 +1,199 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, View, Text, useColorScheme } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { DateFeed } from '@/components/ui/feed/DateFeed';
+import { CommentModal } from '@/components/ui/modals/CommentModal';
+import { Colors } from '@/constants/Colors';
 
-export default function HomeScreen() {
+// Mock data for demonstration
+const MOCK_DATES = [
+  {
+    id: '1',
+    personName: 'Emma',
+    date: '2h ago',
+    location: 'Italian Restaurant',
+    rating: 4.5,
+    notes: 'Dinner date at that new Italian place was amazing! Great conversation, lots of laughing. Definitely seeing him again.',
+    tags: ['Second Date', 'Chemistry'],
+    poll: {
+      question: 'Will there be a third date?',
+      options: [
+        { text: 'Yes', votes: 3 },
+        { text: 'Maybe', votes: 1 },
+        { text: 'No', votes: 0 }
+      ]
+    },
+    comments: [
+      { author: 'Jason', text: 'He sounds perfect! Can\'t wait to hear about the next date!' }
+    ],
+    likeCount: 0,
+    commentCount: 1,
+    isLiked: false,
+  },
+  {
+    id: '2',
+    personName: 'Jason',
+    date: 'Yesterday',
+    location: 'Coffee Shop',
+    rating: 3.0,
+    notes: 'Coffee meet-up was okay. Conversation was a bit forced but he seemed nice. Not sure if there\'s a spark.',
+    tags: [],
+    likeCount: 0,
+    commentCount: 0,
+    isLiked: false,
+  },
+];
+
+export default function FeedScreen() {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  
+  const [dates, setDates] = useState(MOCK_DATES);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [commentModalVisible, setCommentModalVisible] = useState(false);
+  const [selectedDateId, setSelectedDateId] = useState<string | null>(null);
+  
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    // Simulate a network request
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 1500);
+  };
+  
+  const handleLike = (dateId: string) => {
+    setDates(
+      dates.map(date => 
+        date.id === dateId 
+          ? { 
+              ...date, 
+              isLiked: !date.isLiked,
+              likeCount: date.isLiked ? date.likeCount - 1 : date.likeCount + 1 
+            } 
+          : date
+      )
+    );
+  };
+  
+  const handleComment = (dateId: string) => {
+    setSelectedDateId(dateId);
+    setCommentModalVisible(true);
+  };
+  
+  const handleSubmitComment = (text: string) => {
+    if (!selectedDateId) return;
+    
+    setDates(
+      dates.map(date => 
+        date.id === selectedDateId
+          ? {
+              ...date,
+              comments: [
+                ...(date.comments || []),
+                {
+                  author: 'You',
+                  text: text,
+                }
+              ],
+              commentCount: date.commentCount + 1
+            }
+          : date
+      )
+    );
+  };
+  
+  const renderEmptyComponent = () => (
+    <View style={styles.emptyContainer}>
+      <Ionicons name="calendar-outline" size={64} color={colors.textSecondary} />
+      <Text style={[styles.emptyTitle, { color: colors.text }]}>
+        No dates in your feed
+      </Text>
+      <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+        Add your first date or follow friends to see their updates
+      </Text>
+    </View>
+  );
+  
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>My Feed</Text>
+      </View>
+      <DateFeed
+        data={dates}
+        isRefreshing={isRefreshing}
+        onRefresh={handleRefresh}
+        onDatePress={(dateId) => console.log(`Navigate to date detail ${dateId}`)}
+        onLike={handleLike}
+        onComment={handleComment}
+        ListEmptyComponent={renderEmptyComponent()}
+      />
+      
+      {selectedDateId && (
+        <CommentModal
+          visible={commentModalVisible}
+          onClose={() => {
+            setCommentModalVisible(false);
+            setSelectedDateId(null);
+          }}
+          onSubmitComment={handleSubmitComment}
+          dateId={selectedDateId}
+          personName={dates.find(d => d.id === selectedDateId)?.personName || ''}
+          existingComments={dates.find(d => d.id === selectedDateId)?.comments?.map((c, idx) => ({
+            id: `${selectedDateId}-${idx}`,
+            author: c.author,
+            text: c.text,
+          })) || []}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      )}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  container: {
+    flex: 1,
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  headerButton: {
+    padding: 8,
+  },
+  emptyContainer: {
+    flex: 1,
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    padding: 24,
+    marginTop: 60,
   },
-  stepContainer: {
-    gap: 8,
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
     marginBottom: 8,
+    textAlign: 'center',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  emptySubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    maxWidth: '80%',
+  },
+  headerContent: {
+    padding: 16,
+    paddingBottom: 8,
+  },
+  welcomeText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
 });

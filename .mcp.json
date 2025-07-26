@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/sondre_pv/Desktop/App/RNrostr/RostrDating"]
+    }
+  }
+}
