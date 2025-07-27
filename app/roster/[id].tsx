@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   ScrollView,
@@ -17,6 +17,7 @@ import { DateCard } from '@/components/ui/cards/DateCard';
 import { CommentModal } from '@/components/ui/modals/CommentModal';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
+import { getPersonNameFromRosterId } from '@/lib/rosterUtils';
 
 // Enhanced mock data structure
 const MOCK_PERSON_DATA = {
@@ -309,6 +310,14 @@ export default function PersonDetailScreen() {
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedDateId, setSelectedDateId] = useState<string | null>(null);
   
+  // Redirect to unified person screen for own roster
+  useEffect(() => {
+    const personName = getPersonNameFromRosterId(id as string);
+    if (personName) {
+      router.replace(`/person/${personName.toLowerCase()}?isOwnRoster=true`);
+    }
+  }, [id, router]);
+  
   // Get person data
   const personData = MOCK_PERSON_DATA[id as keyof typeof MOCK_PERSON_DATA] || MOCK_PERSON_DATA['1'];
   const [dates, setDates] = useState(personData.dates);
@@ -419,6 +428,7 @@ export default function PersonDetailScreen() {
             comments={date.comments}
             onLike={() => handleLike(date.id)}
             onComment={() => handleComment(date.id)}
+            onPersonHistoryPress={() => router.push(`/person/${date.personName.toLowerCase()}?isOwnRoster=true`)}
           />
         ))}
       </View>

@@ -8,6 +8,7 @@ import { ProfileCard } from '@/components/ui/cards/ProfileCard';
 import { AddPersonModal, PersonData } from '@/components/ui/modals/AddPersonModal';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { getPersonNameFromRosterId } from '@/lib/rosterUtils';
 
 // Mock data for demonstration
 // Define the types for our roster entries
@@ -117,8 +118,9 @@ export default function RosterScreen() {
       rating={item.rating}
       status={item.status}
       onPress={() => {
-        // Navigate to profile detail
-        router.push(`/roster/${item.id}`);
+        // Navigate to roster person detail screen
+        const personName = getPersonNameFromRosterId(item.id) || item.name;
+        router.push(`/roster/${personName.toLowerCase()}?isOwnRoster=true`);
       }}
     />
   );

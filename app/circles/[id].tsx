@@ -146,6 +146,8 @@ export default function CircleDetailScreen() {
       notes={item.notes}
       tags={item.tags}
       instagramUsername={item.instagramUsername}
+      authorName={item.author}
+      authorAvatar={item.authorAvatar}
       poll={item.poll ? {
         question: item.poll.question,
         options: item.poll.options.map(option => ({
@@ -159,7 +161,14 @@ export default function CircleDetailScreen() {
       isLiked={item.isLiked}
       onLike={() => handleLike(item.id)}
       onComment={() => handleComment(item.id)}
-      onPersonPress={() => router.push(`/roster/${item.personName.toLowerCase()}`)}
+      onPersonHistoryPress={() => router.push(`/person/${item.personName.toLowerCase()}?friendUsername=${item.author.toLowerCase().replace(' ', '')}&isOwnRoster=false`)}
+      onAuthorPress={() => {
+        // Navigate to the friend's profile who posted the update
+        const member = circleData.members.find(m => m.name === item.author);
+        if (member) {
+          router.push(`/profile/${member.username}`);
+        }
+      }}
     />
   );
   

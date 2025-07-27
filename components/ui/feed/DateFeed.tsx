@@ -24,6 +24,8 @@ interface DateEntry {
   imageUri?: string;
   tags?: string[];
   instagramUsername?: string;
+  authorName?: string;
+  authorAvatar?: string;
   poll?: {
     question: string;
     options: {
@@ -49,6 +51,8 @@ interface DateFeedProps {
   onEndReached?: () => void;
   onDatePress?: (dateId: string) => void;
   onPersonPress?: (personName: string) => void;
+  onPersonHistoryPress?: (personName: string) => void;
+  onAuthorPress?: (authorName: string) => void;
   onLike?: (dateId: string) => void;
   onComment?: (dateId: string) => void;
   onPollVote?: (dateId: string, optionIndex: number) => void;
@@ -64,6 +68,8 @@ export function DateFeed({
   onEndReached,
   onDatePress,
   onPersonPress,
+  onPersonHistoryPress,
+  onAuthorPress,
   onLike,
   onComment,
   onPollVote,
@@ -85,6 +91,8 @@ export function DateFeed({
       imageUri={item.imageUri}
       tags={item.tags}
       instagramUsername={item.instagramUsername}
+      authorName={item.authorName}
+      authorAvatar={item.authorAvatar}
       poll={item.poll}
       userPollVote={item.userPollVote}
       comments={item.comments}
@@ -93,6 +101,8 @@ export function DateFeed({
       isLiked={item.isLiked}
       onPress={() => onDatePress?.(item.id)}
       onPersonPress={() => onPersonPress?.(item.personName)}
+      onPersonHistoryPress={() => onPersonHistoryPress?.(item.personName)}
+      onAuthorPress={() => onAuthorPress?.(item.authorName || item.personName)}
       onLike={() => onLike?.(item.id)}
       onComment={() => onComment?.(item.id)}
       onPollVote={onPollVote}

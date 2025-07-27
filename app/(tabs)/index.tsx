@@ -10,6 +10,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useDates } from '@/contexts/DateContext';
 import { useRouter } from 'expo-router';
 import { getRosterIdFromPersonName } from '@/lib/rosterUtils';
+import { generateHistoryUrl, hasRelationshipData } from '@/lib/relationshipData';
 
 export default function FeedScreen() {
   const colorScheme = useColorScheme();
@@ -62,14 +63,29 @@ export default function FeedScreen() {
     voteOnPoll(dateId, optionIndex);
   };
 
-  const handlePersonPress = (personName: string) => {
-    const rosterId = getRosterIdFromPersonName(personName);
-    if (rosterId) {
-      router.push(`/roster/${rosterId}`);
+  const handlePersonPress = (personName: string, authorName?: string) => {
+    if (authorName) {
+      // Navigate to friend's date (person they're dating)
+      router.push(`/person/${personName.toLowerCase()}?friendUsername=${authorName.toLowerCase()}&isOwnRoster=false`);
     } else {
-      // Could show a message that this person doesn't have a roster profile yet
-      console.log(`${personName} doesn't have a roster profile yet`);
+      // Navigate to your own roster
+      router.push(`/person/${personName.toLowerCase()}?isOwnRoster=true`);
     }
+  };
+
+  const handlePersonHistoryPress = (personName: string, authorName?: string) => {
+    if (authorName) {
+      // Navigate to friend's date profile
+      router.push(`/person/${personName.toLowerCase()}?friendUsername=${authorName.toLowerCase()}&isOwnRoster=false`);
+    } else {
+      // Navigate to your own roster profile
+      router.push(`/person/${personName.toLowerCase()}?isOwnRoster=true`);
+    }
+  };
+
+  const handleAuthorPress = (authorName: string) => {
+    // Navigate to the friend's profile who posted the update
+    router.push(`/profile/${authorName.toLowerCase()}`);
   };
   
   const renderEmptyComponent = () => (
@@ -95,6 +111,8 @@ export default function FeedScreen() {
         onRefresh={handleRefresh}
         onDatePress={(dateId) => console.log(`Navigate to date detail ${dateId}`)}
         onPersonPress={handlePersonPress}
+        onPersonHistoryPress={handlePersonHistoryPress}
+        onAuthorPress={handleAuthorPress}
         onLike={handleLike}
         onComment={handleComment}
         onPollVote={handlePollVote}

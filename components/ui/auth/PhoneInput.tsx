@@ -1,21 +1,21 @@
-import React, { useState, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  Pressable,
-  Modal,
-  FlatList,
-  TouchableWithoutFeedback,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useMemo, useState } from 'react';
+import {
+  FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableWithoutFeedback,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface PhoneInputProps {
   label: string;
@@ -321,7 +321,11 @@ const formatLocalNumber = (digits: string, countryCode: string): string => {
 
     case '+47': // Norway
       if (digits.length >= 8) {
+        return `${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5, 8)}`;
+      } else if (digits.length >= 5) {
         return `${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5)}`;
+      } else if (digits.length >= 3) {
+        return `${digits.slice(0, 3)} ${digits.slice(3)}`;
       }
       return digits;
 
@@ -353,6 +357,7 @@ export function PhoneInput({
   const [localNumber, setLocalNumber] = useState(''); // Store raw digits only
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isInternalUpdate, setIsInternalUpdate] = useState(false); // Flag to prevent loops
 
   // Sort countries by code length (longest first) to avoid substring matching issues
   const sortedCountries = useMemo(() => {
@@ -371,26 +376,49 @@ export function PhoneInput({
     );
   }, [searchQuery]);
 
-  // Initialize local number from value prop when component mounts or value changes
+  // Initialize and sync with value prop changes
   React.useEffect(() => {
-    if (value && !localNumber) {
+    if (value && !isInternalUpdate) {
       const extractedLocal = extractLocalNumber(value, sortedCountries);
-      if (extractedLocal.localNumber) {
+      if (extractedLocal.localNumber !== localNumber || extractedLocal.country.iso !== selectedCountry.iso) {
         setSelectedCountry(extractedLocal.country);
         setLocalNumber(extractedLocal.localNumber);
       }
     }
-  }, [value, localNumber, sortedCountries]);
+  }, [value, sortedCountries, isInternalUpdate, localNumber, selectedCountry.iso]);
+
+  // Reset internal update flag after state changes
+  React.useEffect(() => {
+    if (isInternalUpdate) {
+      setIsInternalUpdate(false);
+    }
+  }, [isInternalUpdate]);
+
+  // Handle case when value is cleared externally
+  React.useEffect(() => {
+    if (!value && localNumber && !isInternalUpdate) {
+      setLocalNumber('');
+    }
+  }, [value, localNumber, isInternalUpdate]);
 
   const handlePhoneChange = (input: string) => {
     // Extract only digits from input
-    const digits = input.replace(/\D/g, '');
+    const newDigits = input.replace(/\D/g, '');
+    
+    // For Norway, limit to 8 digits
+    let finalDigits = newDigits;
+    if (selectedCountry.code === '+47' && newDigits.length > 8) {
+      finalDigits = newDigits.slice(0, 8);
+    }
+    
+    // Prevent infinite loops by setting internal update flag
+    setIsInternalUpdate(true);
     
     // Update local number state
-    setLocalNumber(digits);
+    setLocalNumber(finalDigits);
     
-    // Create full international number
-    const fullNumber = selectedCountry.code + digits;
+    // Create full international number (empty if no local digits)
+    const fullNumber = finalDigits ? selectedCountry.code + finalDigits : '';
     
     // Call parent's onChange with full international number
     onChangeText(fullNumber);
@@ -406,13 +434,20 @@ export function PhoneInput({
   };
 
   const selectCountry = (country: typeof COUNTRY_CODES[0]) => {
+    // Set internal update flag BEFORE any state changes
+    setIsInternalUpdate(true);
+    
     setSelectedCountry(country);
     setShowCountryPicker(false);
-    setSearchQuery(''); // Clear search when closing
+    setSearchQuery('');
     
     // Update the phone number with new country code while keeping local number
-    const fullNumber = country.code + localNumber;
-    onChangeText(fullNumber);
+    const fullNumber = localNumber ? country.code + localNumber : '';
+    
+    // Use setTimeout to ensure state updates are processed first
+    setTimeout(() => {
+      onChangeText(fullNumber);
+    }, 0);
   };
 
   const closeCountryPicker = () => {

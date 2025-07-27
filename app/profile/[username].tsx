@@ -139,8 +139,8 @@ export default function MemberProfileScreen() {
   };
 
   const handlePersonPress = (person: RosterPersonData) => {
-    // Navigate to detailed person view for this friend's dating life
-    router.push(`/profile/${username}/person/${person.id}`);
+    // Navigate to roster person detail screen
+    router.push(`/roster/${person.name.toLowerCase()}?isOwnRoster=false`);
   };
 
   return (

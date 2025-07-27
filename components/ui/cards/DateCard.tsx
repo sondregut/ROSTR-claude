@@ -16,6 +16,8 @@ interface DateCardProps {
   imageUri?: string;
   tags?: string[];
   instagramUsername?: string;
+  authorName?: string;
+  authorAvatar?: string;
   poll?: {
     question: string;
     options: {
@@ -30,6 +32,8 @@ interface DateCardProps {
   }[];
   onPress?: () => void;
   onPersonPress?: () => void;
+  onPersonHistoryPress?: () => void;
+  onAuthorPress?: () => void;
   onLike?: () => void;
   onComment?: () => void;
   onPollVote?: (dateId: string, optionIndex: number) => void;
@@ -48,11 +52,15 @@ export function DateCard({
   imageUri,
   tags = [],
   instagramUsername,
+  authorName,
+  authorAvatar,
   poll,
   userPollVote = null,
   comments = [],
   onPress,
   onPersonPress,
+  onPersonHistoryPress,
+  onAuthorPress,
   onLike,
   onComment,
   onPollVote,
@@ -71,47 +79,62 @@ export function DateCard({
     <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
-          {imageUri ? (
+          {authorAvatar ? (
+            <Image source={{ uri: authorAvatar }} style={styles.avatar} />
+          ) : imageUri ? (
             <Image source={{ uri: imageUri }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
               <Text style={[styles.avatarInitial, { color: colors.buttonText }]}>
-                {personName.charAt(0)}
+                {(authorName || personName).charAt(0)}
               </Text>
             </View>
           )}
         </View>
         <View style={styles.headerInfo}>
           <View style={styles.nameRow}>
-            <Pressable onPress={onPersonPress}>
-              <Text style={[styles.personName, { color: colors.primary }]}>{personName}</Text>
+            <Pressable onPress={authorName ? onAuthorPress : onPersonPress}>
+              <Text style={[styles.personName, { color: colors.text }]}>
+                {authorName || personName}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+        <Text style={[styles.dateTime, { color: colors.textSecondary }]}>{date}</Text>
+      </View>
+
+      {/* Rating with clickable person name */}
+      {rating > 0 && (
+        <View style={styles.ratingWithPersonContainer}>
+          <View style={styles.ratingWithPersonRow}>
+            <Ionicons name="star" size={16} color="#FFD700" />
+            <Text style={[styles.ratingText, { color: colors.primary }]}>
+              {formatRating(rating)}
+            </Text>
+            <Text style={[styles.dateSeparator, { color: colors.textSecondary }]}>•</Text>
+            <Text style={[styles.dateWithText, { color: colors.textSecondary }]}>Date with</Text>
+            <Pressable onPress={onPersonHistoryPress}>
+              <Text style={[styles.clickablePersonName, { color: colors.primary }]}>
+                {personName}
+              </Text>
             </Pressable>
             {instagramUsername && (
               <Pressable 
                 onPress={() => openInstagramProfile(instagramUsername)}
-                style={styles.instagramButton}
+                style={styles.instagramButtonInline}
                 accessibilityLabel={`Open ${personName}'s Instagram profile`}
                 accessibilityRole="button"
               >
-                <Ionicons name="logo-instagram" size={14} color={colors.primary} />
-                <Text style={[styles.instagramUsername, { color: colors.primary }]}>
+                <Ionicons name="logo-instagram" size={12} color={colors.primary} />
+                <Text style={[styles.instagramUsernameInline, { color: colors.primary }]}>
                   {getDisplayUsername(instagramUsername)}
                 </Text>
               </Pressable>
             )}
           </View>
         </View>
-        <Text style={[styles.dateTime, { color: colors.textSecondary }]}>{date}</Text>
-      </View>
-
-      {rating > 0 && (
-        <View style={styles.ratingContainer}>
-          <Ionicons name="star" size={18} color="#FFD700" />
-          <Text style={[styles.rating, { color: colors.primary }]}>
-            {formatRating(rating)}
-          </Text>
-        </View>
       )}
+
 
       {notes && (
         <Text style={[styles.notes, { color: colors.text }]}>
@@ -352,6 +375,43 @@ const styles = StyleSheet.create({
   },
   instagramUsername: {
     fontSize: 11,
+    fontWeight: '500',
+    marginLeft: 2,
+  },
+  ratingWithPersonContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  ratingWithPersonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  ratingText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  dateSeparator: {
+    fontSize: 14,
+    marginHorizontal: 2,
+  },
+  dateWithText: {
+    fontSize: 14,
+  },
+  clickablePersonName: {
+    fontSize: 14,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
+  },
+  instagramButtonInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 4,
+    paddingHorizontal: 2,
+    paddingVertical: 1,
+  },
+  instagramUsernameInline: {
+    fontSize: 12,
     fontWeight: '500',
     marginLeft: 2,
   },

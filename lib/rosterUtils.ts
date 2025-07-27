@@ -5,8 +5,21 @@
 // Map person names to roster IDs
 const PERSON_NAME_TO_ROSTER_ID: Record<string, string> = {
   'Alex': '1',
-  'Jordan': '2', 
+  'Jordan': '2',
+  'Taylor': '3',
   'Morgan': '4',
+  'Riley': '5',
+  'Casey': '6',
+};
+
+// Map roster IDs to person names
+const ROSTER_ID_TO_PERSON_NAME: Record<string, string> = {
+  '1': 'Alex',
+  '2': 'Jordan',
+  '3': 'Taylor',
+  '4': 'Morgan',
+  '5': 'Riley',
+  '6': 'Casey',
 };
 
 /**
@@ -14,6 +27,13 @@ const PERSON_NAME_TO_ROSTER_ID: Record<string, string> = {
  */
 export const getRosterIdFromPersonName = (personName: string): string | null => {
   return PERSON_NAME_TO_ROSTER_ID[personName] || null;
+};
+
+/**
+ * Get person name from roster ID
+ */
+export const getPersonNameFromRosterId = (rosterId: string): string | null => {
+  return ROSTER_ID_TO_PERSON_NAME[rosterId] || null;
 };
 
 /**
