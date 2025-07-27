@@ -22,6 +22,7 @@ import { InterestsEditForm } from '@/components/ui/forms/profile/InterestsEditFo
 import { DatingPreferencesEditForm } from '@/components/ui/forms/profile/DatingPreferencesEditForm';
 import { LifestyleEditForm } from '@/components/ui/forms/profile/LifestyleEditForm';
 import { DealBreakersEditForm } from '@/components/ui/forms/profile/DealBreakersEditForm';
+import { useUser } from '@/contexts/UserContext';
 
 // Mock user data matching specification
 const MOCK_USER = {
@@ -93,19 +94,20 @@ export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
+  const { userProfile, updateProfile, isLoading } = useUser();
   
   const [activeTab, setActiveTab] = useState<'about' | 'stats' | 'preferences'>('about');
   const [editModal, setEditModal] = useState<EditModalType>(null);
   
-  // Profile state
-  const [userProfile, setUserProfile] = useState({
-    ...MOCK_USER,
-    about: {
-      bio: MOCK_USER.bio,
-      interests: MOCK_ABOUT.interests,
-    },
-    preferences: MOCK_PREFERENCES,
-  });
+  if (isLoading || !userProfile) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <Text style={[styles.loadingText, { color: colors.text }]}>Loading profile...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const renderProfileHeader = () => (
     <View style={[styles.profileHeader, { backgroundColor: colors.card }]}>
@@ -451,11 +453,10 @@ export default function ProfileScreen() {
           <AboutMeEditForm
             initialBio={userProfile.about.bio}
             onChange={(bio) => {
-              setUserProfile(prev => ({
-                ...prev,
-                about: { ...prev.about, bio },
+              updateProfile({
+                about: { ...userProfile.about, bio },
                 bio, // Also update the top-level bio for consistency
-              }));
+              });
             }}
           />
         </EditProfileModal>
@@ -475,7 +476,7 @@ export default function ProfileScreen() {
               age: userProfile.age,
             }}
             onChange={(info) => {
-              setUserProfile(prev => ({ ...prev, ...info }));
+              updateProfile(info);
             }}
           />
         </EditProfileModal>
@@ -491,10 +492,9 @@ export default function ProfileScreen() {
           <InterestsEditForm
             initialInterests={userProfile.about.interests}
             onChange={(interests) => {
-              setUserProfile(prev => ({
-                ...prev,
-                about: { ...prev.about, interests },
-              }));
+              updateProfile({
+                about: { ...userProfile.about, interests },
+              });
             }}
           />
         </EditProfileModal>
@@ -510,10 +510,9 @@ export default function ProfileScreen() {
           <DatingPreferencesEditForm
             initialPreferences={userProfile.preferences.dating}
             onChange={(dating) => {
-              setUserProfile(prev => ({
-                ...prev,
-                preferences: { ...prev.preferences, dating },
-              }));
+              updateProfile({
+                preferences: { ...userProfile.preferences, dating },
+              });
             }}
           />
         </EditProfileModal>
@@ -529,10 +528,9 @@ export default function ProfileScreen() {
           <LifestyleEditForm
             initialLifestyle={userProfile.preferences.lifestyle}
             onChange={(lifestyle) => {
-              setUserProfile(prev => ({
-                ...prev,
-                preferences: { ...prev.preferences, lifestyle },
-              }));
+              updateProfile({
+                preferences: { ...userProfile.preferences, lifestyle },
+              });
             }}
           />
         </EditProfileModal>
@@ -548,10 +546,9 @@ export default function ProfileScreen() {
           <DealBreakersEditForm
             initialDealBreakers={userProfile.preferences.dealBreakers}
             onChange={(dealBreakers) => {
-              setUserProfile(prev => ({
-                ...prev,
-                preferences: { ...prev.preferences, dealBreakers },
-              }));
+              updateProfile({
+                preferences: { ...userProfile.preferences, dealBreakers },
+              });
             }}
           />
         </EditProfileModal>
@@ -843,5 +840,13 @@ const styles = StyleSheet.create({
   },
   dealBreakerText: {
     fontSize: 14,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
   },
 });

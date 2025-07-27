@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { ThemeProvider as AppThemeProvider, useTheme } from '@/contexts/ThemeContext';
+import { UserProvider } from '@/contexts/UserContext';
 
 function RootLayoutNav() {
   const { colorScheme } = useTheme();
@@ -34,7 +35,9 @@ export default function RootLayout() {
 
   return (
     <AppThemeProvider>
-      <RootLayoutNav />
+      <UserProvider>
+        <RootLayoutNav />
+      </UserProvider>
     </AppThemeProvider>
   );
 }
