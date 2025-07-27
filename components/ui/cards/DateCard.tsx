@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, Pressable, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../constants/Colors';
 import { PollVoting } from '../feed/PollVoting';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 interface DateCardProps {
   id: string;
@@ -200,7 +201,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
     borderWidth: 1,
-    borderColor: '#f0f0f0',
   },
   header: {
     flexDirection: 'row',

@@ -4,7 +4,6 @@ import {
   View, 
   Text, 
   ScrollView, 
-  useColorScheme, 
   Platform, 
   Pressable, 
   Image 
@@ -23,6 +22,7 @@ import { DatingPreferencesEditForm } from '@/components/ui/forms/profile/DatingP
 import { LifestyleEditForm } from '@/components/ui/forms/profile/LifestyleEditForm';
 import { DealBreakersEditForm } from '@/components/ui/forms/profile/DealBreakersEditForm';
 import { useUser } from '@/contexts/UserContext';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 // Mock user data matching specification
 const MOCK_USER = {

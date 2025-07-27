@@ -7,7 +7,6 @@ import {
   FlatList,
   Pressable,
   Image,
-  useColorScheme,
   Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,6 +16,7 @@ import { Colors } from '@/constants/Colors';
 import { Button } from '@/components/ui/buttons/Button';
 import { DateCard } from '@/components/ui/cards/DateCard';
 import { CommentModal } from '@/components/ui/modals/CommentModal';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 // Mock data - in real app, this would come from database
 const MOCK_CIRCLE_DATA = {

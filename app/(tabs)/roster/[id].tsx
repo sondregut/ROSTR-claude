@@ -6,7 +6,6 @@ import {
   Text,
   Image,
   Pressable,
-  useColorScheme,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +15,7 @@ import { Colors } from '@/constants/Colors';
 import { Button } from '@/components/ui/buttons/Button';
 import { DateCard } from '@/components/ui/cards/DateCard';
 import { CommentModal } from '@/components/ui/modals/CommentModal';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 // Enhanced mock data structure
 const MOCK_PERSON_DATA = {

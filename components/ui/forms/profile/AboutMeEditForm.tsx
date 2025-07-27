@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Text, useColorScheme } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import { TextInput } from '@/components/ui/inputs/TextInput';
 import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 interface AboutMeEditFormProps {
   initialBio: string;

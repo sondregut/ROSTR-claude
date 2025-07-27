@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, SectionList, View, Text, Pressable, useColorScheme, Platform } from 'react-native';
+import { StyleSheet, SectionList, View, Text, Pressable, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { ProfileCard } from '@/components/ui/cards/ProfileCard';
 import { AddPersonModal, PersonData } from '@/components/ui/modals/AddPersonModal';
 import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 // Mock data for demonstration
 // Define the types for our roster entries
@@ -138,7 +139,7 @@ export default function RosterScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
-      <View style={[styles.header, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>My Roster</Text>
       </View>
       <SectionList
@@ -171,7 +172,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
   },
   headerTitle: {
     fontSize: 24,

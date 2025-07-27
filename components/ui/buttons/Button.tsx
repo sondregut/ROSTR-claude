@@ -7,8 +7,8 @@ import {
   TextStyle, 
   ActivityIndicator 
 } from 'react-native';
-import { useColorScheme } from 'react-native';
 import { Colors } from '../../../constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 interface ButtonProps {
   onPress: () => void;

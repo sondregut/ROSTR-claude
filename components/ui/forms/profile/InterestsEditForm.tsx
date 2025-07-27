@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Text, useColorScheme } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import { TagInput } from '@/components/ui/inputs/TagInput';
 import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 interface InterestsEditFormProps {
   initialInterests: string[];

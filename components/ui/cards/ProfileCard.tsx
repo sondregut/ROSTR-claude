@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Pressable, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 interface ProfileCardProps {
   id: string;
@@ -125,7 +126,6 @@ const styles = StyleSheet.create({
     elevation: 2,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#f0f0f0',
   },
   contentRow: {
     flexDirection: 'row',
@@ -146,7 +146,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#f0f0f0',
   },
   avatarInitial: {
     fontSize: 20,
