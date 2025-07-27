@@ -34,32 +34,30 @@ interface CircleSelectorProps {
 // Mock data - in real app, this would come from state/database
 const MOCK_CIRCLES: Circle[] = [
   {
-    id: '1',
-    name: 'Close Friends',
-    memberCount: 5,
+    id: 'inner-circle',
+    name: 'Inner Circle',
+    memberCount: 2,
     members: [
       { id: '1', name: 'Sarah' },
       { id: '2', name: 'Mike' },
+    ],
+    isActive: true,
+  },
+  {
+    id: 'friends',
+    name: 'Friends',
+    memberCount: 5,
+    members: [
       { id: '3', name: 'Emma' },
       { id: '4', name: 'John' },
       { id: '5', name: 'Lisa' },
-    ],
-    isActive: true,
-  },
-  {
-    id: '2',
-    name: 'College Squad',
-    memberCount: 8,
-    members: [
       { id: '6', name: 'Alex' },
       { id: '7', name: 'Jamie' },
-      { id: '8', name: 'Chris' },
-      { id: '9', name: 'Taylor' },
     ],
     isActive: true,
   },
   {
-    id: '3',
+    id: 'work-friends',
     name: 'Work Friends',
     memberCount: 4,
     members: [
@@ -113,7 +111,13 @@ export function CircleSelector({
   const getSelectedCircleNames = () => {
     if (isPrivate) return ['Private'];
     return selectedCircles
-      .map(id => activeCircles.find(c => c.id === id)?.name)
+      .map(id => {
+        const circle = activeCircles.find(c => c.id === id);
+        if (circle) {
+          return `${circle.name} (${circle.memberCount})`;
+        }
+        return null;
+      })
       .filter(Boolean) as string[];
   };
   

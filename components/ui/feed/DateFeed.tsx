@@ -30,9 +30,10 @@ interface DateEntry {
       votes: number;
     }[];
   };
+  userPollVote?: number | null;
   comments?: {
-    author: string;
-    text: string;
+    name: string;
+    content: string;
   }[];
   likeCount: number;
   commentCount: number;
@@ -48,6 +49,7 @@ interface DateFeedProps {
   onDatePress?: (dateId: string) => void;
   onLike?: (dateId: string) => void;
   onComment?: (dateId: string) => void;
+  onPollVote?: (dateId: string, optionIndex: number) => void;
   ListEmptyComponent?: React.ReactElement;
   ListHeaderComponent?: React.ReactElement;
 }
@@ -61,6 +63,7 @@ export function DateFeed({
   onDatePress,
   onLike,
   onComment,
+  onPollVote,
   ListEmptyComponent,
   ListHeaderComponent,
 }: DateFeedProps) {
@@ -79,6 +82,7 @@ export function DateFeed({
       imageUri={item.imageUri}
       tags={item.tags}
       poll={item.poll}
+      userPollVote={item.userPollVote}
       comments={item.comments}
       likeCount={item.likeCount}
       commentCount={item.commentCount}
@@ -86,6 +90,7 @@ export function DateFeed({
       onPress={() => onDatePress?.(item.id)}
       onLike={() => onLike?.(item.id)}
       onComment={() => onComment?.(item.id)}
+      onPollVote={onPollVote}
     />
   );
 

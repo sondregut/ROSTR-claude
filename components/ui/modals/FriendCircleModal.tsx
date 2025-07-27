@@ -7,6 +7,7 @@ import {
   Pressable, 
   FlatList, 
   TextInput,
+  Image,
   useColorScheme,
   KeyboardAvoidingView,
   Platform
@@ -33,7 +34,7 @@ interface FriendCircle {
 interface FriendCircleModalProps {
   visible: boolean;
   onClose: () => void;
-  onCreateCircle: (circleName: string, friendIds: string[]) => void;
+  onCreateCircle: (circleName: string, description: string, friendIds: string[]) => void;
   friends: Friend[];
   existingCircles?: FriendCircle[];
 }
@@ -49,6 +50,7 @@ export function FriendCircleModal({
   const colors = Colors[colorScheme ?? 'light'];
   
   const [circleName, setCircleName] = useState('');
+  const [circleDescription, setCircleDescription] = useState('');
   const [selectedFriends, setSelectedFriends] = useState<Friend[]>([]);
   const [activeTab, setActiveTab] = useState<'create' | 'manage'>('create');
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,6 +69,7 @@ export function FriendCircleModal({
     if (circleName.trim() && selectedFriends.length > 0) {
       onCreateCircle(
         circleName,
+        circleDescription,
         selectedFriends.map(friend => friend.id)
       );
       resetForm();
@@ -75,6 +78,7 @@ export function FriendCircleModal({
   
   const resetForm = () => {
     setCircleName('');
+    setCircleDescription('');
     setSelectedFriends([]);
     setSearchQuery('');
   };
@@ -101,9 +105,7 @@ export function FriendCircleModal({
         <View style={styles.friendInfo}>
           <View style={styles.avatarContainer}>
             {item.avatarUri ? (
-              <View style={styles.avatar}>
-                {/* Avatar image would go here */}
-              </View>
+              <Image source={{ uri: item.avatarUri }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
                 <Text style={styles.avatarText}>
@@ -248,7 +250,12 @@ export function FriendCircleModal({
           {activeTab === 'create' ? (
             <View style={styles.content}>
               <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Circle Name</Text>
+                <View style={styles.labelRow}>
+                  <Text style={[styles.label, { color: colors.text }]}>Circle Name</Text>
+                  <Text style={[styles.charCount, { color: colors.textSecondary }]}>
+                    {circleName.length}/30
+                  </Text>
+                </View>
                 <TextInput
                   style={[
                     styles.input, 
@@ -258,10 +265,37 @@ export function FriendCircleModal({
                       borderColor: colors.border 
                     }
                   ]}
-                  placeholder="Enter circle name"
+                  placeholder="e.g., Work Friends, Family, etc."
                   placeholderTextColor={colors.textSecondary}
                   value={circleName}
-                  onChangeText={setCircleName}
+                  onChangeText={(text) => text.length <= 30 && setCircleName(text)}
+                  maxLength={30}
+                />
+              </View>
+              
+              <View style={styles.formGroup}>
+                <View style={styles.labelRow}>
+                  <Text style={[styles.label, { color: colors.text }]}>Description (Optional)</Text>
+                  <Text style={[styles.charCount, { color: colors.textSecondary }]}>
+                    {circleDescription.length}/150
+                  </Text>
+                </View>
+                <TextInput
+                  style={[
+                    styles.textarea, 
+                    { 
+                      color: colors.text,
+                      backgroundColor: colors.card,
+                      borderColor: colors.border 
+                    }
+                  ]}
+                  placeholder="What's this circle about?"
+                  placeholderTextColor={colors.textSecondary}
+                  value={circleDescription}
+                  onChangeText={(text) => text.length <= 150 && setCircleDescription(text)}
+                  multiline
+                  numberOfLines={3}
+                  maxLength={150}
                 />
               </View>
               
@@ -288,16 +322,25 @@ export function FriendCircleModal({
                     {selectedFriends.map(friend => (
                       <View 
                         key={friend.id} 
-                        style={[styles.selectedFriendChip, { backgroundColor: colors.primary }]}
+                        style={[styles.selectedFriendChip, { backgroundColor: `${colors.primary}20`, borderColor: colors.primary }]}
                       >
-                        <Text style={styles.selectedFriendName}>{friend.name}</Text>
+                        {friend.avatarUri ? (
+                          <Image source={{ uri: friend.avatarUri }} style={styles.chipAvatar} />
+                        ) : (
+                          <View style={[styles.chipAvatarPlaceholder, { backgroundColor: colors.primary }]}>
+                            <Text style={styles.chipAvatarText}>
+                              {friend.name.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
+                        <Text style={[styles.selectedFriendName, { color: colors.text }]}>{friend.name}</Text>
                         <Pressable
                           onPress={() => toggleFriendSelection(friend)}
                           hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
                           accessibilityLabel={`Remove ${friend.name}`}
                           accessibilityRole="button"
                         >
-                          <Ionicons name="close-circle" size={16} color="white" />
+                          <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
                         </Pressable>
                       </View>
                     ))}
@@ -427,6 +470,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 16,
   },
+  textarea: {
+    minHeight: 80,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+    textAlignVertical: 'top',
+  },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  charCount: {
+    fontSize: 12,
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -456,16 +517,34 @@ const styles = StyleSheet.create({
   selectedFriendChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     marginRight: 8,
     marginBottom: 8,
+    borderWidth: 1,
   },
   selectedFriendName: {
-    color: 'white',
     fontSize: 14,
-    marginRight: 4,
+    marginRight: 8,
+    marginLeft: 8,
+  },
+  chipAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  chipAvatarPlaceholder: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipAvatarText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'white',
   },
   friendsList: {
     flex: 1,

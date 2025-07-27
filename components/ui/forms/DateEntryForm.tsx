@@ -18,7 +18,25 @@ import { PersonSelector } from './PersonSelector';
 import { TagSelector } from './TagSelector';
 import { CircleSelector } from './CircleSelector';
 import { PollCreator } from './PollCreator';
+import { AddNewPersonModal, NewPersonData } from '../modals/AddNewPersonModal';
 import { Colors } from '../../../constants/Colors';
+
+const PREDEFINED_TAGS = [
+  { id: 'first-date', label: 'First Date', color: '#9B59B6' },
+  { id: 'second-date', label: 'Second Date', color: '#3498DB' },
+  { id: 'third-date', label: 'Third Date', color: '#2ECC71' },
+  { id: 'chemistry', label: 'Chemistry', color: '#FF6B6B' },
+  { id: 'great-conversation', label: 'Great Conversation', color: '#4ECDC4' },
+  { id: 'awkward', label: 'Awkward', color: '#FFA07A' },
+  { id: 'red-flag', label: 'Red Flag', color: '#DC143C' },
+  { id: 'potential', label: 'Potential', color: '#F39C12' },
+  { id: 'funny', label: 'Funny', color: '#FFD700' },
+  { id: 'romantic', label: 'Romantic', color: '#FF69B4' },
+  { id: 'activity-date', label: 'Activity Date', color: '#E67E22' },
+  { id: 'dinner-date', label: 'Dinner Date', color: '#E74C3C' },
+  { id: 'coffee-date', label: 'Coffee Date', color: '#95A5A6' },
+  { id: 'other', label: 'Other +', color: '#7F8C8D' },
+];
 
 interface DateEntryFormProps {
   onSubmit: (formData: DateEntryFormData) => void;
@@ -55,21 +73,22 @@ export function DateEntryForm({ onSubmit, onCancel, initialData }: DateEntryForm
     rating: initialData?.rating || 0,
     notes: initialData?.notes || '',
     tags: initialData?.tags || [],
-    circles: initialData?.circles || [],
+    circles: initialData?.circles || ['inner-circle', 'friends'],
     poll: initialData?.poll,
     imageUri: initialData?.imageUri || '',
     isPrivate: initialData?.isPrivate ?? false,
   });
   
   // Mock roster data - in real app, this would come from state/database
-  const MOCK_ROSTER = [
-    { id: '1', name: 'Alex', lastDate: '3 days ago', rating: 4.2 },
-    { id: '2', name: 'Jordan', lastDate: '1 week ago', rating: 3.8 },
-    { id: '3', name: 'Taylor', lastDate: '2 days ago', rating: 4.5 },
-    { id: '4', name: 'Morgan', lastDate: '5 days ago', rating: 2.5 },
-  ];
+  const [roster, setRoster] = useState([
+    { id: '1', name: 'Alex', lastDate: '3 days ago', rating: 4.2, status: 'active' as const },
+    { id: '2', name: 'Jordan', lastDate: '1 week ago', rating: 3.8, status: 'new' as const },
+    { id: '3', name: 'Taylor', lastDate: '2 days ago', rating: 4.5, status: 'active' as const },
+    { id: '4', name: 'Morgan', lastDate: '5 days ago', rating: 2.5, status: 'fading' as const },
+  ]);
 
   const [errors, setErrors] = useState<Partial<Record<keyof DateEntryFormData, string>>>({});
+  const [showAddPersonModal, setShowAddPersonModal] = useState(false);
 
   const handleChange = (field: keyof DateEntryFormData, value: any) => {
     setFormData(prev => ({
@@ -126,6 +145,22 @@ export function DateEntryForm({ onSubmit, onCancel, initialData }: DateEntryForm
     }
   };
 
+  const handleAddNewPerson = (newPerson: NewPersonData) => {
+    const newPersonEntry = {
+      id: `new-${Date.now()}`,
+      name: newPerson.name,
+      lastDate: 'Never',
+      rating: 0,
+      status: 'new' as const,
+    };
+    
+    setRoster([...roster, newPersonEntry]);
+    setShowAddPersonModal(false);
+    
+    // Auto-select the new person
+    handlePersonSelect(newPersonEntry.id, newPersonEntry.name);
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof DateEntryFormData, string>> = {};
     
@@ -133,12 +168,12 @@ export function DateEntryForm({ onSubmit, onCancel, initialData }: DateEntryForm
       newErrors.personId = 'Please select a person';
     }
     
-    if (!formData.location.trim()) {
-      newErrors.location = 'Location is required';
+    if (!formData.rating || formData.rating === 0) {
+      newErrors.rating = 'Please rate your date';
     }
     
-    if (!formData.date) {
-      newErrors.date = 'Date is required';
+    if (!formData.notes.trim()) {
+      newErrors.notes = 'Please add some details about your date';
     }
     
     setErrors(newErrors);
@@ -174,75 +209,75 @@ export function DateEntryForm({ onSubmit, onCancel, initialData }: DateEntryForm
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.keyboardAvoid}
-    >
-      <ScrollView 
-        style={[styles.container, { backgroundColor: colors.background }]}
-        contentContainerStyle={styles.contentContainer}
-        keyboardShouldPersistTaps="handled"
+    <>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoid}
       >
+        <ScrollView 
+          style={[styles.container, { backgroundColor: colors.background }]}
+          contentContainerStyle={styles.contentContainer}
+          keyboardShouldPersistTaps="handled"
+        >
         <View style={styles.formGroup}>
-          <Text style={[styles.label, { color: colors.text }]}>Person</Text>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Who was your date with? <Text style={{ color: colors.error }}>*</Text>
+          </Text>
           <PersonSelector
             value={formData.personId}
             onSelect={handlePersonSelect}
             placeholder="Select person"
             error={errors.personId}
-            people={MOCK_ROSTER}
+            people={roster}
+            onAddNew={() => setShowAddPersonModal(true)}
           />
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={[styles.label, { color: colors.text }]}>Location</Text>
-          <TextInput
-            style={[
-              styles.input, 
-              { 
-                color: colors.text,
-                backgroundColor: colors.card,
-                borderColor: errors.location ? 'red' : colors.border 
-              }
-            ]}
-            placeholder="Enter location"
-            placeholderTextColor={colors.textSecondary}
-            value={formData.location}
-            onChangeText={(text) => handleChange('location', text)}
-          />
-          {errors.location && (
-            <Text style={styles.errorText}>{errors.location}</Text>
-          )}
+          <Text style={[styles.label, { color: colors.text }]}>Where did you go?</Text>
+          <View style={styles.locationContainer}>
+            <Ionicons 
+              name="location-outline" 
+              size={20} 
+              color={colors.textSecondary}
+              style={styles.locationIcon}
+            />
+            <TextInput
+              style={[
+                styles.locationInput,
+                {
+                  color: colors.text,
+                  backgroundColor: colors.card,
+                  borderColor: colors.border
+                }
+              ]}
+              placeholder="Restaurant, park, coffee shop..."
+              placeholderTextColor={colors.textSecondary}
+              value={formData.location}
+              onChangeText={(text) => handleChange('location', text)}
+            />
+          </View>
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={[styles.label, { color: colors.text }]}>Date</Text>
-          <TextInput
-            style={[
-              styles.input, 
-              { 
-                color: colors.text,
-                backgroundColor: colors.card,
-                borderColor: errors.date ? 'red' : colors.border 
-              }
-            ]}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={colors.textSecondary}
-            value={formData.date}
-            onChangeText={(text) => handleChange('date', text)}
-          />
-          {errors.date && (
-            <Text style={styles.errorText}>{errors.date}</Text>
-          )}
+          <Text style={[styles.label, { color: colors.text }]}>
+            Rate your date <Text style={{ color: colors.error }}>*</Text>
+          </Text>
+          <View style={styles.ratingSection}>
+            {renderRatingPicker()}
+            {formData.rating > 0 && (
+              <Text style={[styles.ratingText, { color: colors.text }]}>
+                {formData.rating}/5
+              </Text>
+            )}
+          </View>
+          {errors.rating && <Text style={styles.errorText}>{errors.rating}</Text>}
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={[styles.label, { color: colors.text }]}>Rating</Text>
-          {renderRatingPicker()}
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={[styles.label, { color: colors.text }]}>Notes</Text>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Date details <Text style={{ color: colors.error }}>*</Text>
+          </Text>
           <TextInput
             style={[
               styles.textArea, 
@@ -252,23 +287,55 @@ export function DateEntryForm({ onSubmit, onCancel, initialData }: DateEntryForm
                 borderColor: colors.border 
               }
             ]}
-            placeholder="Enter notes about your date"
+            placeholder="How was your date? Share the highlights, lowlights, and everything in between..."
             placeholderTextColor={colors.textSecondary}
             value={formData.notes}
             onChangeText={(text) => handleChange('notes', text)}
             multiline
-            numberOfLines={4}
+            numberOfLines={6}
             textAlignVertical="top"
           />
+          {errors.notes && <Text style={styles.errorText}>{errors.notes}</Text>}
         </View>
 
+
         <View style={styles.formGroup}>
-          <Text style={[styles.label, { color: colors.text }]}>Tags</Text>
-          <TagSelector
-            selectedTags={formData.tags}
-            onTagsChange={(tags) => handleChange('tags', tags)}
-            placeholder="Add tags to describe the date"
-          />
+          <Text style={[styles.label, { color: colors.text }]}>Add tags</Text>
+          <View style={styles.tagsGrid}>
+            {PREDEFINED_TAGS.map(tag => {
+              const isSelected = formData.tags.includes(tag.id);
+              return (
+                <Pressable
+                  key={tag.id}
+                  style={[
+                    styles.tagChip,
+                    {
+                      backgroundColor: isSelected ? tag.color + '20' : colors.card,
+                      borderColor: isSelected ? tag.color : colors.border,
+                    }
+                  ]}
+                  onPress={() => {
+                    if (isSelected) {
+                      handleChange('tags', formData.tags.filter(id => id !== tag.id));
+                    } else {
+                      handleChange('tags', [...formData.tags, tag.id]);
+                    }
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.tagChipText,
+                      {
+                        color: isSelected ? tag.color : colors.text,
+                      }
+                    ]}
+                  >
+                    {tag.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
         <View style={styles.formGroup}>
@@ -297,12 +364,14 @@ export function DateEntryForm({ onSubmit, onCancel, initialData }: DateEntryForm
         <View style={styles.formGroup}>
           <Text style={[styles.label, { color: colors.text }]}>Share With</Text>
           <CircleSelector
-            selectedCircles={formData.circles}
+            selectedCircles={formData.isPrivate ? [] : formData.circles}
             onCirclesChange={(circles) => {
               handleChange('circles', circles);
               // If circles are selected, it's not private
               if (circles.length > 0) {
                 handleChange('isPrivate', false);
+              } else {
+                handleChange('isPrivate', true);
               }
             }}
             showPrivateOption={true}
@@ -321,17 +390,25 @@ export function DateEntryForm({ onSubmit, onCancel, initialData }: DateEntryForm
             title="Cancel" 
             variant="outline" 
             onPress={onCancel} 
-            style={styles.button}
+            style={[styles.button, styles.cancelButton]}
           />
           <Button 
-            title="Save Date" 
+            title={formData.isPrivate ? "Save Private Update" : "Post Update"} 
             variant="primary" 
             onPress={handleSubmit} 
-            style={styles.button}
+            style={[styles.button, styles.shareButton]}
+            disabled={!formData.personId || !formData.rating || !formData.notes.trim()}
           />
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+      
+      <AddNewPersonModal
+        visible={showAddPersonModal}
+        onClose={() => setShowAddPersonModal(false)}
+        onAdd={handleAddNewPerson}
+      />
+    </>
   );
 }
 
@@ -374,13 +451,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
   },
+  ratingSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
   ratingContainer: {
     flexDirection: 'row',
-    marginTop: 8,
   },
   starContainer: {
     marginRight: 8,
     padding: 4,
+  },
+  ratingText: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 16,
   },
   imagePreviewContainer: {
     flexDirection: 'row',
@@ -416,9 +502,50 @@ const styles = StyleSheet.create({
   buttonsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: 20,
   },
   button: {
     flex: 1,
     marginHorizontal: 8,
+  },
+  cancelButton: {
+    flex: 0.4,
+  },
+  shareButton: {
+    flex: 0.6,
+  },
+  tagsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  tagChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  tagChipText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  locationIcon: {
+    position: 'absolute',
+    left: 12,
+    zIndex: 1,
+  },
+  locationInput: {
+    flex: 1,
+    height: 48,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 40,
+    fontSize: 16,
   },
 });

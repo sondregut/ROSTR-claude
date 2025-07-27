@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image, Pressable, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../constants/Colors';
+import { PollVoting } from '../feed/PollVoting';
 
 interface DateCardProps {
   id: string;
@@ -19,19 +20,22 @@ interface DateCardProps {
       votes: number;
     }[];
   };
+  userPollVote?: number | null;
   comments?: {
-    author: string;
-    text: string;
+    name: string;
+    content: string;
   }[];
   onPress?: () => void;
   onLike?: () => void;
   onComment?: () => void;
+  onPollVote?: (dateId: string, optionIndex: number) => void;
   likeCount: number;
   commentCount: number;
   isLiked?: boolean;
 }
 
 export function DateCard({
+  id,
   personName,
   date,
   location,
@@ -40,10 +44,12 @@ export function DateCard({
   imageUri,
   tags = [],
   poll,
+  userPollVote = null,
   comments = [],
   onPress,
   onLike,
   onComment,
+  onPollVote,
   likeCount,
   commentCount,
   isLiked = false,
@@ -53,16 +59,6 @@ export function DateCard({
 
   const formatRating = (rating: number) => {
     return rating.toFixed(1) + '/5';
-  };
-
-  const calculatePercentage = (votes: number, total: number) => {
-    if (total === 0) return 0;
-    return Math.round((votes / total) * 100);
-  };
-
-  const getTotalVotes = () => {
-    if (!poll) return 0;
-    return poll.options.reduce((acc, option) => acc + option.votes, 0);
   };
 
   return (
@@ -119,45 +115,18 @@ export function DateCard({
       )}
 
       {poll && (
-        <View style={[styles.pollContainer, { backgroundColor: colors.pollBackground }]}>
-          <Text style={[styles.pollQuestion, { color: colors.text }]}>{poll.question}</Text>
-          {poll.options.map((option, index) => {
-            const totalVotes = getTotalVotes();
-            const percentage = calculatePercentage(option.votes, totalVotes);
-            
-            return (
-              <View key={index} style={styles.pollOption}>
-                <View style={styles.pollTextContainer}>
-                  <Text style={[styles.pollOptionText, { color: colors.text }]}>{option.text}</Text>
-                  <Text style={[styles.pollVotes, { color: colors.textSecondary }]}>
-                    {option.votes} ({percentage}%)
-                  </Text>
-                </View>
-                <View 
-                  style={[
-                    styles.pollBarBackground, 
-                    { 
-                      height: 10, 
-                      backgroundColor: colors.pollBarBackground, 
-                      borderRadius: 5 
-                    }
-                  ]}
-                >
-                  <View 
-                    style={[
-                      styles.pollBar, 
-                      { 
-                        height: '100%', 
-                        backgroundColor: colors.pollBar, 
-                        borderRadius: 5, 
-                        width: `${percentage}%` 
-                      }
-                    ]} 
-                  />
-                </View>
-              </View>
-            );
-          })}
+        <View style={styles.pollWrapper}>
+          <PollVoting
+            question={poll.question}
+            options={poll.options}
+            userVote={userPollVote}
+            onVote={(optionIndex) => {
+              if (onPollVote) {
+                onPollVote(id, optionIndex);
+              }
+            }}
+            allowVoting={true}
+          />
         </View>
       )}
 
@@ -197,20 +166,20 @@ export function DateCard({
       </View>
 
       {comments.length > 0 && (
-        <View 
-          style={[
-            styles.commentsContainer, 
-            { 
-              marginTop: 12, 
-              backgroundColor: colors.pollBackground, 
-              borderTopColor: colors.border 
-            }
-          ]}
-        >
+        <View style={styles.commentsContainer}>
           {comments.map((comment, index) => (
-            <View key={index} style={styles.comment}>
-              <Text style={[styles.commentAuthor, { color: colors.text }]}>{comment.author}</Text>
-              <Text style={[styles.commentText, { color: colors.textSecondary }]}>{comment.text}</Text>
+            <View 
+              key={index} 
+              style={[
+                styles.comment, 
+                { 
+                  backgroundColor: colors.commentBackground,
+                  marginBottom: index === comments.length - 1 ? 0 : 12
+                }
+              ]}
+            >
+              <Text style={[styles.commentName, { color: colors.text }]}>{comment.name}</Text>
+              <Text style={[styles.commentContent, { color: colors.text }]}>{comment.content}</Text>
             </View>
           ))}
         </View>
@@ -297,40 +266,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  pollContainer: {
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 8,
-  },
-  pollQuestion: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  pollOption: {
-    marginBottom: 12,
-  },
-  pollTextContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  pollOptionText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  pollVotes: {
-    fontSize: 14,
-  },
-  pollBarBackground: {
-    height: 10,
-    borderRadius: 5,
-    overflow: 'hidden',
-  },
-  pollBar: {
-    height: '100%',
-    borderRadius: 5,
+  pollWrapper: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
   },
   actionsContainer: {
     flexDirection: 'row',
@@ -349,21 +287,21 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   commentsContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
     marginTop: 12,
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 8,
-    borderTopWidth: 1,
   },
   comment: {
-    marginBottom: 8,
+    padding: 12,
+    borderRadius: 8,
   },
-  commentAuthor: {
+  commentName: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
+    marginBottom: 4,
   },
-  commentText: {
+  commentContent: {
     fontSize: 14,
+    lineHeight: 20,
   },
 });

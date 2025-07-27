@@ -18,6 +18,7 @@ interface Person {
   name: string;
   lastDate?: string;
   rating?: number;
+  status?: 'active' | 'new' | 'fading' | 'ended' | 'ghosted';
 }
 
 interface PersonSelectorProps {
@@ -26,6 +27,7 @@ interface PersonSelectorProps {
   placeholder?: string;
   error?: string;
   people: Person[];
+  onAddNew?: () => void;
 }
 
 export function PersonSelector({
@@ -34,6 +36,7 @@ export function PersonSelector({
   placeholder = 'Select a person',
   error,
   people,
+  onAddNew,
 }: PersonSelectorProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -53,6 +56,17 @@ export function PersonSelector({
     setSearchQuery('');
   };
   
+  const getStatusColor = (status?: Person['status']) => {
+    switch(status) {
+      case 'active': return colors.statusActive;
+      case 'new': return colors.statusNew;
+      case 'fading': return colors.statusFading;
+      case 'ended': return colors.statusEnded;
+      case 'ghosted': return colors.statusGhosted || colors.error;
+      default: return colors.textSecondary;
+    }
+  };
+
   const renderPerson = ({ item }: { item: Person }) => (
     <Pressable
       style={[
@@ -61,13 +75,20 @@ export function PersonSelector({
       ]}
       onPress={() => handleSelect(item)}
     >
-      <View style={styles.personAvatar}>
-        <Text style={[styles.personInitial, { color: colors.text }]}>
+      <View style={[styles.personAvatar, { backgroundColor: colors.primary + '20' }]}>
+        <Text style={[styles.personInitial, { color: colors.primary }]}>
           {item.name.charAt(0)}
         </Text>
       </View>
       <View style={styles.personInfo}>
-        <Text style={[styles.personName, { color: colors.text }]}>{item.name}</Text>
+        <View style={styles.personNameRow}>
+          <Text style={[styles.personName, { color: colors.text }]}>{item.name}</Text>
+          {item.status && (
+            <Text style={[styles.personStatus, { color: getStatusColor(item.status) }]}>
+              ({item.status})
+            </Text>
+          )}
+        </View>
         {item.lastDate && (
           <Text style={[styles.personMeta, { color: colors.textSecondary }]}>
             Last date: {item.lastDate}
@@ -93,14 +114,27 @@ export function PersonSelector({
         ]}
         onPress={() => setModalVisible(true)}
       >
-        <Text
-          style={[
-            styles.selectorText,
-            { color: selectedPerson ? colors.text : colors.textSecondary }
-          ]}
-        >
-          {selectedPerson ? selectedPerson.name : placeholder}
-        </Text>
+        {selectedPerson ? (
+          <View style={styles.selectedPersonContainer}>
+            <View style={[styles.selectedAvatar, { backgroundColor: colors.primary + '20' }]}>
+              <Text style={[styles.selectedInitial, { color: colors.primary }]}>
+                {selectedPerson.name.charAt(0)}
+              </Text>
+            </View>
+            <Text style={[styles.selectorText, { color: colors.text }]}>
+              {selectedPerson.name}
+            </Text>
+            {selectedPerson.status && (
+              <Text style={[styles.selectedStatus, { color: getStatusColor(selectedPerson.status) }]}>
+                ({selectedPerson.status})
+              </Text>
+            )}
+          </View>
+        ) : (
+          <Text style={[styles.selectorText, { color: colors.textSecondary }]}>
+            {placeholder}
+          </Text>
+        )}
         <Ionicons
           name="chevron-down"
           size={20}
@@ -169,8 +203,10 @@ export function PersonSelector({
               style={[styles.addNewButton, { backgroundColor: colors.primary }]}
               onPress={() => {
                 setModalVisible(false);
-                // Navigate to add person modal
-                console.log('Add new person');
+                setSearchQuery('');
+                if (onAddNew) {
+                  onAddNew();
+                }
               }}
             >
               <Ionicons name="add-circle-outline" size={20} color="white" />
@@ -246,11 +282,31 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
   },
+  selectedPersonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  selectedAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  selectedInitial: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  selectedStatus: {
+    fontSize: 14,
+    marginLeft: 4,
+  },
   personAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F07A7A20',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -262,9 +318,17 @@ const styles = StyleSheet.create({
   personInfo: {
     flex: 1,
   },
+  personNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   personName: {
     fontSize: 16,
     fontWeight: '500',
+  },
+  personStatus: {
+    fontSize: 14,
+    marginLeft: 4,
   },
   personMeta: {
     fontSize: 14,

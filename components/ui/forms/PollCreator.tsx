@@ -24,23 +24,23 @@ interface PollCreatorProps {
 const PREDEFINED_POLLS = [
   {
     question: 'Will there be another date?',
-    options: ['Definitely', 'Maybe', 'Unlikely', 'No way'],
+    options: ['Definitely', 'Maybe', 'Probably not'],
   },
   {
-    question: 'Is this a keeper?',
-    options: ['Yes!', 'Too early to tell', 'Just having fun', 'Nope'],
-  },
-  {
-    question: 'Red flag alert?',
-    options: ['No red flags', 'Minor concerns', 'Major red flags', 'Run!'],
-  },
-  {
-    question: 'Vibe check',
-    options: ['Amazing chemistry', 'Good vibes', 'Neutral', 'No spark'],
+    question: 'Red flag?',
+    options: ['Major red flag', 'Minor concern', 'All good'],
   },
   {
     question: 'Perfect match?',
-    options: ['Soulmate material', 'Great potential', 'Not sure yet', 'Definitely not'],
+    options: ['Soulmate material', 'Good potential', 'Not the one'],
+  },
+  {
+    question: 'Is this person a keeper?',
+    options: ['Definitely keep them', 'Give it more time', 'Time to move on'],
+  },
+  {
+    question: "What's the vibe?",
+    options: ['Amazing vibes', 'Good energy', 'Meh vibes', 'Bad energy'],
   },
 ];
 

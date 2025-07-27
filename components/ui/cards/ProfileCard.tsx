@@ -34,6 +34,7 @@ export function ProfileCard({
       case 'new': return colors.statusNew;
       case 'fading': return colors.statusFading;
       case 'ended': return colors.statusEnded;
+      case 'ghosted': return colors.statusGhosted || colors.error;
       default: return colors.statusActive;
     }
   };
@@ -44,6 +45,7 @@ export function ProfileCard({
       case 'new': return 'New';
       case 'fading': return 'Fading';
       case 'ended': return 'Ended';
+      case 'ghosted': return 'Ghosted';
       default: return '';
     }
   };
@@ -85,8 +87,8 @@ export function ProfileCard({
           
           {nextDate && (
             <View style={styles.nextDateContainer}>
-              <Ionicons name="calendar-outline" size={16} color={colors.primary} style={styles.calendarIcon} />
-              <Text style={[styles.nextDateText, { color: colors.primary }]}>Next: {nextDate}</Text>
+              <Ionicons name="calendar" size={16} color={colors.statusActive} style={styles.calendarIcon} />
+              <Text style={[styles.nextDateText, { color: colors.text }]}>Next: {nextDate}</Text>
             </View>
           )}
         </View>

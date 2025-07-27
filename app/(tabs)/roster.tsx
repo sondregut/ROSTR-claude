@@ -10,7 +10,7 @@ import { Colors } from '@/constants/Colors';
 
 // Mock data for demonstration
 // Define the types for our roster entries
-type RosterStatus = 'active' | 'new' | 'fading' | 'ended';
+type RosterStatus = 'active' | 'new' | 'fading' | 'ended' | 'ghosted';
 
 interface RosterEntry {
   id: string;
@@ -57,9 +57,16 @@ const PAST_CONNECTIONS: RosterEntry[] = [
   {
     id: '5',
     name: 'Riley',
-    lastDate: '2 months ago',
-    rating: 3.4,
+    lastDate: '3 weeks ago',
+    rating: 3.0,
     status: 'ended',
+  },
+  {
+    id: '6',
+    name: 'Casey',
+    lastDate: '2 months ago',
+    rating: 1.5,
+    status: 'ghosted',
   },
 ];
 
@@ -160,6 +167,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  header: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
   listContent: {
     paddingTop: 0,
     paddingBottom: Platform.OS === 'ios' ? 100 : 80, // Adjust for tab bar height
@@ -169,22 +186,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 16,
     paddingBottom: 8,
     backgroundColor: 'transparent',
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
   },
   addButton: {
     borderWidth: 1,
     borderRadius: 20,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   addButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
   },
 });

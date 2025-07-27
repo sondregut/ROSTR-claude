@@ -25,8 +25,9 @@ const MOCK_DATES = [
         { text: 'No', votes: 0 }
       ]
     },
+    userPollVote: null,
     comments: [
-      { author: 'Jason', text: 'He sounds perfect! Can\'t wait to hear about the next date!' }
+      { name: 'Jason', content: 'He sounds perfect! Can\'t wait to hear about the next date!' }
     ],
     likeCount: 0,
     commentCount: 1,
@@ -40,6 +41,15 @@ const MOCK_DATES = [
     rating: 3.0,
     notes: 'Coffee meet-up was okay. Conversation was a bit forced but he seemed nice. Not sure if there\'s a spark.',
     tags: [],
+    poll: {
+      question: 'Should I see him again?',
+      options: [
+        { text: 'Give it another shot', votes: 5 },
+        { text: 'Move on', votes: 2 }
+      ]
+    },
+    userPollVote: null,
+    comments: [],
     likeCount: 0,
     commentCount: 0,
     isLiked: false,
@@ -93,14 +103,39 @@ export default function FeedScreen() {
               comments: [
                 ...(date.comments || []),
                 {
-                  author: 'You',
-                  text: text,
+                  name: 'You',
+                  content: text
                 }
               ],
               commentCount: date.commentCount + 1
             }
           : date
       )
+    );
+  };
+  
+  const handlePollVote = (dateId: string, optionIndex: number) => {
+    setDates(
+      dates.map(date => {
+        if (date.id === dateId && date.poll) {
+          const updatedOptions = date.poll.options.map((option, index) => {
+            if (index === optionIndex) {
+              return { ...option, votes: option.votes + 1 };
+            }
+            return option;
+          });
+          
+          return {
+            ...date,
+            poll: {
+              ...date.poll,
+              options: updatedOptions
+            },
+            userPollVote: optionIndex
+          };
+        }
+        return date;
+      })
     );
   };
   
@@ -128,6 +163,7 @@ export default function FeedScreen() {
         onDatePress={(dateId) => console.log(`Navigate to date detail ${dateId}`)}
         onLike={handleLike}
         onComment={handleComment}
+        onPollVote={handlePollVote}
         ListEmptyComponent={renderEmptyComponent()}
       />
       
@@ -143,8 +179,8 @@ export default function FeedScreen() {
           personName={dates.find(d => d.id === selectedDateId)?.personName || ''}
           existingComments={dates.find(d => d.id === selectedDateId)?.comments?.map((c, idx) => ({
             id: `${selectedDateId}-${idx}`,
-            author: c.author,
-            text: c.text,
+            name: c.name,
+            content: c.content,
           })) || []}
         />
       )}

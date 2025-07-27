@@ -17,9 +17,8 @@ import { Colors } from '@/constants/Colors';
 
 interface Comment {
   id: string;
-  author: string;
-  text: string;
-  timestamp?: string;
+  name: string;
+  content: string;
 }
 
 interface CommentModalProps {
@@ -47,7 +46,7 @@ export function CommentModal({
     if (comment.trim()) {
       onSubmitComment(comment.trim());
       setComment('');
-      onClose();
+      // Don't close modal after submission so user can see their comment
     }
   };
 
@@ -80,18 +79,13 @@ export function CommentModal({
               <ScrollView style={styles.commentsList}>
                 {existingComments.length > 0 ? (
                   existingComments.map((comment) => (
-                    <View key={comment.id} style={[styles.commentItem, { borderBottomColor: colors.border }]}>
-                      <Text style={[styles.commentAuthor, { color: colors.text }]}>
-                        {comment.author}
+                    <View key={comment.id} style={[styles.commentItem, { backgroundColor: colors.commentBackground, borderBottomColor: 'transparent' }]}>
+                      <Text style={[styles.commentName, { color: colors.text }]}>
+                        {comment.name}
                       </Text>
-                      <Text style={[styles.commentText, { color: colors.textSecondary }]}>
-                        {comment.text}
+                      <Text style={[styles.commentContent, { color: colors.text }]}>
+                        {comment.content}
                       </Text>
-                      {comment.timestamp && (
-                        <Text style={[styles.commentTimestamp, { color: colors.textSecondary }]}>
-                          {comment.timestamp}
-                        </Text>
-                      )}
                     </View>
                   ))
                 ) : (
@@ -136,7 +130,7 @@ export function CommentModal({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'transparent',
     justifyContent: 'flex-end',
   },
   keyboardAvoid: {
@@ -181,21 +175,18 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   commentItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
   },
-  commentAuthor: {
+  commentName: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     marginBottom: 4,
   },
-  commentText: {
+  commentContent: {
     fontSize: 14,
     lineHeight: 20,
-  },
-  commentTimestamp: {
-    fontSize: 12,
-    marginTop: 4,
   },
   emptyComments: {
     alignItems: 'center',
