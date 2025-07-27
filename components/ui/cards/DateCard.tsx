@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../constants/Colors';
 import { PollVoting } from '../feed/PollVoting';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
 
 interface DateCardProps {
   id: string;
@@ -14,6 +15,7 @@ interface DateCardProps {
   notes?: string;
   imageUri?: string;
   tags?: string[];
+  instagramUsername?: string;
   poll?: {
     question: string;
     options: {
@@ -27,6 +29,7 @@ interface DateCardProps {
     content: string;
   }[];
   onPress?: () => void;
+  onPersonPress?: () => void;
   onLike?: () => void;
   onComment?: () => void;
   onPollVote?: (dateId: string, optionIndex: number) => void;
@@ -44,10 +47,12 @@ export function DateCard({
   notes,
   imageUri,
   tags = [],
+  instagramUsername,
   poll,
   userPollVote = null,
   comments = [],
   onPress,
+  onPersonPress,
   onLike,
   onComment,
   onPollVote,
@@ -77,15 +82,35 @@ export function DateCard({
           )}
         </View>
         <View style={styles.headerInfo}>
-          <Text style={[styles.personName, { color: colors.primary }]}>{personName}</Text>
-          <Text style={[styles.dateTime, { color: colors.textSecondary }]}>{date}</Text>
+          <View style={styles.nameRow}>
+            <Pressable onPress={onPersonPress}>
+              <Text style={[styles.personName, { color: colors.primary }]}>{personName}</Text>
+            </Pressable>
+            {instagramUsername && (
+              <Pressable 
+                onPress={() => openInstagramProfile(instagramUsername)}
+                style={styles.instagramButton}
+                accessibilityLabel={`Open ${personName}'s Instagram profile`}
+                accessibilityRole="button"
+              >
+                <Ionicons name="logo-instagram" size={14} color={colors.primary} />
+                <Text style={[styles.instagramUsername, { color: colors.primary }]}>
+                  {getDisplayUsername(instagramUsername)}
+                </Text>
+              </Pressable>
+            )}
+          </View>
         </View>
+        <Text style={[styles.dateTime, { color: colors.textSecondary }]}>{date}</Text>
       </View>
 
       {rating > 0 && (
-        <Text style={[styles.rating, { color: colors.primary }]}>
-          {formatRating(rating)}
-        </Text>
+        <View style={styles.ratingContainer}>
+          <Ionicons name="star" size={18} color="#FFD700" />
+          <Text style={[styles.rating, { color: colors.primary }]}>
+            {formatRating(rating)}
+          </Text>
+        </View>
       )}
 
       {notes && (
@@ -102,14 +127,14 @@ export function DateCard({
               style={[
                 styles.tag, 
                 { 
-                  backgroundColor: colors.tagBackground, 
+                  backgroundColor: '#FFE5E5', 
                   borderRadius: 12, 
-                  paddingHorizontal: 10, 
-                  paddingVertical: 5 
+                  paddingHorizontal: 12, 
+                  paddingVertical: 6 
                 }
               ]}
             >
-              <Text style={[styles.tagText, { color: colors.tagText }]}>{tag}</Text>
+              <Text style={[styles.tagText, { color: '#E91E63' }]}>{tag}</Text>
             </View>
           ))}
         </View>
@@ -169,18 +194,11 @@ export function DateCard({
       {comments.length > 0 && (
         <View style={styles.commentsContainer}>
           {comments.map((comment, index) => (
-            <View 
-              key={index} 
-              style={[
-                styles.comment, 
-                { 
-                  backgroundColor: colors.commentBackground,
-                  marginBottom: index === comments.length - 1 ? 0 : 12
-                }
-              ]}
-            >
-              <Text style={[styles.commentName, { color: colors.text }]}>{comment.name}</Text>
-              <Text style={[styles.commentContent, { color: colors.text }]}>{comment.content}</Text>
+            <View key={index} style={styles.commentRow}>
+              <View style={styles.commentBubble}>
+                <Text style={[styles.commentName, { color: colors.text }]}>{comment.name}</Text>
+                <Text style={[styles.commentContent, { color: colors.text }]}>{comment.content}</Text>
+              </View>
             </View>
           ))}
         </View>
@@ -205,8 +223,8 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     padding: 16,
-    paddingBottom: 8,
-    alignItems: 'center',
+    paddingBottom: 12,
+    alignItems: 'flex-start',
   },
   avatarContainer: {
     marginRight: 12,
@@ -236,12 +254,19 @@ const styles = StyleSheet.create({
   },
   dateTime: {
     fontSize: 14,
+    marginTop: 2,
   },
-  rating: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 8,
+    marginTop: 4,
+  },
+  rating: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   notes: {
     fontSize: 16,
@@ -289,19 +314,45 @@ const styles = StyleSheet.create({
   commentsContainer: {
     paddingHorizontal: 16,
     paddingBottom: 16,
-    marginTop: 12,
+    paddingTop: 8,
   },
-  comment: {
+  commentRow: {
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  commentBubble: {
+    backgroundColor: '#F5F5F5',
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
+    flex: 1,
   },
   commentName: {
     fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 4,
+    fontWeight: '600',
+    marginBottom: 2,
   },
   commentContent: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 18,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  instagramButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 6,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+  },
+  instagramUsername: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginLeft: 2,
   },
 });

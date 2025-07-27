@@ -10,23 +10,31 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: colors.tint,
+        tabBarInactiveTintColor: colors.tabIconDefault,
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
-        animation: 'none', // Attempt to disable tab switch animations
+        animation: 'shift', // Better animation for gesture support
         tabBarStyle: Platform.select({
           ios: {
-            // Use a transparent background on iOS to show the blur effect
+            // Force background color on iOS too for consistent theming
             position: 'absolute',
+            backgroundColor: colors.card,
+            borderTopColor: colors.border,
+            borderTopWidth: 1,
             height: 90,
             paddingBottom: 10,
           },
           default: {
+            backgroundColor: colors.card,
+            borderTopColor: colors.border,
+            borderTopWidth: 1,
             height: 70,
             paddingBottom: 10,
           },
@@ -69,19 +77,6 @@ export default function TabLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
-        }}
-      />
-      {/* Hidden routes - not shown in tab bar */}
-      <Tabs.Screen
-        name="roster/[id]"
-        options={{
-          href: null, // This hides it from the tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="circles/[id]"
-        options={{
-          href: null, // This hides it from the tab bar
         }}
       />
     </Tabs>

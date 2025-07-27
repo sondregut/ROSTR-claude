@@ -8,14 +8,17 @@ import {
   FlatList, 
   TextInput,
   Image,
-  useColorScheme,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
+  ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../buttons/Button';
 import { Colors } from '../../../constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 interface Friend {
   id: string;
@@ -187,12 +190,17 @@ export function FriendCircleModal({
       transparent={true}
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardAvoid}
-      >
-        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-          <View style={styles.header}>
+      <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoid}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <SafeAreaView 
+              style={[styles.container, { backgroundColor: colors.background }]}
+              edges={['top', 'bottom']}
+            >
+              <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <Text style={[styles.title, { color: colors.text }]}>Friend Circles</Text>
             <Pressable
               onPress={onClose}
@@ -207,7 +215,7 @@ export function FriendCircleModal({
             </Pressable>
           </View>
           
-          <View style={styles.tabs}>
+              <View style={[styles.tabs, { borderBottomColor: colors.border }]}>
             <Pressable
               style={[
                 styles.tab,
@@ -244,109 +252,118 @@ export function FriendCircleModal({
               >
                 Manage Existing
               </Text>
-            </Pressable>
-          </View>
-          
-          {activeTab === 'create' ? (
-            <View style={styles.content}>
-              <View style={styles.formGroup}>
-                <View style={styles.labelRow}>
-                  <Text style={[styles.label, { color: colors.text }]}>Circle Name</Text>
-                  <Text style={[styles.charCount, { color: colors.textSecondary }]}>
-                    {circleName.length}/30
-                  </Text>
-                </View>
-                <TextInput
-                  style={[
-                    styles.input, 
-                    { 
-                      color: colors.text,
-                      backgroundColor: colors.card,
-                      borderColor: colors.border 
-                    }
-                  ]}
-                  placeholder="e.g., Work Friends, Family, etc."
-                  placeholderTextColor={colors.textSecondary}
-                  value={circleName}
-                  onChangeText={(text) => text.length <= 30 && setCircleName(text)}
-                  maxLength={30}
-                />
+              </Pressable>
               </View>
               
-              <View style={styles.formGroup}>
-                <View style={styles.labelRow}>
-                  <Text style={[styles.label, { color: colors.text }]}>Description (Optional)</Text>
-                  <Text style={[styles.charCount, { color: colors.textSecondary }]}>
-                    {circleDescription.length}/150
-                  </Text>
-                </View>
-                <TextInput
-                  style={[
-                    styles.textarea, 
-                    { 
-                      color: colors.text,
-                      backgroundColor: colors.card,
-                      borderColor: colors.border 
-                    }
-                  ]}
-                  placeholder="What's this circle about?"
-                  placeholderTextColor={colors.textSecondary}
-                  value={circleDescription}
-                  onChangeText={(text) => text.length <= 150 && setCircleDescription(text)}
-                  multiline
-                  numberOfLines={3}
-                  maxLength={150}
-                />
-              </View>
-              
-              <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Add Friends</Text>
-                <View style={styles.searchContainer}>
-                  <Ionicons name="search" size={20} color={colors.textSecondary} />
+              {/* Content Area */}
+              <View style={styles.contentContainer}>
+                {activeTab === 'create' ? (
+                  <>
+                    <ScrollView 
+                      style={styles.content}
+                      contentContainerStyle={styles.scrollContent}
+                      keyboardShouldPersistTaps="handled"
+                      showsVerticalScrollIndicator={false}
+                    >
+                <View style={styles.formGroup}>
+                  <View style={styles.labelRow}>
+                    <Text style={[styles.label, { color: colors.text }]}>Circle Name</Text>
+                    <Text style={[styles.charCount, { color: colors.textSecondary }]}>
+                      {circleName.length}/30
+                    </Text>
+                  </View>
                   <TextInput
-                    style={[styles.searchInput, { color: colors.text }]}
-                    placeholder="Search friends"
+                    style={[
+                      styles.input, 
+                      { 
+                        color: colors.text,
+                        backgroundColor: colors.card,
+                        borderColor: colors.border 
+                      }
+                    ]}
+                    placeholder="e.g., Work Friends, Family, etc."
                     placeholderTextColor={colors.textSecondary}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
+                    value={circleName}
+                    onChangeText={(text) => text.length <= 30 && setCircleName(text)}
+                    maxLength={30}
                   />
                 </View>
-              </View>
-              
-              {selectedFriends.length > 0 && (
-                <View style={styles.selectedContainer}>
-                  <Text style={[styles.selectedLabel, { color: colors.textSecondary }]}>
-                    Selected ({selectedFriends.length})
-                  </Text>
-                  <View style={styles.selectedFriends}>
-                    {selectedFriends.map(friend => (
-                      <View 
-                        key={friend.id} 
-                        style={[styles.selectedFriendChip, { backgroundColor: `${colors.primary}20`, borderColor: colors.primary }]}
-                      >
-                        {friend.avatarUri ? (
-                          <Image source={{ uri: friend.avatarUri }} style={styles.chipAvatar} />
-                        ) : (
-                          <View style={[styles.chipAvatarPlaceholder, { backgroundColor: colors.primary }]}>
-                            <Text style={styles.chipAvatarText}>
-                              {friend.name.charAt(0).toUpperCase()}
-                            </Text>
-                          </View>
-                        )}
-                        <Text style={[styles.selectedFriendName, { color: colors.text }]}>{friend.name}</Text>
-                        <Pressable
-                          onPress={() => toggleFriendSelection(friend)}
-                          hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-                          accessibilityLabel={`Remove ${friend.name}`}
-                          accessibilityRole="button"
-                        >
-                          <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
-                        </Pressable>
-                      </View>
-                    ))}
+                
+                <View style={styles.formGroup}>
+                  <View style={styles.labelRow}>
+                    <Text style={[styles.label, { color: colors.text }]}>Description (Optional)</Text>
+                    <Text style={[styles.charCount, { color: colors.textSecondary }]}>
+                      {circleDescription.length}/150
+                    </Text>
+                  </View>
+                  <TextInput
+                    style={[
+                      styles.textarea, 
+                      { 
+                        color: colors.text,
+                        backgroundColor: colors.card,
+                        borderColor: colors.border 
+                      }
+                    ]}
+                    placeholder="What's this circle about?"
+                    placeholderTextColor={colors.textSecondary}
+                    value={circleDescription}
+                    onChangeText={(text) => text.length <= 150 && setCircleDescription(text)}
+                    multiline
+                    numberOfLines={3}
+                    maxLength={150}
+                  />
+                </View>
+                
+                <View style={styles.formGroup}>
+                  <Text style={[styles.label, { color: colors.text }]}>Add Friends</Text>
+                  <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <Ionicons name="search" size={20} color={colors.textSecondary} />
+                    <TextInput
+                      style={[styles.searchInput, { color: colors.text }]}
+                      placeholder="Search friends"
+                      placeholderTextColor={colors.textSecondary}
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                    />
                   </View>
                 </View>
-              )}
+                
+                {selectedFriends.length > 0 && (
+                  <View style={styles.selectedContainer}>
+                    <Text style={[styles.selectedLabel, { color: colors.textSecondary }]}>
+                      Selected ({selectedFriends.length})
+                    </Text>
+                    <View style={styles.selectedFriends}>
+                      {selectedFriends.map(friend => (
+                        <View 
+                          key={friend.id} 
+                          style={[styles.selectedFriendChip, { backgroundColor: `${colors.primary}20`, borderColor: colors.primary }]}
+                        >
+                          {friend.avatarUri ? (
+                            <Image source={{ uri: friend.avatarUri }} style={styles.chipAvatar} />
+                          ) : (
+                            <View style={[styles.chipAvatarPlaceholder, { backgroundColor: colors.primary }]}>
+                              <Text style={styles.chipAvatarText}>
+                                {friend.name.charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                          )}
+                          <Text style={[styles.selectedFriendName, { color: colors.text }]}>{friend.name}</Text>
+                          <Pressable
+                            onPress={() => toggleFriendSelection(friend)}
+                            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+                            accessibilityLabel={`Remove ${friend.name}`}
+                            accessibilityRole="button"
+                          >
+                            <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+                          </Pressable>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </ScrollView>
               
               <FlatList
                 data={filteredFriends}
@@ -354,26 +371,27 @@ export function FriendCircleModal({
                 keyExtractor={item => item.id}
                 style={styles.friendsList}
                 contentContainerStyle={styles.friendsListContent}
-              />
-              
-              <View style={styles.footer}>
-                <Button 
-                  title="Cancel" 
-                  variant="outline" 
-                  onPress={onClose} 
-                  style={styles.footerButton}
-                />
-                <Button 
-                  title="Create Circle" 
-                  variant="primary" 
-                  onPress={handleCreateCircle} 
-                  style={styles.footerButton}
-                  isDisabled={!circleName.trim() || selectedFriends.length === 0}
-                />
-              </View>
-            </View>
-          ) : (
-            <View style={styles.content}>
+                keyboardShouldPersistTaps="handled"
+                    />
+                    
+                    <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
+                      <Button 
+                        title="Cancel" 
+                        variant="outline" 
+                        onPress={onClose} 
+                        style={styles.footerButton}
+                      />
+                      <Button 
+                        title="Create Circle" 
+                        variant="primary" 
+                        onPress={handleCreateCircle} 
+                        style={styles.footerButton}
+                        disabled={!circleName.trim() || selectedFriends.length === 0}
+                      />
+                    </View>
+                  </>
+                ) : (
+                  <View style={styles.content}>
               {existingCircles.length > 0 ? (
                 <FlatList
                   data={existingCircles}
@@ -398,22 +416,34 @@ export function FriendCircleModal({
                     onPress={() => setActiveTab('create')} 
                     style={styles.emptyStateButton}
                   />
-                </View>
-              )}
-            </View>
-          )}
-        </SafeAreaView>
-      </KeyboardAvoidingView>
+                    </View>
+                  )}
+                  </View>
+                )}
+              </View>
+            </SafeAreaView>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
   keyboardAvoid: {
     flex: 1,
+    justifyContent: 'flex-end',
   },
   container: {
     flex: 1,
+    maxHeight: '90%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
@@ -422,7 +452,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E0E0E0',
+  },
+  contentContainer: {
+    flex: 1,
   },
   title: {
     fontSize: 18,
@@ -437,7 +469,6 @@ const styles = StyleSheet.create({
   tabs: {
     flexDirection: 'row',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E0E0E0',
   },
   tab: {
     flex: 1,
@@ -453,7 +484,11 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  scrollContent: {
+    paddingBottom: 16,
   },
   formGroup: {
     marginBottom: 16,
@@ -495,8 +530,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
-    borderColor: '#E0E0E0',
-    backgroundColor: '#F5F5F5',
   },
   searchInput: {
     flex: 1,
@@ -548,9 +581,11 @@ const styles = StyleSheet.create({
   },
   friendsList: {
     flex: 1,
+    marginTop: 8,
+    paddingHorizontal: 16,
   },
   friendsListContent: {
-    paddingBottom: 16,
+    paddingBottom: 80, // Space for footer
   },
   friendItem: {
     flexDirection: 'row',
@@ -603,11 +638,13 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 12,
   },
   footerButton: {
     flex: 1,
-    marginHorizontal: 8,
   },
   circlesList: {
     flex: 1,

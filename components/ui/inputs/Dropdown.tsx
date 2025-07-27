@@ -6,10 +6,10 @@ import {
   Modal,
   StyleSheet,
   ScrollView,
-  useColorScheme,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 interface DropdownOption {
   label: string;

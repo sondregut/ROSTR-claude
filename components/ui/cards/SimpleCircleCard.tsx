@@ -5,10 +5,10 @@ import {
   StyleSheet,
   Pressable,
   Image,
-  useColorScheme,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 interface Friend {
   id: string;
@@ -24,6 +24,7 @@ interface SimpleCircleCardProps {
   members: Friend[];
   isActive?: boolean;
   onPress: () => void;
+  onInvitePress?: () => void;
 }
 
 export function SimpleCircleCard({
@@ -32,6 +33,7 @@ export function SimpleCircleCard({
   members,
   isActive = true,
   onPress,
+  onInvitePress,
 }: SimpleCircleCardProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -105,7 +107,18 @@ export function SimpleCircleCard({
         </View>
       </View>
       
-      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+      <View style={styles.rightActions}>
+        {onInvitePress && (
+          <Pressable
+            style={styles.inviteButton}
+            onPress={onInvitePress}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="share-outline" size={20} color={colors.primary} />
+          </Pressable>
+        )}
+        <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+      </View>
     </Pressable>
   );
 }
@@ -162,7 +175,7 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: 'white',
+    borderColor: 'transparent',
     overflow: 'hidden',
   },
   avatar: {
@@ -184,5 +197,13 @@ const styles = StyleSheet.create({
   },
   remainingText: {
     fontSize: 14,
+  },
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  inviteButton: {
+    padding: 4,
   },
 });

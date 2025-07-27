@@ -7,7 +7,6 @@ import {
   ScrollView,
   TextInput,
   Pressable,
-  useColorScheme,
   Image,
   Alert,
 } from 'react-native';
@@ -15,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 interface AddNewPersonModalProps {
   visible: boolean;
@@ -31,6 +31,7 @@ export interface NewPersonData {
   interests: string[];
   notes?: string;
   avatarUri?: string;
+  instagramUsername?: string;
 }
 
 const HOW_WE_MET_OPTIONS = [
@@ -75,6 +76,7 @@ export function AddNewPersonModal({ visible, onClose, onAdd }: AddNewPersonModal
     interests: [],
     notes: '',
     avatarUri: '',
+    instagramUsername: '',
   });
 
   const [showHowWeMetDropdown, setShowHowWeMetDropdown] = useState(false);
@@ -135,6 +137,7 @@ export function AddNewPersonModal({ visible, onClose, onAdd }: AddNewPersonModal
       interests: [],
       notes: '',
       avatarUri: '',
+      instagramUsername: '',
     });
     setShowHowWeMetDropdown(false);
   };
@@ -237,6 +240,22 @@ export function AddNewPersonModal({ visible, onClose, onAdd }: AddNewPersonModal
               value={formData.occupation}
               onChangeText={(text) => handleChange('occupation', text)}
             />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>Instagram Username</Text>
+            <View style={styles.instagramContainer}>
+              <Text style={[styles.instagramPrefix, { color: colors.textSecondary }]}>@</Text>
+              <TextInput
+                style={[styles.instagramInput, { color: colors.text, backgroundColor: colors.card, borderColor: colors.border }]}
+                placeholder="username"
+                placeholderTextColor={colors.textSecondary}
+                value={formData.instagramUsername}
+                onChangeText={(text) => handleChange('instagramUsername', text)}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
           </View>
 
           {/* Meeting Context */}
@@ -406,7 +425,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: 'white',
+    borderColor: 'transparent',
   },
   formGroup: {
     marginBottom: 16,
@@ -503,5 +522,25 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  instagramContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  instagramPrefix: {
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  instagramInput: {
+    flex: 1,
+    height: 48,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    borderLeftWidth: 1,
   },
 });

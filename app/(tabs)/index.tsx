@@ -7,85 +7,41 @@ import { DateFeed } from '@/components/ui/feed/DateFeed';
 import { CommentModal } from '@/components/ui/modals/CommentModal';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-
-// Mock data for demonstration
-const MOCK_DATES = [
-  {
-    id: '1',
-    personName: 'Emma',
-    date: '2h ago',
-    location: 'Italian Restaurant',
-    rating: 4.5,
-    notes: 'Dinner date at that new Italian place was amazing! Great conversation, lots of laughing. Definitely seeing him again.',
-    tags: ['Second Date', 'Chemistry'],
-    poll: {
-      question: 'Will there be a third date?',
-      options: [
-        { text: 'Yes', votes: 3 },
-        { text: 'Maybe', votes: 1 },
-        { text: 'No', votes: 0 }
-      ]
-    },
-    userPollVote: null,
-    comments: [
-      { name: 'Jason', content: 'He sounds perfect! Can\'t wait to hear about the next date!' }
-    ],
-    likeCount: 0,
-    commentCount: 1,
-    isLiked: false,
-  },
-  {
-    id: '2',
-    personName: 'Jason',
-    date: 'Yesterday',
-    location: 'Coffee Shop',
-    rating: 3.0,
-    notes: 'Coffee meet-up was okay. Conversation was a bit forced but he seemed nice. Not sure if there\'s a spark.',
-    tags: [],
-    poll: {
-      question: 'Should I see him again?',
-      options: [
-        { text: 'Give it another shot', votes: 5 },
-        { text: 'Move on', votes: 2 }
-      ]
-    },
-    userPollVote: null,
-    comments: [],
-    likeCount: 0,
-    commentCount: 0,
-    isLiked: false,
-  },
-];
+import { useDates } from '@/contexts/DateContext';
+import { useRouter } from 'expo-router';
+import { getRosterIdFromPersonName } from '@/lib/rosterUtils';
 
 export default function FeedScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const router = useRouter();
   
-  const [dates, setDates] = useState(MOCK_DATES);
+  const {
+    dates,
+    likeDate,
+    addComment,
+    voteOnPoll,
+    refreshDates,
+    isLoading
+  } = useDates();
+  
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedDateId, setSelectedDateId] = useState<string | null>(null);
   
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
-    // Simulate a network request
-    setTimeout(() => {
+    try {
+      await refreshDates();
+    } catch (error) {
+      console.error('Error refreshing dates:', error);
+    } finally {
       setIsRefreshing(false);
-    }, 1500);
+    }
   };
   
   const handleLike = (dateId: string) => {
-    setDates(
-      dates.map(date => 
-        date.id === dateId 
-          ? { 
-              ...date, 
-              isLiked: !date.isLiked,
-              likeCount: date.isLiked ? date.likeCount - 1 : date.likeCount + 1 
-            } 
-          : date
-      )
-    );
+    likeDate(dateId);
   };
   
   const handleComment = (dateId: string) => {
@@ -96,48 +52,24 @@ export default function FeedScreen() {
   const handleSubmitComment = (text: string) => {
     if (!selectedDateId) return;
     
-    setDates(
-      dates.map(date => 
-        date.id === selectedDateId
-          ? {
-              ...date,
-              comments: [
-                ...(date.comments || []),
-                {
-                  name: 'You',
-                  content: text
-                }
-              ],
-              commentCount: date.commentCount + 1
-            }
-          : date
-      )
-    );
+    addComment(selectedDateId, {
+      name: 'You',
+      content: text
+    });
   };
   
   const handlePollVote = (dateId: string, optionIndex: number) => {
-    setDates(
-      dates.map(date => {
-        if (date.id === dateId && date.poll) {
-          const updatedOptions = date.poll.options.map((option, index) => {
-            if (index === optionIndex) {
-              return { ...option, votes: option.votes + 1 };
-            }
-            return option;
-          });
-          
-          return {
-            ...date,
-            poll: {
-              ...date.poll,
-              options: updatedOptions
-            },
-            userPollVote: optionIndex
-          };
-        }
-        return date;
-      })
-    );
+    voteOnPoll(dateId, optionIndex);
+  };
+
+  const handlePersonPress = (personName: string) => {
+    const rosterId = getRosterIdFromPersonName(personName);
+    if (rosterId) {
+      router.push(`/roster/${rosterId}`);
+    } else {
+      // Could show a message that this person doesn't have a roster profile yet
+      console.log(`${personName} doesn't have a roster profile yet`);
+    }
   };
   
   const renderEmptyComponent = () => (
@@ -159,9 +91,10 @@ export default function FeedScreen() {
       </View>
       <DateFeed
         data={dates}
-        isRefreshing={isRefreshing}
+        isRefreshing={isRefreshing || isLoading}
         onRefresh={handleRefresh}
         onDatePress={(dateId) => console.log(`Navigate to date detail ${dateId}`)}
+        onPersonPress={handlePersonPress}
         onLike={handleLike}
         onComment={handleComment}
         onPollVote={handlePollVote}

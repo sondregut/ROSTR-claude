@@ -6,7 +6,9 @@ import {
   ScrollView, 
   Platform, 
   Pressable, 
-  Image 
+  Image,
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { Button } from '@/components/ui/buttons/Button';
 import { EditProfileModal } from '@/components/ui/modals/EditProfileModal';
+import { ShareAppModal } from '@/components/ui/modals/ShareAppModal';
 import { AboutMeEditForm } from '@/components/ui/forms/profile/AboutMeEditForm';
 import { BasicInfoEditForm } from '@/components/ui/forms/profile/BasicInfoEditForm';
 import { InterestsEditForm } from '@/components/ui/forms/profile/InterestsEditForm';
@@ -23,6 +26,10 @@ import { LifestyleEditForm } from '@/components/ui/forms/profile/LifestyleEditFo
 import { DealBreakersEditForm } from '@/components/ui/forms/profile/DealBreakersEditForm';
 import { useUser } from '@/contexts/UserContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { SupabaseTestButton } from '@/components/SupabaseTestButton';
+import { uploadProfilePhoto } from '@/lib/photoUpload';
+import { supabase } from '@/lib/supabase';
+import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
 
 // Mock user data matching specification
 const MOCK_USER = {
@@ -98,6 +105,72 @@ export default function ProfileScreen() {
   
   const [activeTab, setActiveTab] = useState<'about' | 'stats' | 'preferences'>('about');
   const [editModal, setEditModal] = useState<EditModalType>(null);
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  const handlePhotoUpload = async () => {
+    if (!userProfile?.id) {
+      Alert.alert('Error', 'User profile not found');
+      return;
+    }
+
+    try {
+      setIsUploadingPhoto(true);
+
+      // Show action sheet to select photo source
+      Alert.alert(
+        'Select Photo',
+        'Choose how you want to update your profile photo',
+        [
+          { text: 'Camera', onPress: () => uploadPhoto('camera') },
+          { text: 'Photo Library', onPress: () => uploadPhoto('library') },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+    } catch (error) {
+      setIsUploadingPhoto(false);
+      Alert.alert('Error', 'Failed to select photo source');
+    }
+  };
+
+  const uploadPhoto = async (source: 'camera' | 'library') => {
+    try {
+      const userId = userProfile!.id || 'mock-user-id';
+      const result = await uploadProfilePhoto(userId, source, {
+        quality: 0.8,
+        allowsEditing: true,
+        aspect: [1, 1],
+        maxWidth: 800,
+        maxHeight: 800,
+      });
+
+      if (result.success && result.url) {
+        // For mock user, just update locally. For real users, update Supabase too
+        if (userProfile!.id && userProfile!.id !== 'mock-user-id') {
+          const { error } = await supabase
+            .from('users')
+            .update({ image_uri: result.url })
+            .eq('id', userProfile!.id);
+
+          if (error) {
+            throw error;
+          }
+        }
+
+        // Update local profile
+        updateProfile({ imageUri: result.url });
+
+        Alert.alert('Success', 'Profile photo updated successfully!');
+      } else {
+        Alert.alert('Error', result.error || 'Failed to upload photo');
+      }
+    } catch (error) {
+      console.error('Photo upload error:', error);
+      Alert.alert('Error', 'Failed to update profile photo');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
   
   if (isLoading || !userProfile) {
     return (
@@ -121,9 +194,14 @@ export default function ProfileScreen() {
           />
           <Pressable 
             style={[styles.cameraButton, { backgroundColor: colors.primary }]}
-            onPress={() => console.log('Change photo')}
+            onPress={handlePhotoUpload}
+            disabled={isUploadingPhoto}
           >
-            <Ionicons name="camera" size={12} color="white" />
+            {isUploadingPhoto ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <Ionicons name="camera" size={12} color="white" />
+            )}
           </Pressable>
         </View>
 
@@ -141,6 +219,13 @@ export default function ProfileScreen() {
             >
               <Ionicons name="pencil-outline" size={12} color={colors.text} />
               <Text style={[styles.compactButtonText, { color: colors.text }]}>Edit Profile</Text>
+            </Pressable>
+            <Pressable 
+              style={[styles.compactButton, { borderColor: colors.border }]}
+              onPress={() => setShareModalVisible(true)}
+            >
+              <Ionicons name="share-outline" size={12} color={colors.text} />
+              <Text style={[styles.compactButtonText, { color: colors.text }]}>Share App</Text>
             </Pressable>
             <Pressable 
               style={[styles.compactButton, { borderColor: colors.border }]}
@@ -251,6 +336,27 @@ export default function ProfileScreen() {
         </View>
       </View>
 
+      {/* Social Media Section */}
+      {userProfile.instagramUsername && (
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Social Media</Text>
+            <Pressable onPress={() => setEditModal('basicInfo')}>
+              <Ionicons name="pencil" size={20} color={colors.textSecondary} />
+            </Pressable>
+          </View>
+          <Pressable 
+            style={styles.instagramButton}
+            onPress={() => openInstagramProfile(userProfile.instagramUsername!)}
+          >
+            <Ionicons name="logo-instagram" size={20} color={colors.primary} />
+            <Text style={[styles.instagramUsername, { color: colors.primary }]}>
+              {getDisplayUsername(userProfile.instagramUsername)}
+            </Text>
+          </Pressable>
+        </View>
+      )}
+
       {/* Interests Section */}
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <View style={styles.sectionHeader}>
@@ -343,6 +449,9 @@ export default function ProfileScreen() {
           </View>
         ))}
       </View>
+      
+      {/* Supabase Test Button - Temporary for testing */}
+      <SupabaseTestButton />
     </View>
   );
 
@@ -474,6 +583,7 @@ export default function ProfileScreen() {
               location: userProfile.location,
               occupation: userProfile.occupation,
               age: userProfile.age,
+              instagramUsername: userProfile.instagramUsername,
             }}
             onChange={(info) => {
               updateProfile(info);
@@ -553,6 +663,16 @@ export default function ProfileScreen() {
           />
         </EditProfileModal>
       )}
+
+      {/* Share App Modal */}
+      <ShareAppModal
+        visible={shareModalVisible}
+        onClose={() => setShareModalVisible(false)}
+        userProfile={{
+          name: userProfile.name,
+          id: userProfile.id || 'user-id', // Use actual ID from profile or fallback
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -840,6 +960,16 @@ const styles = StyleSheet.create({
   },
   dealBreakerText: {
     fontSize: 14,
+  },
+  instagramButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  instagramUsername: {
+    fontSize: 16,
+    fontWeight: '500',
   },
   loadingContainer: {
     flex: 1,

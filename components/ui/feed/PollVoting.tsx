@@ -4,11 +4,11 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  useColorScheme,
   Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 interface PollOption {
   text: string;
@@ -99,9 +99,9 @@ export function PollVoting({
               style={[
                 styles.optionButton,
                 {
-                  backgroundColor: colors.card,
-                  borderColor: isSelected ? colors.primary : colors.border,
-                  borderWidth: isSelected ? 2 : 1,
+                  backgroundColor: colors.background,
+                  borderColor: showResults ? 'transparent' : colors.border,
+                  borderWidth: showResults ? 0 : 1,
                 }
               ]}
               onPress={() => handleVote(index)}
@@ -112,7 +112,7 @@ export function PollVoting({
                   style={[
                     styles.progressBar,
                     {
-                      backgroundColor: isSelected ? colors.primary + '20' : colors.border + '40',
+                      backgroundColor: '#E91E63',
                       width: `${percentage}%`,
                     }
                   ]}
@@ -120,29 +120,20 @@ export function PollVoting({
               )}
               
               <View style={styles.optionContent}>
-                <Text style={[styles.optionText, { color: colors.text }]}>
+                <Text style={[styles.optionText, { color: colors.text, fontWeight: showResults ? '600' : '500' }]}>
                   {option.text}
                 </Text>
                 
                 {showResults && (
-                  <View style={styles.resultContainer}>
-                    <Text style={[styles.percentage, { color: colors.text }]}>
-                      {percentage}%
-                    </Text>
-                    {isSelected && (
-                      <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
-                    )}
-                  </View>
+                  <Text style={[styles.percentage, { color: colors.text }]}>
+                    {votes} ({percentage}%)
+                  </Text>
                 )}
               </View>
             </Pressable>
           );
         })}
       </View>
-      
-      <Text style={[styles.voteCount, { color: colors.textSecondary }]}>
-        {getAdjustedTotalVotes()} {getAdjustedTotalVotes() === 1 ? 'vote' : 'votes'}
-      </Text>
     </View>
   );
 }
@@ -160,27 +151,27 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   optionButton: {
-    borderRadius: 12,
+    borderRadius: 8,
     overflow: 'hidden',
-    minHeight: 48,
+    minHeight: 44,
+    marginBottom: 6,
   },
   progressBar: {
     position: 'absolute',
     left: 0,
     top: 0,
     bottom: 0,
-    borderRadius: 12,
+    borderRadius: 8,
   },
   optionContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   optionText: {
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: 14,
     flex: 1,
   },
   resultContainer: {
@@ -189,8 +180,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   percentage: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '500',
   },
   voteCount: {
     fontSize: 14,

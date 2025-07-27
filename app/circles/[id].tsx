@@ -16,6 +16,8 @@ import { Colors } from '@/constants/Colors';
 import { Button } from '@/components/ui/buttons/Button';
 import { DateCard } from '@/components/ui/cards/DateCard';
 import { CommentModal } from '@/components/ui/modals/CommentModal';
+import { MemberCard, type MemberData, type MemberRole, type OnlineStatus } from '@/components/ui/cards/MemberCard';
+import { CircleStatsCard } from '@/components/ui/cards/CircleStatsCard';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 // Mock data - in real app, this would come from database
@@ -26,11 +28,11 @@ const MOCK_CIRCLE_DATA = {
     createdAt: '2024-01-01',
     isActive: true,
     members: [
-      { id: '1', name: 'Sarah Chen', username: 'sarahc', avatarUri: 'https://randomuser.me/api/portraits/women/44.jpg', role: 'owner', isOnline: true },
-      { id: '2', name: 'Mike Johnson', username: 'mikej', avatarUri: 'https://randomuser.me/api/portraits/men/32.jpg', role: 'admin', isOnline: true },
-      { id: '3', name: 'Emma Wilson', username: 'emmaw', avatarUri: 'https://randomuser.me/api/portraits/women/22.jpg', role: 'member', isOnline: false },
-      { id: '4', name: 'Jason Martinez', username: 'jasonm', avatarUri: 'https://randomuser.me/api/portraits/men/11.jpg', role: 'member', isOnline: true },
-      { id: '5', name: 'Alex Rodriguez', username: 'alexr', avatarUri: 'https://randomuser.me/api/portraits/men/43.jpg', role: 'member', isOnline: false },
+      { id: '1', name: 'Sarah Chen', username: 'sarahc', avatar: 'https://randomuser.me/api/portraits/women/44.jpg', role: 'owner' as MemberRole, onlineStatus: 'online' as OnlineStatus },
+      { id: '2', name: 'Mike Johnson', username: 'mikej', avatar: 'https://randomuser.me/api/portraits/men/32.jpg', role: 'admin' as MemberRole, onlineStatus: 'online' as OnlineStatus },
+      { id: '3', name: 'Emma Wilson', username: 'emmaw', avatar: 'https://randomuser.me/api/portraits/women/22.jpg', role: 'member' as MemberRole, onlineStatus: 'offline' as OnlineStatus },
+      { id: '4', name: 'Jason Martinez', username: 'jasonm', avatar: 'https://randomuser.me/api/portraits/men/11.jpg', role: 'member' as MemberRole, onlineStatus: 'online' as OnlineStatus },
+      { id: '5', name: 'Alex Rodriguez', username: 'alexr', avatar: 'https://randomuser.me/api/portraits/men/43.jpg', role: 'member' as MemberRole, onlineStatus: 'offline' as OnlineStatus },
     ],
     recentUpdates: [
       {
@@ -41,6 +43,7 @@ const MOCK_CIRCLE_DATA = {
         rating: 4.5,
         notes: 'Great conversation over coffee. Talked about travel plans.',
         tags: ['First Date', 'Chemistry'],
+        instagramUsername: 'alex_codes',
         author: 'Sarah Johnson',
         authorAvatar: 'https://randomuser.me/api/portraits/women/44.jpg',
         likeCount: 3,
@@ -59,6 +62,7 @@ const MOCK_CIRCLE_DATA = {
         rating: 4.5,
         notes: 'Dinner date at that new Italian place was amazing! Great conversation, lots of laughing. Definitely seeing him again.',
         tags: ['Second Date', 'Chemistry'],
+        instagramUsername: 'jordandesigns',
         author: 'Emma',
         authorAvatar: 'https://randomuser.me/api/portraits/women/22.jpg',
         likeCount: 1,
@@ -68,9 +72,9 @@ const MOCK_CIRCLE_DATA = {
         poll: {
           question: 'Will there be a third date?',
           options: [
-            { text: 'Yes', votes: 3, percentage: 75 },
-            { text: 'Maybe', votes: 1, percentage: 25 },
-            { text: 'No', votes: 0, percentage: 0 }
+            { text: 'Yes', votes: 3 },
+            { text: 'Maybe', votes: 1 },
+            { text: 'No', votes: 0 }
           ]
         }
       },
@@ -133,109 +137,38 @@ export default function CircleDetailScreen() {
   };
   
   const renderUpdate = ({ item }: { item: typeof updates[0] }) => (
-    <View style={styles.updateCard}>
-      <View style={styles.updateAuthor}>
-        <Image source={{ uri: item.authorAvatar }} style={styles.authorAvatar} />
-        <Text style={[styles.authorName, { color: colors.text }]}>{item.author}</Text>
-        <Text style={[styles.updateTime, { color: colors.textSecondary }]}>{item.date}</Text>
-      </View>
-      <View style={[styles.dateCardWrapper, { backgroundColor: colors.card }]}>
-        <Text style={[styles.updateRating, { color: colors.primary }]}>
-          {item.rating}/5
-        </Text>
-        <Text style={[styles.updateNotes, { color: colors.text }]}>
-          {item.notes}
-        </Text>
-        <View style={styles.updateTags}>
-          {item.tags.map((tag, index) => (
-            <View key={index} style={[styles.updateTag, { backgroundColor: colors.primary + '20' }]}>
-              <Text style={[styles.updateTagText, { color: colors.primary }]}>{tag}</Text>
-            </View>
-          ))}
-        </View>
-        {item.poll && (
-          <View style={styles.pollContainer}>
-            <Text style={[styles.pollQuestion, { color: colors.text }]}>{item.poll.question}</Text>
-            {item.poll.options.map((option, index) => (
-              <View key={index} style={styles.pollOption}>
-                <View style={styles.pollOptionHeader}>
-                  <Text style={[styles.pollOptionText, { color: colors.text }]}>{option.text}</Text>
-                  <Text style={[styles.pollVotes, { color: colors.text }]}>
-                    {option.votes} ({option.percentage}%)
-                  </Text>
-                </View>
-                <View style={[styles.pollBar, { backgroundColor: colors.border }]}>
-                  <View 
-                    style={[
-                      styles.pollBarFill, 
-                      { 
-                        width: `${option.percentage}%`,
-                        backgroundColor: colors.primary 
-                      }
-                    ]} 
-                  />
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-        <View style={styles.updateActions}>
-          <Pressable 
-            style={styles.updateAction} 
-            onPress={() => handleLike(item.id)}
-          >
-            <Ionicons 
-              name={item.isLiked ? "heart" : "heart-outline"} 
-              size={20} 
-              color={item.isLiked ? colors.primary : colors.text} 
-            />
-            <Text style={[styles.updateActionText, { color: colors.text }]}>Like</Text>
-          </Pressable>
-          <Pressable 
-            style={styles.updateAction}
-            onPress={() => handleComment(item.id)}
-          >
-            <Ionicons name="chatbubble-outline" size={20} color={colors.text} />
-            <Text style={[styles.updateActionText, { color: colors.text }]}>Comment</Text>
-          </Pressable>
-        </View>
-      </View>
-    </View>
+    <DateCard
+      id={item.id}
+      personName={item.personName}
+      date={item.date}
+      location={item.location}
+      rating={item.rating}
+      notes={item.notes}
+      tags={item.tags}
+      instagramUsername={item.instagramUsername}
+      poll={item.poll ? {
+        question: item.poll.question,
+        options: item.poll.options.map(option => ({
+          text: option.text,
+          votes: option.votes
+        }))
+      } : undefined}
+      comments={item.comments}
+      likeCount={item.likeCount}
+      commentCount={item.commentCount}
+      isLiked={item.isLiked}
+      onLike={() => handleLike(item.id)}
+      onComment={() => handleComment(item.id)}
+      onPersonPress={() => router.push(`/roster/${item.personName.toLowerCase()}`)}
+    />
   );
   
-  const renderMember = ({ item }: { item: typeof circleData.members[0] }) => (
-    <Pressable
-      style={[styles.memberItem, { backgroundColor: colors.card }]}
+  const renderMember = ({ item }: { item: MemberData }) => (
+    <MemberCard
+      member={item}
       onPress={() => router.push(`/profile/${item.username}`)}
-    >
-      <View style={styles.memberLeft}>
-        <View>
-          <Image source={{ uri: item.avatarUri }} style={styles.memberAvatar} />
-          {item.isOnline && <View style={[styles.onlineIndicator, { backgroundColor: colors.statusActive }]} />}
-        </View>
-        <View style={styles.memberInfo}>
-          <View style={styles.memberNameRow}>
-            <Text style={[styles.memberName, { color: colors.text }]}>{item.name}</Text>
-            {item.role === 'owner' && (
-              <View style={[styles.roleBadge, { backgroundColor: '#FFD700' }]}>
-                <Ionicons name="crown" size={12} color="white" />
-                <Text style={styles.roleText}>Owner</Text>
-              </View>
-            )}
-            {item.role === 'admin' && (
-              <View style={[styles.roleBadge, { backgroundColor: colors.primary }]}>
-                <Ionicons name="shield" size={12} color="white" />
-                <Text style={styles.roleText}>Admin</Text>
-              </View>
-            )}
-          </View>
-          <Text style={[styles.memberUsername, { color: colors.textSecondary }]}>@{item.username}</Text>
-        </View>
-      </View>
-      <Pressable style={styles.moreButton}>
-        <Ionicons name="ellipsis-vertical" size={20} color={colors.textSecondary} />
-      </Pressable>
-    </Pressable>
+      currentUserRole="owner" // This would be dynamic based on current user
+    />
   );
   
   const renderAvatarStack = () => {
@@ -256,7 +189,7 @@ export default function CircleDetailScreen() {
               }
             ]}
           >
-            <Image source={{ uri: member.avatarUri }} style={styles.avatar} />
+            <Image source={{ uri: member.avatar }} style={styles.avatar} />
           </View>
         ))}
         {remainingCount > 0 && (
@@ -275,7 +208,7 @@ export default function CircleDetailScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Navigation Bar */}
         <View style={[styles.navBar, { backgroundColor: colors.background }]}>
-          <Pressable onPress={() => router.push('/circles')} style={styles.backButton}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </Pressable>
           
@@ -388,57 +321,18 @@ export default function CircleDetailScreen() {
             />
           ) : (
             <View>
-              {/* Circle Statistics */}
-              <View style={[styles.statsCard, { backgroundColor: colors.card }]}>
-                <Text style={[styles.statsTitle, { color: colors.text }]}>Circle Stats</Text>
-                <View style={styles.statsGrid}>
-                  <View style={styles.statItem}>
-                    <Text style={[styles.statValue, { color: colors.primary }]}>1</Text>
-                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Posts this month</Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <Text style={[styles.statValue, { color: colors.primary }]}>4</Text>
-                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Online now</Text>
-                  </View>
-                </View>
-              </View>
-              
-              {/* Most Active Members */}
-              <View style={[styles.activeCard, { backgroundColor: colors.card }]}>
-                <Text style={[styles.activeTitle, { color: colors.text }]}>Most Active Members</Text>
-                <View style={styles.activeList}>
-                  <View style={styles.activeMember}>
-                    <View style={[styles.rankBadge, { backgroundColor: '#FFF3CD', borderWidth: 1, borderColor: '#FFD700' }]}>
-                      <Text style={[styles.rankText, { color: '#856404' }]}>1</Text>
-                    </View>
-                    <Image source={{ uri: circleData.members[0].avatarUri }} style={styles.activeMemberAvatar} />
-                    <View style={styles.activeMemberInfo}>
-                      <Text style={[styles.activeMemberName, { color: colors.text }]}>Sarah Chen</Text>
-                      <Text style={[styles.activeMemberStat, { color: colors.primary }]}>19 interactions</Text>
-                    </View>
-                  </View>
-                  <View style={styles.activeMember}>
-                    <View style={[styles.rankBadge, { backgroundColor: '#E9ECEF', borderWidth: 1, borderColor: '#C0C0C0' }]}>
-                      <Text style={[styles.rankText, { color: '#495057' }]}>2</Text>
-                    </View>
-                    <Image source={{ uri: circleData.members[1].avatarUri }} style={styles.activeMemberAvatar} />
-                    <View style={styles.activeMemberInfo}>
-                      <Text style={[styles.activeMemberName, { color: colors.text }]}>Mike Johnson</Text>
-                      <Text style={[styles.activeMemberStat, { color: colors.primary }]}>12 interactions</Text>
-                    </View>
-                  </View>
-                  <View style={styles.activeMember}>
-                    <View style={[styles.rankBadge, { backgroundColor: '#FFF0E6', borderWidth: 1, borderColor: '#CD7F32' }]}>
-                      <Text style={[styles.rankText, { color: '#7B4A12' }]}>3</Text>
-                    </View>
-                    <Image source={{ uri: circleData.members[2].avatarUri }} style={styles.activeMemberAvatar} />
-                    <View style={styles.activeMemberInfo}>
-                      <Text style={[styles.activeMemberName, { color: colors.text }]}>Emma Wilson</Text>
-                      <Text style={[styles.activeMemberStat, { color: colors.primary }]}>15 interactions</Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
+              <CircleStatsCard
+                stats={{
+                  postsThisMonth: 1,
+                  onlineMembers: circleData.members.filter(m => m.onlineStatus === 'online').length,
+                  totalMembers: circleData.members.length,
+                  mostActiveMembers: [
+                    { member: circleData.members[0], interactions: 19 },
+                    { member: circleData.members[1], interactions: 12 },
+                    { member: circleData.members[2], interactions: 15 },
+                  ]
+                }}
+              />
             </View>
           )}
         </View>
@@ -649,106 +543,6 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     paddingHorizontal: 16,
-  },
-  updateCard: {
-    marginBottom: 16,
-  },
-  updateAuthor: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  authorAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginRight: 8,
-  },
-  authorName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginRight: 8,
-  },
-  updateTime: {
-    fontSize: 14,
-  },
-  dateCardWrapper: {
-    padding: 16,
-    borderRadius: 12,
-  },
-  updateRating: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  updateNotes: {
-    fontSize: 16,
-    lineHeight: 22,
-    marginBottom: 12,
-  },
-  updateTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  updateTag: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  updateTagText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  pollContainer: {
-    marginBottom: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
-  },
-  pollQuestion: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  pollOption: {
-    marginBottom: 12,
-  },
-  pollOptionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  pollOptionText: {
-    fontSize: 14,
-  },
-  pollVotes: {
-    fontSize: 14,
-  },
-  pollBar: {
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  pollBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  updateActions: {
-    flexDirection: 'row',
-    gap: 24,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
-  },
-  updateAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  updateActionText: {
-    fontSize: 14,
   },
   memberItem: {
     flexDirection: 'row',

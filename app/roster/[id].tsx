@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/buttons/Button';
 import { DateCard } from '@/components/ui/cards/DateCard';
 import { CommentModal } from '@/components/ui/modals/CommentModal';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
 
 // Enhanced mock data structure
 const MOCK_PERSON_DATA = {
@@ -27,6 +28,7 @@ const MOCK_PERSON_DATA = {
     location: 'Manhattan, NY',
     howWeMet: 'Bumble',
     avatarUri: 'https://randomuser.me/api/portraits/men/32.jpg',
+    instagramUsername: 'alex_codes',
     
     // Dating Stats
     status: 'active' as const,
@@ -163,6 +165,7 @@ const MOCK_PERSON_DATA = {
     location: 'Brooklyn, NY',
     howWeMet: "Friend's party",
     avatarUri: 'https://randomuser.me/api/portraits/women/44.jpg',
+    instagramUsername: 'jordandesigns',
     
     status: 'new' as const,
     totalDates: 2,
@@ -238,6 +241,7 @@ const MOCK_PERSON_DATA = {
     location: 'Upper East Side, NY',
     howWeMet: 'Hinge',
     avatarUri: 'https://randomuser.me/api/portraits/men/22.jpg',
+    instagramUsername: 'morgan_teaches',
     
     status: 'fading' as const,
     totalDates: 4,
@@ -334,6 +338,18 @@ export default function PersonDetailScreen() {
     setCommentModalVisible(true);
   };
   
+  const handleLike = (dateId: string) => {
+    setDates(dates.map(date => 
+      date.id === dateId 
+        ? { 
+            ...date, 
+            isLiked: !date.isLiked,
+            likeCount: date.isLiked ? date.likeCount - 1 : date.likeCount + 1 
+          } 
+        : date
+    ));
+  };
+
   const handleSubmitComment = (text: string) => {
     if (!selectedDateId) return;
     
@@ -395,12 +411,13 @@ export default function PersonDetailScreen() {
             rating={date.rating}
             notes={date.notes}
             tags={date.tags}
+            instagramUsername={date.instagramUsername}
             likeCount={date.likeCount}
             commentCount={date.commentCount}
             isLiked={date.isLiked}
             imageUri={date.authorAvatar}
             comments={date.comments}
-            onLike={() => console.log('Like date')}
+            onLike={() => handleLike(date.id)}
             onComment={() => handleComment(date.id)}
           />
         ))}
@@ -594,6 +611,19 @@ export default function PersonDetailScreen() {
               <Text style={[styles.summaryContext, { color: colors.textSecondary }]}>
                 {personData.location} • {personData.howWeMet}
               </Text>
+              
+              {/* Instagram Link */}
+              {personData.instagramUsername && (
+                <Pressable 
+                  style={styles.instagramButton}
+                  onPress={() => openInstagramProfile(personData.instagramUsername!)}
+                >
+                  <Ionicons name="logo-instagram" size={16} color={colors.primary} />
+                  <Text style={[styles.instagramUsername, { color: colors.primary }]}>
+                    {getDisplayUsername(personData.instagramUsername)}
+                  </Text>
+                </Pressable>
+              )}
             </View>
           </View>
           
@@ -1028,5 +1058,16 @@ const styles = StyleSheet.create({
   emptyStateSubtext: {
     fontSize: 14,
     textAlign: 'center',
+  },
+  instagramButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+    paddingVertical: 2,
+  },
+  instagramUsername: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

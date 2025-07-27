@@ -6,13 +6,13 @@ import {
   RefreshControl, 
   ActivityIndicator, 
   Text,
-  useColorScheme,
   Platform
 } from 'react-native';
 import { DateCard } from '../cards/DateCard';
 import { Colors } from '../../../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 interface DateEntry {
   id: string;
@@ -23,6 +23,7 @@ interface DateEntry {
   notes?: string;
   imageUri?: string;
   tags?: string[];
+  instagramUsername?: string;
   poll?: {
     question: string;
     options: {
@@ -47,6 +48,7 @@ interface DateFeedProps {
   onRefresh?: () => void;
   onEndReached?: () => void;
   onDatePress?: (dateId: string) => void;
+  onPersonPress?: (personName: string) => void;
   onLike?: (dateId: string) => void;
   onComment?: (dateId: string) => void;
   onPollVote?: (dateId: string, optionIndex: number) => void;
@@ -61,6 +63,7 @@ export function DateFeed({
   onRefresh,
   onEndReached,
   onDatePress,
+  onPersonPress,
   onLike,
   onComment,
   onPollVote,
@@ -81,6 +84,7 @@ export function DateFeed({
       notes={item.notes}
       imageUri={item.imageUri}
       tags={item.tags}
+      instagramUsername={item.instagramUsername}
       poll={item.poll}
       userPollVote={item.userPollVote}
       comments={item.comments}
@@ -88,6 +92,7 @@ export function DateFeed({
       commentCount={item.commentCount}
       isLiked={item.isLiked}
       onPress={() => onDatePress?.(item.id)}
+      onPersonPress={() => onPersonPress?.(item.personName)}
       onLike={() => onLike?.(item.id)}
       onComment={() => onComment?.(item.id)}
       onPollVote={onPollVote}

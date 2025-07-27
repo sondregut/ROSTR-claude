@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface UserProfile {
+  id?: string;
   name: string;
   username: string;
   bio: string;
@@ -9,6 +10,7 @@ interface UserProfile {
   occupation: string;
   age: number;
   imageUri: string;
+  instagramUsername?: string;
   stats: {
     totalDates: number;
     activeConnections: number;
@@ -49,6 +51,7 @@ const USER_PROFILE_KEY = '@user_profile';
 
 // Default profile data (previously MOCK_USER)
 const DEFAULT_PROFILE: UserProfile = {
+  id: 'mock-user-id',
   name: 'Jamie Smith',
   username: '@jamiesmith',
   bio: 'Coffee enthusiast, hiking lover, and always up for trying new restaurants. Looking for someone who can make me laugh and shares my love for adventure.',
@@ -56,6 +59,7 @@ const DEFAULT_PROFILE: UserProfile = {
   occupation: 'Marketing Manager',
   age: 28,
   imageUri: 'https://randomuser.me/api/portraits/women/68.jpg',
+  instagramUsername: 'alex_codes',
   stats: {
     totalDates: 12,
     activeConnections: 4,
@@ -133,6 +137,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
       setUserProfile(updatedProfile);
       await AsyncStorage.setItem(USER_PROFILE_KEY, JSON.stringify(updatedProfile));
+
+      // TODO: Sync with Supabase when user is authenticated
+      // For now, we're using local storage for the mock user
+      
     } catch (err) {
       console.error('Error updating user profile:', err);
       setError('Failed to save profile');

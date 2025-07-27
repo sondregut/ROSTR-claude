@@ -7,8 +7,7 @@ import {
   ScrollView, 
   KeyboardAvoidingView, 
   Platform,
-  Pressable,
-  useColorScheme
+  Pressable
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +19,7 @@ import { CircleSelector } from './CircleSelector';
 import { PollCreator } from './PollCreator';
 import { AddNewPersonModal, NewPersonData } from '../modals/AddNewPersonModal';
 import { Colors } from '../../../constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 const PREDEFINED_TAGS = [
   { id: 'first-date', label: 'First Date', color: '#9B59B6' },
@@ -42,6 +42,7 @@ interface DateEntryFormProps {
   onSubmit: (formData: DateEntryFormData) => void;
   onCancel: () => void;
   initialData?: Partial<DateEntryFormData>;
+  isSubmitting?: boolean;
 }
 
 export interface DateEntryFormData {
@@ -53,6 +54,7 @@ export interface DateEntryFormData {
   notes: string;
   tags: string[];
   circles: string[];
+  instagramUsername?: string;
   poll?: {
     question: string;
     options: string[];
@@ -61,7 +63,7 @@ export interface DateEntryFormData {
   isPrivate: boolean;
 }
 
-export function DateEntryForm({ onSubmit, onCancel, initialData }: DateEntryFormProps) {
+export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = false }: DateEntryFormProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   
@@ -74,6 +76,7 @@ export function DateEntryForm({ onSubmit, onCancel, initialData }: DateEntryForm
     notes: initialData?.notes || '',
     tags: initialData?.tags || [],
     circles: initialData?.circles || ['inner-circle', 'friends'],
+    instagramUsername: initialData?.instagramUsername || '',
     poll: initialData?.poll,
     imageUri: initialData?.imageUri || '',
     isPrivate: initialData?.isPrivate ?? false,
@@ -391,13 +394,14 @@ export function DateEntryForm({ onSubmit, onCancel, initialData }: DateEntryForm
             variant="outline" 
             onPress={onCancel} 
             style={[styles.button, styles.cancelButton]}
+            disabled={isSubmitting}
           />
           <Button 
-            title={formData.isPrivate ? "Save Private Update" : "Post Update"} 
+            title={isSubmitting ? "Saving..." : (formData.isPrivate ? "Save Private Update" : "Post Update")} 
             variant="primary" 
             onPress={handleSubmit} 
             style={[styles.button, styles.shareButton]}
-            disabled={!formData.personId || !formData.rating || !formData.notes.trim()}
+            disabled={isSubmitting || !formData.personId || !formData.rating || !formData.notes.trim()}
           />
         </View>
       </ScrollView>
@@ -503,6 +507,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 20,
+    marginBottom: 24,
   },
   button: {
     flex: 1,

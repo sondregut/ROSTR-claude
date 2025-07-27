@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { TextInput } from '@/components/ui/inputs/TextInput';
+import { validateInstagramUsername } from '@/lib/instagramUtils';
 
 interface BasicInfo {
   location: string;
   occupation: string;
   age: number;
+  instagramUsername?: string;
 }
 
 interface BasicInfoEditFormProps {
@@ -50,6 +52,20 @@ export function BasicInfoEditForm({ initialInfo, onChange }: BasicInfoEditFormPr
         keyboardType="numeric"
         placeholder="Your age"
         maxLength={3}
+      />
+      
+      <TextInput
+        label="Instagram Username (Optional)"
+        value={info.instagramUsername || ''}
+        onChangeText={(text) => {
+          const cleanText = text.replace(/^@/, ''); // Remove @ if user types it
+          if (!cleanText || validateInstagramUsername(cleanText)) {
+            handleChange('instagramUsername', cleanText);
+          }
+        }}
+        placeholder="alex_codes"
+        autoCapitalize="none"
+        autoCorrect={false}
       />
     </View>
   );
