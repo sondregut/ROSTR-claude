@@ -16,12 +16,12 @@ import { AuthButton } from '@/components/ui/auth/AuthButton';
 import { PhoneInput } from '@/components/ui/auth/PhoneInput';
 import { useAuth } from '@/contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { runNetworkDiagnostics } from '@/utils/networkDebug';
 
 export default function SignUpScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  // Force light mode for onboarding
+  const colors = Colors.light;
   const { signUp, isLoading, error, clearError } = useAuth();
 
   const [signupMethod, setSignupMethod] = useState<'email' | 'phone'>('email');
@@ -111,7 +111,28 @@ export default function SignUpScreen() {
         });
       }
     } catch (err: any) {
-      Alert.alert('Sign Up Failed', err.message || 'Unable to create account. Please try again.');
+      let errorTitle = 'Sign Up Failed';
+      let errorMessage = err.message || 'Unable to create account. Please try again.';
+      
+      // Provide more specific error messages
+      if (err.message?.includes('User already registered')) {
+        errorTitle = 'Account Exists';
+        errorMessage = 'An account with this email already exists. Please sign in instead.';
+      } else if (err.message?.includes('Invalid email')) {
+        errorTitle = 'Invalid Email';
+        errorMessage = 'Please enter a valid email address.';
+      } else if (err.message?.includes('Weak password')) {
+        errorTitle = 'Weak Password';
+        errorMessage = 'Please choose a stronger password with at least 6 characters.';
+      } else if (err.message?.includes('Network request failed') || err.message?.includes('fetch failed')) {
+        errorTitle = 'Connection Error';
+        errorMessage = 'Unable to connect to the server. Please check your internet connection and try again.';
+      } else if (err.message?.includes('Phone provider is not configured')) {
+        errorTitle = 'Phone Signup Unavailable';
+        errorMessage = 'Phone authentication is currently unavailable. Please use email signup instead.';
+      }
+      
+      Alert.alert(errorTitle, errorMessage);
     }
   };
 
@@ -130,6 +151,30 @@ export default function SignUpScreen() {
 
   const handleGoBack = () => {
     router.back();
+  };
+
+  const handleNetworkTest = async () => {
+    Alert.alert(
+      'Network Diagnostics',
+      'Running network tests...\n\nThis will test connectivity to various endpoints.',
+      [
+        {
+          text: 'Run Test',
+          onPress: async () => {
+            try {
+              const results = await runNetworkDiagnostics();
+              const message = results.map(r => 
+                `${r.success ? '✅' : '❌'} ${r.name}: ${r.success ? 'OK' : r.error || 'Failed'}`
+              ).join('\n');
+              Alert.alert('Network Test Results', message);
+            } catch (error) {
+              Alert.alert('Test Failed', 'Could not complete network diagnostics');
+            }
+          }
+        },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
   };
 
   return (
@@ -274,6 +319,16 @@ export default function SignUpScreen() {
             <Text style={[styles.termsText, { color: colors.textSecondary }]}>
               By creating an account, you agree to our Terms of Service and Privacy Policy
             </Text>
+
+            {/* Network diagnostics button - only in dev */}
+            {__DEV__ && (
+              <AuthButton
+                title="🔍 Network Diagnostics"
+                onPress={handleNetworkTest}
+                variant="text"
+                style={styles.diagnosticsButton}
+              />
+            )}
           </View>
 
           {/* Footer */}
@@ -364,6 +419,10 @@ const styles = StyleSheet.create({
   signInButton: {
     paddingLeft: 0,
     paddingRight: 0,
+  },
+  diagnosticsButton: {
+    marginTop: 10,
+    opacity: 0.7,
   },
   toggleContainer: {
     marginBottom: 20,

@@ -16,14 +16,7 @@ import { useRouter } from 'expo-router';
 
 import { Colors } from '@/constants/Colors';
 import { Button } from '@/components/ui/buttons/Button';
-import { EditProfileModal } from '@/components/ui/modals/EditProfileModal';
 import { ShareAppModal } from '@/components/ui/modals/ShareAppModal';
-import { AboutMeEditForm } from '@/components/ui/forms/profile/AboutMeEditForm';
-import { BasicInfoEditForm } from '@/components/ui/forms/profile/BasicInfoEditForm';
-import { InterestsEditForm } from '@/components/ui/forms/profile/InterestsEditForm';
-import { DatingPreferencesEditForm } from '@/components/ui/forms/profile/DatingPreferencesEditForm';
-import { LifestyleEditForm } from '@/components/ui/forms/profile/LifestyleEditForm';
-import { DealBreakersEditForm } from '@/components/ui/forms/profile/DealBreakersEditForm';
 import { useUser } from '@/contexts/UserContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { SupabaseTestButton } from '@/components/SupabaseTestButton';
@@ -83,19 +76,11 @@ const MOCK_PREFERENCES = {
   dating: {
     lookingFor: 'Serious Relationship',
     ageRange: '25-35',
-    distance: 'Within 25 miles',
     education: 'College+',
-  },
-  lifestyle: {
-    drinking: 'Socially',
-    smoking: 'Never',
-    exercise: 'Regularly',
-    diet: 'No restrictions',
   },
   dealBreakers: ['Smoking', 'No sense of humor', 'Rude to service staff', 'Always late', 'Poor hygiene']
 };
 
-type EditModalType = 'about' | 'basicInfo' | 'interests' | 'dating' | 'lifestyle' | 'dealBreakers' | null;
 
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();
@@ -104,7 +89,6 @@ export default function ProfileScreen() {
   const { userProfile, updateProfile, isLoading } = useUser();
   
   const [activeTab, setActiveTab] = useState<'about' | 'stats' | 'preferences'>('about');
-  const [editModal, setEditModal] = useState<EditModalType>(null);
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
@@ -215,7 +199,7 @@ export default function ProfileScreen() {
           <View style={styles.actionButtons}>
             <Pressable 
               style={[styles.compactButton, { borderColor: colors.border }]}
-              onPress={() => console.log('Edit profile')}
+              onPress={() => router.push('/profile/edit')}
             >
               <Ionicons name="pencil-outline" size={12} color={colors.text} />
               <Text style={[styles.compactButtonText, { color: colors.text }]}>Edit Profile</Text>
@@ -307,9 +291,6 @@ export default function ProfileScreen() {
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>About Me</Text>
-          <Pressable onPress={() => setEditModal('about')}>
-            <Ionicons name="pencil" size={20} color={colors.textSecondary} />
-          </Pressable>
         </View>
         <Text style={[styles.bioText, { color: colors.text }]}>{userProfile.about.bio}</Text>
       </View>
@@ -318,9 +299,6 @@ export default function ProfileScreen() {
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Basic Info</Text>
-          <Pressable onPress={() => setEditModal('basicInfo')}>
-            <Ionicons name="pencil" size={20} color={colors.textSecondary} />
-          </Pressable>
         </View>
         <View style={styles.infoItem}>
           <Ionicons name="location-outline" size={20} color={colors.textSecondary} />
@@ -341,9 +319,6 @@ export default function ProfileScreen() {
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Social Media</Text>
-            <Pressable onPress={() => setEditModal('basicInfo')}>
-              <Ionicons name="pencil" size={20} color={colors.textSecondary} />
-            </Pressable>
           </View>
           <Pressable 
             style={styles.instagramButton}
@@ -361,9 +336,6 @@ export default function ProfileScreen() {
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Interests</Text>
-          <Pressable onPress={() => setEditModal('interests')}>
-            <Ionicons name="pencil" size={20} color={colors.textSecondary} />
-          </Pressable>
         </View>
         <View style={styles.interestTags}>
           {userProfile.about.interests.map((interest, index) => (
@@ -461,9 +433,6 @@ export default function ProfileScreen() {
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Dating Preferences</Text>
-          <Pressable onPress={() => setEditModal('dating')}>
-            <Ionicons name="pencil" size={20} color={colors.textSecondary} />
-          </Pressable>
         </View>
         <View style={styles.preferenceItem}>
           <Text style={[styles.preferenceLabel, { color: colors.textSecondary }]}>Looking for</Text>
@@ -474,48 +443,16 @@ export default function ProfileScreen() {
           <Text style={[styles.preferenceValue, { color: colors.text }]}>{userProfile.preferences.dating.ageRange}</Text>
         </View>
         <View style={styles.preferenceItem}>
-          <Text style={[styles.preferenceLabel, { color: colors.textSecondary }]}>Distance</Text>
-          <Text style={[styles.preferenceValue, { color: colors.text }]}>{userProfile.preferences.dating.distance}</Text>
-        </View>
-        <View style={styles.preferenceItem}>
           <Text style={[styles.preferenceLabel, { color: colors.textSecondary }]}>Education</Text>
           <Text style={[styles.preferenceValue, { color: colors.text }]}>{userProfile.preferences.dating.education}</Text>
         </View>
       </View>
 
-      {/* Lifestyle Preferences */}
-      <View style={[styles.section, { backgroundColor: colors.card }]}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Lifestyle</Text>
-          <Pressable onPress={() => setEditModal('lifestyle')}>
-            <Ionicons name="pencil" size={20} color={colors.textSecondary} />
-          </Pressable>
-        </View>
-        <View style={styles.preferenceItem}>
-          <Text style={[styles.preferenceLabel, { color: colors.textSecondary }]}>Drinking</Text>
-          <Text style={[styles.preferenceValue, { color: colors.text }]}>{userProfile.preferences.lifestyle.drinking}</Text>
-        </View>
-        <View style={styles.preferenceItem}>
-          <Text style={[styles.preferenceLabel, { color: colors.textSecondary }]}>Smoking</Text>
-          <Text style={[styles.preferenceValue, { color: colors.text }]}>{userProfile.preferences.lifestyle.smoking}</Text>
-        </View>
-        <View style={styles.preferenceItem}>
-          <Text style={[styles.preferenceLabel, { color: colors.textSecondary }]}>Exercise</Text>
-          <Text style={[styles.preferenceValue, { color: colors.text }]}>{userProfile.preferences.lifestyle.exercise}</Text>
-        </View>
-        <View style={styles.preferenceItem}>
-          <Text style={[styles.preferenceLabel, { color: colors.textSecondary }]}>Diet</Text>
-          <Text style={[styles.preferenceValue, { color: colors.text }]}>{userProfile.preferences.lifestyle.diet}</Text>
-        </View>
-      </View>
 
       {/* Deal Breakers */}
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Deal Breakers</Text>
-          <Pressable onPress={() => setEditModal('dealBreakers')}>
-            <Ionicons name="pencil" size={20} color={colors.textSecondary} />
-          </Pressable>
         </View>
         <View style={styles.dealBreakerTags}>
           {userProfile.preferences.dealBreakers.map((item, index) => (
@@ -548,121 +485,6 @@ export default function ProfileScreen() {
         {activeTab === 'preferences' && renderPreferencesTab()}
       </ScrollView>
 
-      {/* Edit Modals */}
-      {editModal === 'about' && (
-        <EditProfileModal
-          visible={true}
-          onClose={() => setEditModal(null)}
-          onSave={() => {
-            // Save is handled via onChange in the form
-            setEditModal(null);
-          }}
-          title="Edit About Me"
-        >
-          <AboutMeEditForm
-            initialBio={userProfile.about.bio}
-            onChange={(bio) => {
-              updateProfile({
-                about: { ...userProfile.about, bio },
-                bio, // Also update the top-level bio for consistency
-              });
-            }}
-          />
-        </EditProfileModal>
-      )}
-
-      {editModal === 'basicInfo' && (
-        <EditProfileModal
-          visible={true}
-          onClose={() => setEditModal(null)}
-          onSave={() => setEditModal(null)}
-          title="Edit Basic Info"
-        >
-          <BasicInfoEditForm
-            initialInfo={{
-              location: userProfile.location,
-              occupation: userProfile.occupation,
-              age: userProfile.age,
-              instagramUsername: userProfile.instagramUsername,
-            }}
-            onChange={(info) => {
-              updateProfile(info);
-            }}
-          />
-        </EditProfileModal>
-      )}
-
-      {editModal === 'interests' && (
-        <EditProfileModal
-          visible={true}
-          onClose={() => setEditModal(null)}
-          onSave={() => setEditModal(null)}
-          title="Edit Interests"
-        >
-          <InterestsEditForm
-            initialInterests={userProfile.about.interests}
-            onChange={(interests) => {
-              updateProfile({
-                about: { ...userProfile.about, interests },
-              });
-            }}
-          />
-        </EditProfileModal>
-      )}
-
-      {editModal === 'dating' && (
-        <EditProfileModal
-          visible={true}
-          onClose={() => setEditModal(null)}
-          onSave={() => setEditModal(null)}
-          title="Dating Preferences"
-        >
-          <DatingPreferencesEditForm
-            initialPreferences={userProfile.preferences.dating}
-            onChange={(dating) => {
-              updateProfile({
-                preferences: { ...userProfile.preferences, dating },
-              });
-            }}
-          />
-        </EditProfileModal>
-      )}
-
-      {editModal === 'lifestyle' && (
-        <EditProfileModal
-          visible={true}
-          onClose={() => setEditModal(null)}
-          onSave={() => setEditModal(null)}
-          title="Lifestyle Preferences"
-        >
-          <LifestyleEditForm
-            initialLifestyle={userProfile.preferences.lifestyle}
-            onChange={(lifestyle) => {
-              updateProfile({
-                preferences: { ...userProfile.preferences, lifestyle },
-              });
-            }}
-          />
-        </EditProfileModal>
-      )}
-
-      {editModal === 'dealBreakers' && (
-        <EditProfileModal
-          visible={true}
-          onClose={() => setEditModal(null)}
-          onSave={() => setEditModal(null)}
-          title="Deal Breakers"
-        >
-          <DealBreakersEditForm
-            initialDealBreakers={userProfile.preferences.dealBreakers}
-            onChange={(dealBreakers) => {
-              updateProfile({
-                preferences: { ...userProfile.preferences, dealBreakers },
-              });
-            }}
-          />
-        </EditProfileModal>
-      )}
 
       {/* Share App Modal */}
       <ShareAppModal

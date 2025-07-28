@@ -5,6 +5,10 @@
 
 export { AuthService } from './auth';
 export { UserService } from './users';
+export { StorageService } from './storage';
+export { ChatService } from './chat';
+export { CircleChatService } from './circleChat';
+export { MatchingService } from './matching';
 
 // Re-export the main supabase client and types
 export { supabase, type Database } from '@/lib/supabase';

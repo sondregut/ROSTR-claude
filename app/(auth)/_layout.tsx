@@ -1,16 +1,17 @@
 import React from 'react';
 import { Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function AuthLayout() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  // Force light mode for all onboarding screens
+  const colors = Colors.light;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <Stack
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <Stack
         screenOptions={{
           headerShown: false,
           gestureEnabled: true,
@@ -19,10 +20,20 @@ export default function AuthLayout() {
         }}
       >
         <Stack.Screen name="welcome" />
+        <Stack.Screen name="create-account" />
+        <Stack.Screen name="verify-otp" />
+        <Stack.Screen name="email-setup" />
+        <Stack.Screen name="apple-connect" />
+        <Stack.Screen name="name-setup" />
+        <Stack.Screen name="birthday-setup" />
         <Stack.Screen name="signin" />
         <Stack.Screen name="signup" />
         <Stack.Screen name="forgot-password" />
+        <Stack.Screen name="phone-auth" />
+        <Stack.Screen name="verify-phone" />
+        <Stack.Screen name="trouble-signin" />
       </Stack>
-    </SafeAreaView>
+      </SafeAreaView>
+    </GestureHandlerRootView>
   );
 }

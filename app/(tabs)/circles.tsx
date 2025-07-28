@@ -8,7 +8,6 @@ import { FriendCircleModal } from '@/components/ui/modals/FriendCircleModal';
 import { SimpleCircleCard } from '@/components/ui/cards/SimpleCircleCard';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { shareCircleInvite } from '@/lib/inviteUtils';
 
 // Mock data for demonstration - matching the specification
 const MOCK_FRIENDS = [
@@ -111,17 +110,6 @@ export default function CirclesScreen() {
     setIsModalVisible(false);
   };
 
-  const handleInvitePress = async (circle: typeof MOCK_CIRCLES[0]) => {
-    try {
-      await shareCircleInvite({
-        id: circle.id,
-        name: circle.name,
-        description: circle.description,
-      });
-    } catch (error) {
-      console.error('Failed to share invite:', error);
-    }
-  };
   
   const renderCircleItem = ({ item }: { item: typeof MOCK_CIRCLES[0] }) => (
     <SimpleCircleCard
@@ -169,7 +157,6 @@ export default function CirclesScreen() {
                   onPress={() => {
                     router.push(`/circles/${item.id}`);
                   }}
-                  onInvitePress={() => handleInvitePress(item)}
                 />
               ))}
             </View>

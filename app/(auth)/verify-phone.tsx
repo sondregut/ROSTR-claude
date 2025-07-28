@@ -17,11 +17,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { AuthButton } from '@/components/ui/auth/AuthButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function VerifyPhoneScreen() {
   const router = useRouter();
-  const { phoneNumber } = useLocalSearchParams<{ phoneNumber: string }>();
+  const { phone, name } = useLocalSearchParams<{ phone: string; name: string }>();
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(30);
@@ -76,16 +75,34 @@ export default function VerifyPhoneScreen() {
 
     try {
       setIsLoading(true);
-      // TODO: Implement code verification
-      console.log('Verifying code:', codeToVerify, 'for phone:', phoneNumber);
+      console.log('Verifying code:', codeToVerify, 'for phone:', phone);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Use AuthService to verify the OTP
+      const { AuthService } = await import('@/services/supabase/auth');
+      const result = await AuthService.verifyPhoneOtp(
+        phone || '',
+        codeToVerify,
+        name || 'User' // Use the name passed from signup
+      );
       
-      // Navigate to profile setup
-      router.push('/(auth)/profile-setup');
-    } catch (error) {
-      Alert.alert('Error', 'Invalid verification code. Please try again.');
+      if (result.user) {
+        console.log('✅ Verification successful:', result.user.id);
+        // Don't navigate manually - AuthenticatedApp will handle navigation
+        // based on profile completion status
+      } else {
+        throw new Error('Verification failed');
+      }
+    } catch (error: any) {
+      console.error('Verification error:', error);
+      
+      let errorMessage = 'Invalid verification code. Please try again.';
+      if (error?.message?.includes('expired')) {
+        errorMessage = 'Code has expired. Please request a new one.';
+      } else if (error?.message?.includes('Invalid')) {
+        errorMessage = 'Invalid code. Please check and try again.';
+      }
+      
+      Alert.alert('Error', errorMessage);
       // Clear the code
       setCode(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
@@ -99,17 +116,24 @@ export default function VerifyPhoneScreen() {
 
     try {
       setIsLoading(true);
-      // TODO: Implement resend SMS
-      console.log('Resending SMS to:', phoneNumber);
+      console.log('Resending SMS to:', phone);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Use AuthService to resend OTP
+      const { AuthService } = await import('@/services/supabase/auth');
+      await AuthService.sendPhoneOtp(phone || '');
       
       // Reset timer
       setResendTimer(30);
       Alert.alert('Code Sent', 'A new verification code has been sent to your phone.');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to resend code. Please try again.');
+    } catch (error: any) {
+      console.error('Resend error:', error);
+      
+      let errorMessage = 'Failed to resend code. Please try again.';
+      if (error?.message?.includes('rate limit')) {
+        errorMessage = 'Too many attempts. Please wait before trying again.';
+      }
+      
+      Alert.alert('Error', errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -137,11 +161,16 @@ export default function VerifyPhoneScreen() {
   };
 
   return (
-    <View style={styles.fullScreen}>
-      <StatusBar barStyle="dark-content" translucent={false} backgroundColor={Colors.light.background} />
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        
-        <KeyboardAvoidingView 
+    <>
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+      <LinearGradient 
+        colors={[Colors.light.primary, Colors.light.secondary]} 
+        style={styles.container}
+        start={{ x: 0.1, y: 0.2 }}
+        end={{ x: 0.9, y: 1.0 }}
+      >
+        <SafeAreaView style={styles.safeArea} edges={[]}>
+          <KeyboardAvoidingView 
           style={styles.keyboardView}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
@@ -157,7 +186,7 @@ export default function VerifyPhoneScreen() {
                 accessibilityLabel="Go back"
                 accessibilityRole="button"
               >
-                <Ionicons name="chevron-back" size={28} color={Colors.light.text} />
+                <Ionicons name="chevron-back" size={28} color="white" />
               </Pressable>
             </View>
 
@@ -166,7 +195,7 @@ export default function VerifyPhoneScreen() {
               <Text style={styles.title}>Enter the code</Text>
               <Text style={styles.subtitle}>
                 We sent a 6-digit code to{'\n'}
-                <Text style={styles.phoneText}>{formatPhoneNumber(phoneNumber || '')}</Text>
+                <Text style={styles.phoneText}>{formatPhoneNumber(phone || '')}</Text>
               </Text>
             </View>
 
@@ -230,16 +259,16 @@ export default function VerifyPhoneScreen() {
               </Text>
             </View>
           </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </LinearGradient>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  fullScreen: {
+  container: {
     flex: 1,
-    backgroundColor: Colors.light.background,
   },
   safeArea: {
     flex: 1,
@@ -260,11 +289,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Colors.light.card,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   pressed: {
     opacity: 0.7,
@@ -275,17 +302,17 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 36,
     fontWeight: '700',
-    color: Colors.light.text,
+    color: 'white',
     marginBottom: 16,
   },
   subtitle: {
     fontSize: 16,
-    color: Colors.light.textSecondary,
+    color: 'rgba(255, 255, 255, 0.9)',
     lineHeight: 22,
   },
   phoneText: {
     fontWeight: '600',
-    color: Colors.light.text,
+    color: 'white',
   },
   inputContainer: {
     flex: 1,
@@ -300,24 +327,24 @@ const styles = StyleSheet.create({
   codeInput: {
     flex: 1,
     height: 56,
-    backgroundColor: Colors.light.card,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: Colors.light.border,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
     fontSize: 24,
     fontWeight: '600',
-    color: Colors.light.text,
+    color: 'white',
   },
   codeInputFilled: {
-    borderColor: Colors.light.primary,
-    backgroundColor: Colors.light.card,
+    borderColor: 'white',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   resendContainer: {
     alignItems: 'center',
   },
   resendTimerText: {
     fontSize: 14,
-    color: Colors.light.textSecondary,
+    color: 'rgba(255, 255, 255, 0.7)',
   },
   resendButton: {
     paddingVertical: 8,
@@ -325,17 +352,17 @@ const styles = StyleSheet.create({
   },
   resendButtonText: {
     fontSize: 16,
-    color: Colors.light.primary,
+    color: 'white',
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
   continueButton: {
-    backgroundColor: Colors.light.primary,
+    backgroundColor: 'white',
     borderRadius: 24,
     minHeight: 52,
   },
   continueButtonText: {
-    color: 'white',
+    color: Colors.light.primary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -345,7 +372,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12,
-    color: Colors.light.textSecondary,
+    color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
     lineHeight: 16,
   },

@@ -155,26 +155,191 @@ export class UserService {
   }
 
   /**
-   * Upload profile image
+   * Upload profile image and update user record
    */
   static async uploadProfileImage(userId: string, imageUri: string): Promise<string> {
     try {
-      // This is a placeholder - actual implementation would handle file upload
-      // For now, we'll just update the image_uri field
+      // Import storage service dynamically to avoid circular imports
+      const { StorageService } = await import('./storage');
+      
+      // Validate file size (max 5MB)
+      const isValidSize = await StorageService.validateFileSize(imageUri, 5);
+      if (!isValidSize) {
+        throw new Error('Image file too large. Maximum size is 5MB.');
+      }
+
+      // Validate file type
+      const allowedTypes = ['jpg', 'jpeg', 'png', 'webp'];
+      const isValidType = StorageService.validateFileType(imageUri, allowedTypes);
+      if (!isValidType) {
+        throw new Error('Invalid file type. Allowed types: JPG, PNG, WebP');
+      }
+
+      // Upload image to storage
+      const uploadResult = await StorageService.uploadUserPhoto(imageUri, userId);
+
+      // Update user record with new image URL
       const { data, error } = await supabase
         .from('users')
-        .update({ image_uri: imageUri })
+        .update({ 
+          image_uri: uploadResult.url,
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', userId)
         .select('image_uri')
         .single();
 
       if (error) {
+        // If database update fails, clean up uploaded file
+        try {
+          await StorageService.deleteFile('user-photos', uploadResult.path);
+        } catch (cleanupError) {
+          console.warn('Failed to cleanup uploaded file:', cleanupError);
+        }
         throw error;
       }
+
+      // Clean up old photos (keep only 5 most recent)
+      await StorageService.cleanupOldUserPhotos(userId, 5);
 
       return data.image_uri;
     } catch (error) {
       console.error('Upload profile image error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Add multiple photos to user profile
+   */
+  static async addUserPhotos(userId: string, imageUris: string[]): Promise<string[]> {
+    try {
+      const { StorageService } = await import('./storage');
+      
+      // Validate all images
+      for (const uri of imageUris) {
+        const isValidSize = await StorageService.validateFileSize(uri, 5);
+        if (!isValidSize) {
+          throw new Error('One or more images are too large. Maximum size is 5MB each.');
+        }
+
+        const allowedTypes = ['jpg', 'jpeg', 'png', 'webp'];
+        const isValidType = StorageService.validateFileType(uri, allowedTypes);
+        if (!isValidType) {
+          throw new Error('Invalid file type. Allowed types: JPG, PNG, WebP');
+        }
+      }
+
+      // Upload all images
+      const uploadResults = await StorageService.uploadUserPhotos(imageUris, userId);
+
+      // Insert records into user_photos table
+      const photoInserts = uploadResults.map((result, index) => ({
+        user_id: userId,
+        photo_url: result.url,
+        is_primary: index === 0, // First photo is primary
+        order_index: index,
+      }));
+
+      const { data, error } = await supabase
+        .from('user_photos')
+        .insert(photoInserts)
+        .select('photo_url');
+
+      if (error) {
+        // Clean up uploaded files if database insert fails
+        for (const result of uploadResults) {
+          try {
+            await StorageService.deleteFile('user-photos', result.path);
+          } catch (cleanupError) {
+            console.warn('Failed to cleanup uploaded file:', cleanupError);
+          }
+        }
+        throw error;
+      }
+
+      return data.map(photo => photo.photo_url);
+    } catch (error) {
+      console.error('Add user photos error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete user photo
+   */
+  static async deleteUserPhoto(userId: string, photoUrl: string): Promise<void> {
+    try {
+      const { StorageService } = await import('./storage');
+      
+      // Get photo record to find storage path
+      const { data: photo, error: fetchError } = await supabase
+        .from('user_photos')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('photo_url', photoUrl)
+        .single();
+
+      if (fetchError || !photo) {
+        throw new Error('Photo not found');
+      }
+
+      // Extract path from URL
+      const urlParts = photoUrl.split('/');
+      const filename = urlParts[urlParts.length - 1];
+      const path = `${userId}/${filename}`;
+
+      // Delete from storage
+      await StorageService.deleteFile('user-photos', path);
+
+      // Delete from database
+      const { error: deleteError } = await supabase
+        .from('user_photos')
+        .delete()
+        .eq('id', photo.id);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+    } catch (error) {
+      console.error('Delete user photo error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Set primary photo
+   */
+  static async setPrimaryPhoto(userId: string, photoUrl: string): Promise<void> {
+    try {
+      // First, set all photos as non-primary
+      await supabase
+        .from('user_photos')
+        .update({ is_primary: false })
+        .eq('user_id', userId);
+
+      // Then set the selected photo as primary
+      const { error } = await supabase
+        .from('user_photos')
+        .update({ is_primary: true })
+        .eq('user_id', userId)
+        .eq('photo_url', photoUrl);
+
+      if (error) {
+        throw error;
+      }
+
+      // Update main profile image_uri
+      await supabase
+        .from('users')
+        .update({ 
+          image_uri: photoUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+
+    } catch (error) {
+      console.error('Set primary photo error:', error);
       throw error;
     }
   }

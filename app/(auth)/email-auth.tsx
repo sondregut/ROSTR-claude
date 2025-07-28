@@ -73,7 +73,7 @@ export default function EmailAuthScreen() {
   };
 
   return (
-    <View style={styles.fullScreen}>
+    <>
       <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
       <LinearGradient 
         colors={[Colors.light.primary, Colors.light.secondary]} 
@@ -82,8 +82,7 @@ export default function EmailAuthScreen() {
         end={{ x: 0.9, y: 1.0 }}
       >
         <SafeAreaView style={styles.safeArea} edges={[]}>
-        
-        <KeyboardAvoidingView 
+          <KeyboardAvoidingView 
           style={styles.keyboardView}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
@@ -174,18 +173,14 @@ export default function EmailAuthScreen() {
               </Text>
             </View>
           </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </LinearGradient>
-    </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </LinearGradient>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  fullScreen: {
-    flex: 1,
-    backgroundColor: Colors.light.primary,
-  },
   container: {
     flex: 1,
   },

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DateEntryFormData } from '@/components/ui/forms/DateEntryForm';
+import { PlanFormData } from '@/components/ui/modals/AddPlanModal';
 
 // Extended interface for date entries in the feed
 export interface DateEntry {
@@ -35,13 +36,42 @@ export interface DateEntry {
   updatedAt: string;
 }
 
+// Interface for planned dates
+export interface PlanEntry {
+  id: string;
+  personName: string;
+  date: string; // formatted display date (e.g., "Tomorrow", "Friday", "Jan 15")
+  rawDate: string; // original YYYY-MM-DD format
+  time?: string;
+  location: string;
+  content?: string;
+  tags: string[];
+  authorName: string;
+  authorAvatar?: string;
+  createdAt: string;
+  isCompleted: boolean;
+  likeCount: number;
+  commentCount: number;
+  isLiked: boolean;
+  comments: Array<{
+    name: string;
+    content: string;
+  }>;
+}
+
 interface DateContextType {
   dates: DateEntry[];
+  plans: PlanEntry[];
   addDate: (formData: DateEntryFormData) => Promise<void>;
+  addPlan: (formData: PlanFormData, personName: string) => Promise<void>;
+  completePlan: (planId: string, dateData: DateEntryFormData) => Promise<void>;
   updateDate: (id: string, updates: Partial<DateEntry>) => Promise<void>;
   deleteDate: (id: string) => Promise<void>;
+  deletePlan: (id: string) => Promise<void>;
   likeDate: (id: string) => void;
+  likePlan: (id: string) => void;
   addComment: (id: string, comment: { name: string; content: string }) => void;
+  addPlanComment: (id: string, comment: { name: string; content: string }) => void;
   voteOnPoll: (id: string, optionIndex: number) => void;
   refreshDates: () => Promise<void>;
   isLoading: boolean;
@@ -51,6 +81,34 @@ interface DateContextType {
 const DateContext = createContext<DateContextType | undefined>(undefined);
 
 const DATES_STORAGE_KEY = '@date_entries';
+const PLANS_STORAGE_KEY = '@plan_entries';
+
+// Smart date formatting function
+const formatDateForDisplay = (dateString: string): string => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const isToday = date.toDateString() === now.toDateString();
+  const isTomorrow = date.toDateString() === tomorrow.toDateString();
+
+  if (isToday) return "Today";
+  if (isTomorrow) return "Tomorrow";
+  
+  const diffTime = date.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays > 0 && diffDays <= 7) {
+    return date.toLocaleDateString("en-US", { weekday: "long" });
+  }
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+  });
+};
 
 // Initial mock data - this will be replaced with Supabase data later
 const INITIAL_MOCK_DATES: DateEntry[] = [
@@ -115,6 +173,7 @@ const INITIAL_MOCK_DATES: DateEntry[] = [
 
 export function DateProvider({ children }: { children: React.ReactNode }) {
   const [dates, setDates] = useState<DateEntry[]>([]);
+  const [plans, setPlans] = useState<PlanEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -280,15 +339,138 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
     await loadDates();
   };
 
+  // Plan management methods
+  const addPlan = async (formData: PlanFormData, personName: string) => {
+    try {
+      const finalLocation = formData.location === 'Other' ? formData.customLocation : formData.location;
+      
+      const newPlan: PlanEntry = {
+        id: `plan_${Date.now()}`,
+        personName,
+        date: formatDateForDisplay(formData.date),
+        rawDate: formData.date,
+        time: formData.time || undefined,
+        location: finalLocation,
+        content: formData.content.trim() || undefined,
+        tags: formData.tags || [],
+        authorName: 'You', // In real app, this would be current user's name
+        authorAvatar: '/placeholder.svg?height=40&width=40', // In real app, current user's avatar
+        createdAt: new Date().toISOString(),
+        isCompleted: false,
+        likeCount: 0,
+        commentCount: 0,
+        isLiked: false,
+        comments: [],
+      };
+
+      const updatedPlans = [newPlan, ...plans];
+      setPlans(updatedPlans);
+      await AsyncStorage.setItem(PLANS_STORAGE_KEY, JSON.stringify(updatedPlans));
+    } catch (err) {
+      console.error('Error adding plan:', err);
+      setError('Failed to add plan');
+    }
+  };
+
+  const completePlan = async (planId: string, dateData: DateEntryFormData) => {
+    try {
+      // Find the plan
+      const plan = plans.find(p => p.id === planId);
+      if (!plan) return;
+
+      // Create date entry from plan
+      const newDate: DateEntry = {
+        id: `date_${Date.now()}`,
+        personName: plan.personName,
+        date: 'Just now',
+        location: dateData.location || plan.location,
+        rating: dateData.rating,
+        notes: dateData.notes,
+        tags: dateData.tags,
+        circles: dateData.circles,
+        isPrivate: dateData.isPrivate,
+        imageUri: dateData.imageUri,
+        poll: dateData.poll,
+        userPollVote: null,
+        comments: [],
+        likeCount: 0,
+        commentCount: 0,
+        isLiked: false,
+        authorName: 'You',
+        authorAvatar: '/placeholder.svg?height=40&width=40',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Add to dates and remove from plans
+      const updatedDates = [newDate, ...dates];
+      const updatedPlans = plans.filter(p => p.id !== planId);
+      
+      setDates(updatedDates);
+      setPlans(updatedPlans);
+      
+      await saveDates(updatedDates);
+      await AsyncStorage.setItem(PLANS_STORAGE_KEY, JSON.stringify(updatedPlans));
+    } catch (err) {
+      console.error('Error completing plan:', err);
+      setError('Failed to complete plan');
+    }
+  };
+
+  const deletePlan = async (id: string) => {
+    try {
+      const updatedPlans = plans.filter(plan => plan.id !== id);
+      setPlans(updatedPlans);
+      await AsyncStorage.setItem(PLANS_STORAGE_KEY, JSON.stringify(updatedPlans));
+    } catch (err) {
+      console.error('Error deleting plan:', err);
+      setError('Failed to delete plan');
+    }
+  };
+
+  const likePlan = (id: string) => {
+    const updatedPlans = plans.map(plan =>
+      plan.id === id
+        ? {
+            ...plan,
+            isLiked: !plan.isLiked,
+            likeCount: plan.isLiked ? plan.likeCount - 1 : plan.likeCount + 1,
+          }
+        : plan
+    );
+    setPlans(updatedPlans);
+    AsyncStorage.setItem(PLANS_STORAGE_KEY, JSON.stringify(updatedPlans)); // Save asynchronously
+  };
+
+  const addPlanComment = (id: string, comment: { name: string; content: string }) => {
+    const updatedPlans = plans.map(plan =>
+      plan.id === id
+        ? {
+            ...plan,
+            comments: [...plan.comments, comment],
+            commentCount: plan.commentCount + 1,
+          }
+        : plan
+    );
+    setPlans(updatedPlans);
+    AsyncStorage.setItem(PLANS_STORAGE_KEY, JSON.stringify(updatedPlans)); // Save asynchronously
+  };
+
   return (
     <DateContext.Provider
       value={{
         dates,
+        plans,
         addDate,
+        addPlan,
+        completePlan,
         updateDate,
         deleteDate,
+        deletePlan,
         likeDate,
+        likePlan,
         addComment,
+        addPlanComment,
         voteOnPoll,
         refreshDates,
         isLoading,

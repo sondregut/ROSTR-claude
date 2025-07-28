@@ -122,9 +122,6 @@ export default function MemberProfileScreen() {
   // Get profile data - in real app, this would be fetched from database
   const profileData = MOCK_PROFILE_DATA[username as keyof typeof MOCK_PROFILE_DATA] || MOCK_PROFILE_DATA['sarahc'];
   
-  const handleSendMessage = () => {
-    Alert.alert('Send Message', `Start a conversation with ${profileData.name}?`);
-  };
 
   const handleMoreOptions = () => {
     Alert.alert(
@@ -210,16 +207,6 @@ export default function MemberProfileScreen() {
             </View>
           </View>
           
-          {/* Action Buttons */}
-          <View style={styles.actionButtons}>
-            <Pressable
-              style={[styles.primaryButton, { backgroundColor: colors.primary }]}
-              onPress={handleSendMessage}
-            >
-              <Ionicons name="chatbubble-outline" size={18} color="white" />
-              <Text style={styles.primaryButtonText}>Message</Text>
-            </Pressable>
-          </View>
         </View>
 
         {/* Member Stats */}
@@ -380,25 +367,6 @@ const styles = StyleSheet.create({
   },
   metadataText: {
     fontSize: 14,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  primaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 24,
-    flex: 1,
-    justifyContent: 'center',
-  },
-  primaryButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
   },
   tabs: {
     flexDirection: 'row',

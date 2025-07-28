@@ -8,6 +8,7 @@ interface AuthContextType {
   session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isProfileComplete: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -15,6 +16,7 @@ interface AuthContextType {
   sendPhoneOtp: (phone: string) => Promise<void>;
   verifyPhoneOtp: (phone: string, otp: string, name: string) => Promise<void>;
   devSkipAuth: () => void; // For development only
+  updateProfileComplete: (complete: boolean) => void;
   error: string | null;
   clearError: () => void;
 }
@@ -27,14 +29,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [devMode, setDevMode] = useState(false); // For development bypass
+  const [isProfileComplete, setIsProfileComplete] = useState(false);
 
   const isAuthenticated = (!!user && !!session) || devMode;
 
   useEffect(() => {
     // Get initial session
-    AuthService.getSession().then((session) => {
+    AuthService.getSession().then(async (session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      
+      // Check if profile is complete
+      if (session?.user) {
+        await checkProfileComplete(session.user.id);
+      }
+      
       setIsLoading(false);
     });
 
@@ -43,18 +52,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        setIsLoading(false);
         
         if (event === 'SIGNED_OUT') {
           // Clear any cached user data
           setUser(null);
           setSession(null);
+          setIsProfileComplete(false);
+        } else if (session?.user) {
+          // Check profile completion for signed in users
+          await checkProfileComplete(session.user.id);
         }
+        
+        setIsLoading(false);
       }
     );
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const checkProfileComplete = async (userId: string) => {
+    try {
+      const { UserService } = await import('@/services/supabase/users');
+      const profile = await UserService.getProfile(userId);
+      
+      // Check if profile has required fields: name, date_of_birth, gender
+      const isComplete = !!(
+        profile?.name && 
+        profile?.date_of_birth && 
+        profile?.gender
+      );
+      
+      setIsProfileComplete(isComplete);
+    } catch (error) {
+      console.error('Failed to check profile completion:', error);
+      setIsProfileComplete(false);
+    }
+  };
 
   const clearError = () => setError(null);
 
@@ -86,6 +119,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name
       });
       
+      // Create user profile in the users table
+      if (user) {
+        try {
+          const { UserService } = await import('@/services/supabase/users');
+          await UserService.createProfile({
+            id: user.id,
+            email: user.email || email,
+            name: name,
+            username: '', // Will be set during profile setup
+            bio: '',
+            location: '',
+            occupation: '',
+            age: 0,
+            image_uri: '',
+            instagram_username: '',
+            total_dates: 0,
+            active_connections: 0,
+            avg_rating: 0,
+            gender: '',
+            date_of_birth: '',
+            phone: user.phone || '',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        } catch (profileError: any) {
+          // Check if it's a duplicate key error (profile already exists from trigger)
+          if (profileError?.code === '23505' || profileError?.message?.includes('duplicate key')) {
+            console.log('User profile already exists (likely created by database trigger)');
+            // Try to update the existing profile with the phone number
+            try {
+              await UserService.updateProfile(user.id, {
+                phone: user.phone || '',
+                name: name
+              });
+            } catch (updateError) {
+              console.error('Failed to update existing profile:', updateError);
+            }
+          } else {
+            console.error('Failed to create user profile:', profileError);
+          }
+          // Don't throw here - user is authenticated, they can complete profile later
+        }
+      }
+      
       setUser(user);
       setSession(session);
     } catch (err: any) {
@@ -102,9 +179,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(true);
       setError(null);
       
-      await AuthService.signOut();
+      // Clear local state first
       setUser(null);
       setSession(null);
+      setIsProfileComplete(false);
+      setDevMode(false);
+      
+      // Then sign out from Supabase
+      await AuthService.signOut();
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to sign out';
       setError(errorMessage);
@@ -142,6 +224,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       
       const { user, session } = await AuthService.verifyPhoneOtp(phone, otp, name);
+      
+      // Create user profile in the users table
+      if (user) {
+        try {
+          const { UserService } = await import('@/services/supabase/users');
+          const existingProfile = await UserService.getProfile(user.id);
+          
+          if (!existingProfile) {
+            await UserService.createProfile({
+              id: user.id,
+              email: user.email || '',
+              name: name,
+              username: '', // Will be set during profile setup
+              bio: '',
+              location: '',
+              occupation: '',
+              age: 0,
+              image_uri: '',
+              instagram_username: '',
+              total_dates: 0,
+              active_connections: 0,
+              avg_rating: 0,
+              gender: '',
+              date_of_birth: '',
+              phone: phone,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+          }
+        } catch (profileError: any) {
+          // Check if it's a duplicate key error (profile already exists from trigger)
+          if (profileError?.code === '23505' || profileError?.message?.includes('duplicate key')) {
+            console.log('User profile already exists (likely created by database trigger)');
+            // Try to update the existing profile with the phone number
+            try {
+              await UserService.updateProfile(user.id, {
+                phone: user.phone || '',
+                name: name
+              });
+            } catch (updateError) {
+              console.error('Failed to update existing profile:', updateError);
+            }
+          } else {
+            console.error('Failed to create user profile:', profileError);
+          }
+          // Don't throw here - user is authenticated, they can complete profile later
+        }
+      }
+      
       setUser(user);
       setSession(session);
     } catch (err: any) {
@@ -162,6 +293,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateProfileComplete = (complete: boolean) => {
+    setIsProfileComplete(complete);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -169,6 +304,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         session,
         isLoading,
         isAuthenticated,
+        isProfileComplete,
         signIn,
         signUp,
         signOut,
@@ -176,6 +312,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         sendPhoneOtp,
         verifyPhoneOtp,
         devSkipAuth,
+        updateProfileComplete,
         error,
         clearError,
       }}

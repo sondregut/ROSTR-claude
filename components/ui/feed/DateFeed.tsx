@@ -50,8 +50,8 @@ interface DateFeedProps {
   onRefresh?: () => void;
   onEndReached?: () => void;
   onDatePress?: (dateId: string) => void;
-  onPersonPress?: (personName: string) => void;
-  onPersonHistoryPress?: (personName: string) => void;
+  onPersonPress?: (personName: string, authorName?: string) => void;
+  onPersonHistoryPress?: (personName: string, authorName?: string) => void;
   onAuthorPress?: (authorName: string) => void;
   onLike?: (dateId: string) => void;
   onComment?: (dateId: string) => void;
@@ -100,8 +100,8 @@ export function DateFeed({
       commentCount={item.commentCount}
       isLiked={item.isLiked}
       onPress={() => onDatePress?.(item.id)}
-      onPersonPress={() => onPersonPress?.(item.personName)}
-      onPersonHistoryPress={() => onPersonHistoryPress?.(item.personName)}
+      onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
+      onPersonHistoryPress={() => onPersonHistoryPress?.(item.personName, item.authorName)}
       onAuthorPress={() => onAuthorPress?.(item.authorName || item.personName)}
       onLike={() => onLike?.(item.id)}
       onComment={() => onComment?.(item.id)}

@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 
 interface AuthTextInputProps extends Omit<RNTextInputProps, 'style'> {
   label: string;
@@ -29,8 +28,8 @@ export function AuthTextInput({
   required = false,
   ...props
 }: AuthTextInputProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  // Force light mode for auth components
+  const colors = Colors.light;
   const [showPassword, setShowPassword] = useState(false);
 
   const togglePasswordVisibility = () => {

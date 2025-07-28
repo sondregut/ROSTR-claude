@@ -14,12 +14,11 @@ import { AuthTextInput } from '@/components/ui/auth/AuthTextInput';
 import { AuthButton } from '@/components/ui/auth/AuthButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  // Force light mode for onboarding
+  const colors = Colors.light;
   const { resetPassword, error, clearError } = useAuth();
 
   const [email, setEmail] = useState('');

@@ -118,9 +118,9 @@ export default function RosterScreen() {
       rating={item.rating}
       status={item.status}
       onPress={() => {
-        // Navigate to roster person detail screen
+        // Navigate to unified person detail screen
         const personName = getPersonNameFromRosterId(item.id) || item.name;
-        router.push(`/roster/${personName.toLowerCase()}?isOwnRoster=true`);
+        router.push(`/person/${personName.toLowerCase()}?isOwnRoster=true`);
       }}
     />
   );

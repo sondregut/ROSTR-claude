@@ -63,26 +63,6 @@ export default function FeedScreen() {
     voteOnPoll(dateId, optionIndex);
   };
 
-  const handlePersonPress = (personName: string, authorName?: string) => {
-    if (authorName) {
-      // Navigate to friend's date (person they're dating)
-      router.push(`/person/${personName.toLowerCase()}?friendUsername=${authorName.toLowerCase()}&isOwnRoster=false`);
-    } else {
-      // Navigate to your own roster
-      router.push(`/person/${personName.toLowerCase()}?isOwnRoster=true`);
-    }
-  };
-
-  const handlePersonHistoryPress = (personName: string, authorName?: string) => {
-    if (authorName) {
-      // Navigate to friend's date profile
-      router.push(`/person/${personName.toLowerCase()}?friendUsername=${authorName.toLowerCase()}&isOwnRoster=false`);
-    } else {
-      // Navigate to your own roster profile
-      router.push(`/person/${personName.toLowerCase()}?isOwnRoster=true`);
-    }
-  };
-
   const handleAuthorPress = (authorName: string) => {
     // Navigate to the friend's profile who posted the update
     router.push(`/profile/${authorName.toLowerCase()}`);
@@ -110,8 +90,24 @@ export default function FeedScreen() {
         isRefreshing={isRefreshing || isLoading}
         onRefresh={handleRefresh}
         onDatePress={(dateId) => console.log(`Navigate to date detail ${dateId}`)}
-        onPersonPress={handlePersonPress}
-        onPersonHistoryPress={handlePersonHistoryPress}
+        onPersonPress={(personName, authorName) => {
+          if (authorName && authorName !== 'You') {
+            // This is a friend's date - navigate to friend's view of this person
+            router.push(`/person/${personName.toLowerCase()}?friendUsername=${authorName.toLowerCase()}&isOwnRoster=false`);
+          } else {
+            // This is your own date
+            router.push(`/person/${personName.toLowerCase()}?isOwnRoster=true`);
+          }
+        }}
+        onPersonHistoryPress={(personName, authorName) => {
+          if (authorName && authorName !== 'You') {
+            // Navigate to friend's date profile
+            router.push(`/person/${personName.toLowerCase()}?friendUsername=${authorName.toLowerCase()}&isOwnRoster=false`);
+          } else {
+            // Navigate to your own roster
+            router.push(`/person/${personName.toLowerCase()}?isOwnRoster=true`);
+          }
+        }}
         onAuthorPress={handleAuthorPress}
         onLike={handleLike}
         onComment={handleComment}

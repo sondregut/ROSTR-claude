@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,92 +10,136 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthButton } from '@/components/ui/auth/AuthButton';
-import { Colors } from '@/constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
+import { AuthOptionsModal } from '@/components/ui/modals/AuthOptionsModal';
+import { supabase } from '@/lib/supabase';
 
 export default function WelcomeScreen() {
   const router = useRouter();
   const { devSkipAuth } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const handleCreateAccount = () => {
-    router.push('/(auth)/phone-auth');
+    router.push('/(auth)/create-account');
   };
 
   const handleSignIn = () => {
-    router.push('/(auth)/signin');
+    setShowAuthModal(true);
   };
 
-  const handleSkipSignIn = () => {
-    // For development: bypass authentication and go directly to main app
-    devSkipAuth();
-    // The AuthenticatedApp component will handle the navigation automatically
+  const handleTroubleSigningIn = () => {
+    router.push('/(auth)/trouble-signin');
+  };
+
+  // Temporary function to clear session for testing
+  const handleClearSession = async () => {
+    try {
+      await supabase.auth.signOut();
+      console.log('Session cleared successfully');
+    } catch (error) {
+      console.error('Error clearing session:', error);
+    }
   };
 
   return (
-    <View style={styles.fullScreen}>
+    <>
       <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
-      <LinearGradient 
-        colors={[Colors.light.primary, Colors.light.secondary]} 
-        style={styles.container}
-        start={{ x: 0.1, y: 0.2 }}
-        end={{ x: 0.9, y: 1.0 }}
-      >
-        <SafeAreaView style={styles.safeArea} edges={[]}>
+      <View style={styles.container}>
+        {/* Tinder-style gradient background */}
+        <LinearGradient 
+          colors={['#FE5268', '#FE6B73']} 
+          style={StyleSheet.absoluteFillObject}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        />
         
-        <View style={styles.content}>
-          {/* App Branding */}
-          <View style={styles.brandingContainer}>
-            <Text style={styles.appName}>RostrDating</Text>
-          </View>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+          <View style={styles.content}>
+            {/* Logo and App Name */}
+            <View style={styles.brandingContainer}>
+              <View style={styles.logoContainer}>
+                <Ionicons name="flame" size={80} color="white" />
+              </View>
+              <Text style={styles.appName}>rostr</Text>
+            </View>
 
-          {/* Action Buttons */}
-          <View style={styles.buttonContainer}>
-            <AuthButton
-              title="CREATE ACCOUNT"
-              onPress={handleCreateAccount}
-              variant="primary"
-              style={styles.createButton}
-              textStyle={styles.createButtonText}
-            />
-            
-            <AuthButton
-              title="SIGN IN"
-              onPress={handleSignIn}
-              variant="outline"
-              style={styles.signInButton}
-              textStyle={styles.signInButtonText}
-            />
+            {/* Bottom Section */}
+            <View style={styles.bottomSection}>
+              {/* Legal Text */}
+              <View style={styles.legalContainer}>
+                <Text style={styles.legalText}>
+                  By tapping "Create account" or "Sign in", you agree to our{' '}
+                  <Text style={styles.legalLink}>Terms</Text>. Learn how we process your data in our{' '}
+                  <Text style={styles.legalLink}>Privacy Policy</Text> and{' '}
+                  <Text style={styles.legalLink}>Cookies Policy</Text>.
+                </Text>
+              </View>
 
-            {/* Dev Skip Button */}
-            <AuthButton
-              title="SKIP SIGN IN (DEV)"
-              onPress={handleSkipSignIn}
-              variant="text"
-              style={styles.skipButton}
-              textStyle={styles.skipButtonText}
-            />
-            
-            <View style={styles.legalContainer}>
-              <Text style={styles.legalText}>
-                By tapping Create Account or Sign In, you agree to our{' '}
-                <Text style={styles.legalLink}>Terms</Text>. Learn how we process your data in our{' '}
-                <Text style={styles.legalLink}>Privacy Policy</Text> and{' '}
-                <Text style={styles.legalLink}>Cookies Policy</Text>.
-              </Text>
+              {/* Action Buttons */}
+              <View style={styles.buttonContainer}>
+                <Pressable
+                  style={styles.createButton}
+                  onPress={handleCreateAccount}
+                >
+                  <Text style={styles.createButtonText}>CREATE ACCOUNT</Text>
+                </Pressable>
+                
+                <Pressable
+                  style={styles.signInButton}
+                  onPress={handleSignIn}
+                >
+                  <Text style={styles.signInButtonText}>SIGN IN</Text>
+                </Pressable>
+              </View>
+
+              {/* Trouble signing in */}
+              <Pressable
+                onPress={handleTroubleSigningIn}
+                style={styles.troubleButton}
+              >
+                <Text style={styles.troubleText}>Trouble signing in?</Text>
+              </Pressable>
+
+              {/* Dev Mode Buttons */}
+              {__DEV__ && (
+                <View style={styles.devButtonsContainer}>
+                  <Pressable
+                    onPress={handleClearSession}
+                    style={[styles.troubleButton, { marginTop: 10 }]}
+                  >
+                    <Text style={[styles.troubleText, { fontSize: 12, opacity: 0.7 }]}>
+                      [DEV] Clear Session
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={async () => {
+                      const { testSupabaseSSLConnection } = await import('@/utils/testSSLConnection');
+                      await testSupabaseSSLConnection();
+                    }}
+                    style={[styles.troubleButton, { marginTop: 5 }]}
+                  >
+                    <Text style={[styles.troubleText, { fontSize: 12, opacity: 0.7 }]}>
+                      [DEV] Test SSL Connection
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
           </View>
-        </View>
         </SafeAreaView>
-      </LinearGradient>
-    </View>
+
+        {/* Auth Options Modal */}
+        <AuthOptionsModal 
+          visible={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+        />
+      </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  fullScreen: {
-    flex: 1,
-    backgroundColor: Colors.light.primary, // Fallback color
-  },
   container: {
     flex: 1,
   },
@@ -104,74 +148,80 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 32,
+    paddingHorizontal: 40,
     justifyContent: 'space-between',
-    paddingTop: 120, // Increased for full screen
-    paddingBottom: 80, // Increased for full screen
   },
   brandingContainer: {
-    alignItems: 'center',
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoContainer: {
+    marginBottom: 16,
   },
   appName: {
-    fontSize: 48,
+    fontSize: 56,
     fontWeight: '700',
     color: 'white',
-    textAlign: 'center',
-    letterSpacing: 1,
+    letterSpacing: -1,
+    textTransform: 'lowercase',
   },
-  buttonContainer: {
-    gap: 16,
-  },
-  createButton: {
-    backgroundColor: 'white',
-    borderRadius: 24,
-    minHeight: 48,
-    marginBottom: 8,
-  },
-  createButtonText: {
-    color: Colors.light.primary,
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  signInButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'white',
-    borderRadius: 24,
-    minHeight: 48,
-  },
-  signInButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+  bottomSection: {
+    paddingBottom: 20,
   },
   legalContainer: {
-    marginTop: 24,
-    paddingHorizontal: 8,
+    marginBottom: 32,
+    paddingHorizontal: 16,
   },
   legalText: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'white',
     textAlign: 'center',
     lineHeight: 16,
   },
   legalLink: {
     textDecorationLine: 'underline',
-    color: 'white',
+    fontWeight: '600',
   },
-  skipButton: {
+  buttonContainer: {
+    gap: 12,
+  },
+  createButton: {
+    backgroundColor: 'white',
+    paddingVertical: 16,
+    borderRadius: 30,
+    alignItems: 'center',
+  },
+  createButtonText: {
+    color: '#FE5268',
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  signInButton: {
     backgroundColor: 'transparent',
-    paddingVertical: 8,
-    marginTop: 16,
+    borderWidth: 2,
+    borderColor: 'white',
+    paddingVertical: 16,
+    borderRadius: 30,
+    alignItems: 'center',
   },
-  skipButtonText: {
-    color: 'rgba(255, 255, 255, 0.7)',
+  signInButtonText: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  troubleButton: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  troubleText: {
+    color: 'white',
     fontSize: 14,
     fontWeight: '500',
-    letterSpacing: 0.5,
+  },
+  devButtonsContainer: {
+    alignItems: 'center',
   },
 });

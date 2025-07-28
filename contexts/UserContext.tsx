@@ -25,14 +25,7 @@ interface UserProfile {
     dating: {
       lookingFor: string;
       ageRange: string;
-      distance: string;
       education: string;
-    };
-    lifestyle: {
-      drinking: string;
-      smoking: string;
-      exercise: string;
-      diet: string;
     };
     dealBreakers: string[];
   };
@@ -74,14 +67,7 @@ const DEFAULT_PROFILE: UserProfile = {
     dating: {
       lookingFor: 'Serious Relationship',
       ageRange: '25-35',
-      distance: 'Within 25 miles',
       education: 'College+',
-    },
-    lifestyle: {
-      drinking: 'Socially',
-      smoking: 'Never',
-      exercise: 'Regularly',
-      diet: 'No restrictions',
     },
     dealBreakers: ['Smoking', 'No sense of humor', 'Rude to service staff', 'Always late', 'Poor hygiene']
   }

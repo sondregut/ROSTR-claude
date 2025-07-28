@@ -113,6 +113,9 @@ export class AuthService {
       if (error) {
         throw error;
       }
+      
+      // Force clear the session to ensure clean sign out
+      await supabase.auth.getSession();
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
@@ -174,18 +177,56 @@ export class AuthService {
    * Send OTP to phone number
    */
   static async sendPhoneOtp(phone: string) {
+    const cleanPhone = phone.replace(/\s+/g, '');
+    console.log('📱 Attempting to send OTP to:', cleanPhone);
+    
+    // Check if Supabase client is properly initialized
+    if (!supabase) {
+      throw new Error('Supabase client not initialized');
+    }
+    
     try {
+      console.log('🔄 Sending OTP request...');
+      
       const { data, error } = await supabase.auth.signInWithOtp({
-        phone: phone.replace(/\s+/g, ''),
+        phone: cleanPhone,
+        options: {
+          shouldCreateUser: true,
+          channel: 'sms',
+        }
       });
 
       if (error) {
+        console.error('❌ Supabase error:', {
+          message: error.message,
+          status: error.status,
+          name: error.name,
+        });
+        
+        // Handle specific errors
+        if (error.message?.includes('Phone provider is not configured')) {
+          throw new Error('Phone authentication is not configured. Please use email signup instead.');
+        } else if (error.message?.includes('Invalid phone')) {
+          throw new Error('Invalid phone number format. Please include country code (e.g., +1 for US).');
+        } else if (error.status === 429) {
+          throw new Error('Too many attempts. Please wait a moment before trying again.');
+        } else if (error.message?.includes('Network request failed') || error.message?.includes('fetch failed')) {
+          console.error('🌐 Network request failed - debugging info:');
+          console.error('URL:', process.env.EXPO_PUBLIC_SUPABASE_URL);
+          console.error('Error full:', error);
+          
+          throw new Error('Unable to connect to the server. Please check your internet connection and try again.');
+        } else if (error.message?.includes('No API key found')) {
+          throw new Error('Configuration error. Please contact support.');
+        }
+        
         throw error;
       }
 
+      console.log('✅ SMS sent successfully:', data);
       return data;
-    } catch (error) {
-      console.error('Send phone OTP error:', error);
+    } catch (error: any) {
+      console.error('💥 Send phone OTP error:', error);
       throw error;
     }
   }
@@ -231,5 +272,80 @@ export class AuthService {
    */
   static onAuthStateChange(callback: (event: string, session: any) => void) {
     return supabase.auth.onAuthStateChange(callback);
+  }
+
+  /**
+   * Link Apple account to existing user
+   */
+  static async linkAppleAccount(appleCredential: {
+    identityToken: string;
+    user: string;
+    email?: string | null;
+    fullName?: {
+      givenName?: string | null;
+      familyName?: string | null;
+    } | null;
+  }) {
+    try {
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: appleCredential.identityToken,
+        options: {
+          data: {
+            apple_user_id: appleCredential.user,
+            email: appleCredential.email,
+            full_name: appleCredential.fullName,
+          },
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      // Update user metadata if we got new information
+      if (appleCredential.fullName?.givenName && data.user) {
+        await supabase.auth.updateUser({
+          data: {
+            first_name: appleCredential.fullName.givenName,
+            last_name: appleCredential.fullName.familyName,
+          },
+        });
+      }
+
+      return { user: data.user, session: data.session };
+    } catch (error) {
+      console.error('Link Apple account error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Sign in with Apple
+   */
+  static async signInWithApple(appleCredential: {
+    identityToken: string;
+    user: string;
+    email?: string | null;
+    fullName?: {
+      givenName?: string | null;
+      familyName?: string | null;
+    } | null;
+  }) {
+    try {
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: appleCredential.identityToken,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return { user: data.user, session: data.session };
+    } catch (error) {
+      console.error('Apple sign in error:', error);
+      throw error;
+    }
   }
 }

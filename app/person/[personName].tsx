@@ -15,7 +15,9 @@ import { Colors } from '@/constants/Colors';
 import { Button } from '@/components/ui/buttons/Button';
 import { DateCard } from '@/components/ui/cards/DateCard';
 import { CommentModal } from '@/components/ui/modals/CommentModal';
+import AddPlanModal, { PlanFormData } from '@/components/ui/modals/AddPlanModal';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useDates } from '@/contexts/DateContext';
 import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
 
 // Friend dating data - represents friends' perspectives on their dates
@@ -672,6 +674,9 @@ export default function UnifiedPersonDetailScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedDateId, setSelectedDateId] = useState<string | null>(null);
+  const [addPlanModalVisible, setAddPlanModalVisible] = useState(false);
+  
+  const { plans, addPlan } = useDates();
   
   // Determine context: own roster vs friend's date
   const isViewingOwnRoster = isOwnRoster === 'true' || (!friendUsername && !isOwnRoster);
@@ -734,6 +739,12 @@ export default function UnifiedPersonDetailScreen() {
     console.log('Submit comment:', text, 'for date:', selectedDateId);
     setCommentModalVisible(false);
     setSelectedDateId(null);
+  };
+
+  const handleAddPlan = async (planData: PlanFormData) => {
+    if (personData?.name) {
+      await addPlan(planData, personData.name);
+    }
   };
 
   return (
@@ -968,42 +979,66 @@ export default function UnifiedPersonDetailScreen() {
 
           {activeTab === 'plans' && (
             <View style={styles.plansContent}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Upcoming Plans</Text>
+              <View style={styles.plansHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Upcoming Plans</Text>
+                {isViewingOwnRoster && (
+                  <Pressable
+                    style={[styles.addPlanButton, { backgroundColor: colors.primary }]}
+                    onPress={() => setAddPlanModalVisible(true)}
+                  >
+                    <Ionicons name="calendar" size={16} color="white" />
+                    <Text style={styles.addPlanText}>Plan Date</Text>
+                  </Pressable>
+                )}
+              </View>
               
-              {personData.nextDate.planned ? (
-                <View style={[styles.nextDateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <View style={styles.nextDateHeader}>
-                    <Text style={[styles.nextDateTitle, { color: colors.text }]}>Next Date Planned</Text>
-                    <Text style={[styles.nextDateDate, { color: colors.primary }]}>
-                      {personData.nextDate.date}
-                    </Text>
-                  </View>
-                  <Text style={[styles.nextDateActivity, { color: colors.text }]}>
-                    {personData.nextDate.activity}
-                  </Text>
-                  <Text style={[styles.nextDateLocation, { color: colors.textSecondary }]}>
-                    📍 {personData.nextDate.location}
-                  </Text>
-                  <View style={styles.excitementLevel}>
-                    <Text style={[styles.excitementLabel, { color: colors.textSecondary }]}>
-                      Excitement Level:
-                    </Text>
-                    <Text style={[styles.excitementScore, { color: colors.primary }]}>
-                      {personData.nextDate.excitement}/10
-                    </Text>
-                  </View>
+              {/* Show plans from context for this person */}
+              {plans.filter(plan => plan.personName.toLowerCase() === personData?.name?.toLowerCase()).length > 0 ? (
+                <View style={styles.plansList}>
+                  {plans
+                    .filter(plan => plan.personName.toLowerCase() === personData?.name?.toLowerCase())
+                    .map((plan) => (
+                      <View
+                        key={plan.id}
+                        style={[styles.planCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      >
+                        <View style={styles.planHeader}>
+                          <Ionicons name="calendar" size={24} color={colors.primary} />
+                          <View style={styles.planInfo}>
+                            <Text style={[styles.planActivity, { color: colors.text }]}>
+                              {plan.location}
+                            </Text>
+                            <Text style={[styles.planDateTime, { color: colors.textSecondary }]}>
+                              {plan.date}{plan.time ? ` • ${plan.time}` : ''}
+                            </Text>
+                          </View>
+                        </View>
+                        {plan.content && (
+                          <Text style={[styles.planNotes, { color: colors.text }]}>
+                            {plan.content}
+                          </Text>
+                        )}
+                        {isViewingOwnRoster && (
+                          <View style={styles.planActions}>
+                            <Pressable style={[styles.planActionButton, { backgroundColor: colors.primary }]}>
+                              <Text style={styles.planActionText}>Add Details</Text>
+                            </Pressable>
+                          </View>
+                        )}
+                      </View>
+                    ))}
                 </View>
               ) : (
                 <View style={[styles.noPlansCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Ionicons name="calendar-outline" size={48} color={colors.textSecondary} />
                   <Text style={[styles.noPlansText, { color: colors.textSecondary }]}>
-                    No upcoming plans scheduled
+                    {isViewingOwnRoster ? 'No upcoming plans scheduled' : 'No plans visible'}
                   </Text>
-                  <Button
-                    title="Plan Next Date"
-                    variant="primary"
-                    onPress={() => console.log('Plan date')}
-                    style={styles.planButton}
-                  />
+                  {isViewingOwnRoster && (
+                    <Text style={[styles.noPlansSubtext, { color: colors.textSecondary }]}>
+                      Plan your next date to keep track of upcoming activities!
+                    </Text>
+                  )}
                 </View>
               )}
             </View>
@@ -1023,6 +1058,16 @@ export default function UnifiedPersonDetailScreen() {
           dateId={selectedDateId}
           personName={personData.name}
           existingComments={[]}
+        />
+      )}
+
+      {/* Add Plan Modal */}
+      {personData && (
+        <AddPlanModal
+          visible={addPlanModalVisible}
+          onClose={() => setAddPlanModalVisible(false)}
+          onSubmit={handleAddPlan}
+          personName={personData.name}
         />
       )}
     </SafeAreaView>
@@ -1310,6 +1355,48 @@ const styles = StyleSheet.create({
   plansContent: {
     gap: 16,
   },
+  plansHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  addPlanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  addPlanText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  plansList: {
+    gap: 12,
+  },
+  planCard: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  planActions: {
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  planActionButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  planActionText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   nextDateCard: {
     padding: 16,
     borderRadius: 12,
@@ -1357,6 +1444,12 @@ const styles = StyleSheet.create({
   },
   noPlansText: {
     fontSize: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  noPlansSubtext: {
+    fontSize: 14,
+    textAlign: 'center',
     marginBottom: 16,
   },
   planButton: {

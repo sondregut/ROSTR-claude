@@ -29,7 +29,7 @@ export default function AuthMethodScreen() {
   };
 
   return (
-    <View style={styles.fullScreen}>
+    <>
       <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
       <LinearGradient 
         colors={[Colors.light.primary, Colors.light.secondary]} 
@@ -38,8 +38,7 @@ export default function AuthMethodScreen() {
         end={{ x: 0.9, y: 1.0 }}
       >
         <SafeAreaView style={styles.safeArea} edges={[]}>
-        
-        <View style={styles.content}>
+          <View style={styles.content}>
           {/* Header with back button */}
           <View style={styles.header}>
             <Pressable
@@ -96,18 +95,14 @@ export default function AuthMethodScreen() {
               </Text>
             </View>
           </View>
-        </View>
-      </SafeAreaView>
-    </LinearGradient>
-    </View>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  fullScreen: {
-    flex: 1,
-    backgroundColor: Colors.light.primary,
-  },
   container: {
     flex: 1,
   },

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ export function Avatar({
   backgroundColor = Colors.light.primary,
   textColor = 'white' 
 }: AvatarProps) {
+  const [imageError, setImageError] = useState(false);
   
   const getInitials = (fullName: string) => {
     const names = fullName.trim().split(' ');
@@ -36,7 +37,7 @@ export function Avatar({
       width: size,
       height: size,
       borderRadius: size / 2,
-      backgroundColor: uri ? 'transparent' : backgroundColor,
+      backgroundColor: (!uri || imageError) ? backgroundColor : 'transparent',
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
@@ -53,13 +54,16 @@ export function Avatar({
     },
   });
 
+  const showPlaceholder = !uri || imageError;
+
   return (
     <View style={styles.container}>
-      {uri ? (
+      {!showPlaceholder ? (
         <Image
           source={{ uri }}
           style={styles.image}
           resizeMode="cover"
+          onError={() => setImageError(true)}
         />
       ) : (
         <Text style={styles.initials}>

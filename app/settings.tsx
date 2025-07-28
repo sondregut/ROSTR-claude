@@ -1,23 +1,53 @@
 import React from 'react';
-import { StyleSheet, View, Text, Pressable, useColorScheme as useRNColorScheme } from 'react-native';
+import { StyleSheet, View, Text, Pressable, useColorScheme as useRNColorScheme, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { themeMode, setThemeMode } = useTheme();
+  const { signOut } = useAuth();
+  const router = useRouter();
 
   const themeOptions = [
     { value: 'system' as const, label: 'System', icon: 'phone-portrait-outline' as const },
     { value: 'light' as const, label: 'Light', icon: 'sunny-outline' as const },
     { value: 'dark' as const, label: 'Dark', icon: 'moon-outline' as const },
   ];
+
+  const handleSignOut = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut();
+              // The navigation will be handled automatically by AuthenticatedApp
+              // when isAuthenticated becomes false
+            } catch (error) {
+              console.error('Sign out error:', error);
+              Alert.alert('Error', 'Failed to sign out. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
@@ -73,6 +103,16 @@ export default function SettingsScreen() {
             <Text style={[styles.aboutLabel, { color: colors.textSecondary }]}>Version</Text>
             <Text style={[styles.aboutValue, { color: colors.text }]}>1.0.0</Text>
           </View>
+        </View>
+
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Pressable
+            style={[styles.signOutButton, { backgroundColor: colors.error }]}
+            onPress={handleSignOut}
+          >
+            <Ionicons name="log-out-outline" size={24} color="white" />
+            <Text style={styles.signOutButtonText}>Sign Out</Text>
+          </Pressable>
         </View>
       </View>
     </SafeAreaView>
@@ -131,5 +171,18 @@ const styles = StyleSheet.create({
   aboutValue: {
     fontSize: 16,
     fontWeight: '500',
+  },
+  signOutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+  },
+  signOutButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

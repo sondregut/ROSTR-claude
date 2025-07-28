@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 
 interface AuthButtonProps {
   onPress: () => void;
@@ -37,8 +36,8 @@ export function AuthButton({
   rightIcon,
   fullWidth = true,
 }: AuthButtonProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  // Force light mode for auth components
+  const colors = Colors.light;
 
   const getButtonStyles = (): ViewStyle => {
     const baseStyle: ViewStyle = {

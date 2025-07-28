@@ -14,12 +14,11 @@ import { AuthTextInput } from '@/components/ui/auth/AuthTextInput';
 import { AuthButton } from '@/components/ui/auth/AuthButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function SignInScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  // Force light mode for onboarding
+  const colors = Colors.light;
   const { signIn, isLoading, error, clearError } = useAuth();
 
   const [formData, setFormData] = useState({

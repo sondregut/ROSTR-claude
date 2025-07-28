@@ -78,7 +78,10 @@ export function DateCard({
   return (
     <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={styles.header}>
-        <View style={styles.avatarContainer}>
+        <Pressable 
+          style={styles.avatarContainer}
+          onPress={authorName ? onAuthorPress : onPersonPress}
+        >
           {authorAvatar ? (
             <Image source={{ uri: authorAvatar }} style={styles.avatar} />
           ) : imageUri ? (
@@ -90,16 +93,17 @@ export function DateCard({
               </Text>
             </View>
           )}
-        </View>
-        <View style={styles.headerInfo}>
+        </Pressable>
+        <Pressable 
+          style={styles.headerInfo}
+          onPress={authorName ? onAuthorPress : onPersonPress}
+        >
           <View style={styles.nameRow}>
-            <Pressable onPress={authorName ? onAuthorPress : onPersonPress}>
-              <Text style={[styles.personName, { color: colors.text }]}>
-                {authorName || personName}
-              </Text>
-            </Pressable>
+            <Text style={[styles.personName, { color: colors.text }]}>
+              {authorName || personName}
+            </Text>
           </View>
-        </View>
+        </Pressable>
         <Text style={[styles.dateTime, { color: colors.textSecondary }]}>{date}</Text>
       </View>
 
@@ -113,7 +117,12 @@ export function DateCard({
             </Text>
             <Text style={[styles.dateSeparator, { color: colors.textSecondary }]}>•</Text>
             <Text style={[styles.dateWithText, { color: colors.textSecondary }]}>Date with</Text>
-            <Pressable onPress={onPersonHistoryPress}>
+            <Pressable onPress={() => {
+              // If this is a friend's date (has authorName), we need to navigate differently
+              if (onPersonHistoryPress) {
+                onPersonHistoryPress();
+              }
+            }}>
               <Text style={[styles.clickablePersonName, { color: colors.primary }]}>
                 {personName}
               </Text>
@@ -183,6 +192,7 @@ export function DateCard({
         <Pressable 
           style={styles.actionButton} 
           onPress={onLike}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           accessibilityRole="button"
           accessibilityLabel={isLiked ? "Unlike" : "Like"}
         >
@@ -204,6 +214,7 @@ export function DateCard({
         <Pressable 
           style={styles.actionButton} 
           onPress={onComment}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           accessibilityRole="button"
           accessibilityLabel="Comment"
         >

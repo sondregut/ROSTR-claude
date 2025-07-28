@@ -1,3 +1,18 @@
+// Import URL polyfill first - CRITICAL for React Native
+import 'react-native-url-polyfill/auto';
+
+// Verify URL polyfill is working
+if (typeof URL === 'undefined') {
+  console.error('❌ URL polyfill failed to load!');
+} else {
+  console.log('✅ URL polyfill loaded successfully');
+}
+
+// Network debugging in development
+if (__DEV__) {
+  require('@/utils/networkDebug');
+}
+
 import React from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';

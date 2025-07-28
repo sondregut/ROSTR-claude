@@ -15,18 +15,19 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-// Create Supabase client with AsyncStorage for session persistence
+// Log configuration for debugging
+console.log('🔧 Initializing Supabase client...');
+console.log('📍 URL:', supabaseUrl);
+console.log('🔑 Key:', supabaseAnonKey.substring(0, 20) + '...');
+
+
+// Create Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10,
-    },
   },
 });
 

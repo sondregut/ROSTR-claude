@@ -5,7 +5,6 @@ import { Dropdown } from '@/components/ui/inputs/Dropdown';
 interface DatingPreferences {
   lookingFor: string;
   ageRange: string;
-  distance: string;
   education: string;
 }
 
@@ -27,15 +26,6 @@ const AGE_RANGE_OPTIONS = [
   { label: '35-45', value: '35-45' },
   { label: '45-55', value: '45-55' },
   { label: '55+', value: '55+' },
-];
-
-const DISTANCE_OPTIONS = [
-  { label: 'Within 5 miles', value: 'Within 5 miles' },
-  { label: 'Within 10 miles', value: 'Within 10 miles' },
-  { label: 'Within 25 miles', value: 'Within 25 miles' },
-  { label: 'Within 50 miles', value: 'Within 50 miles' },
-  { label: 'Within 100 miles', value: 'Within 100 miles' },
-  { label: 'Anywhere', value: 'Anywhere' },
 ];
 
 const EDUCATION_OPTIONS = [
@@ -72,13 +62,6 @@ export function DatingPreferencesEditForm({
         value={preferences.ageRange}
         options={AGE_RANGE_OPTIONS}
         onValueChange={(value) => handleChange('ageRange', value)}
-      />
-
-      <Dropdown
-        label="Distance"
-        value={preferences.distance}
-        options={DISTANCE_OPTIONS}
-        onValueChange={(value) => handleChange('distance', value)}
       />
 
       <Dropdown

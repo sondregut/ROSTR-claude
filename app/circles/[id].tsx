@@ -18,7 +18,11 @@ import { DateCard } from '@/components/ui/cards/DateCard';
 import { CommentModal } from '@/components/ui/modals/CommentModal';
 import { MemberCard, type MemberData, type MemberRole, type OnlineStatus } from '@/components/ui/cards/MemberCard';
 import { CircleStatsCard } from '@/components/ui/cards/CircleStatsCard';
+import { CircleChat } from '@/components/ui/chat/CircleChat';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { getCurrentUser } from '@/lib/supabase';
+import { useCirclePermissions } from '@/hooks/useCirclePermissions';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Mock data - in real app, this would come from database
 const MOCK_CIRCLE_DATA = {
@@ -92,15 +96,25 @@ export default function CircleDetailScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { user } = useAuth();
+  const permissions = useCirclePermissions(id as string);
   
   const [isActive, setIsActive] = useState(true);
-  const [activeTab, setActiveTab] = useState<'activity' | 'members' | 'insights'>('activity');
+  const [activeTab, setActiveTab] = useState<'activity' | 'chat' | 'members' | 'insights'>('activity');
   const [updates, setUpdates] = useState(MOCK_CIRCLE_DATA[id as keyof typeof MOCK_CIRCLE_DATA]?.recentUpdates || []);
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedUpdateId, setSelectedUpdateId] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   
   // Get circle data - in real app, this would be fetched from database
   const circleData = MOCK_CIRCLE_DATA[id as keyof typeof MOCK_CIRCLE_DATA] || MOCK_CIRCLE_DATA['1'];
+  
+  // Get current user from auth context
+  const currentUser = {
+    id: user?.id || '1',
+    name: user?.user_metadata?.name || 'User',
+    avatar: user?.user_metadata?.avatar_url || ''
+  };
   
   const handleLike = (updateId: string) => {
     setUpdates(updates.map(update => 
@@ -176,7 +190,8 @@ export default function CircleDetailScreen() {
     <MemberCard
       member={item}
       onPress={() => router.push(`/profile/${item.username}`)}
-      currentUserRole="owner" // This would be dynamic based on current user
+      currentUserRole={permissions.role || 'member'}
+      showActions={false} // Remove the ... buttons as requested
     />
   );
   
@@ -233,9 +248,14 @@ export default function CircleDetailScreen() {
               <Ionicons name="person-add-outline" size={18} color={colors.text} />
               <Text style={[styles.navButtonText, { color: colors.text }]}>Invite</Text>
             </Pressable>
-            <Pressable style={styles.navButton}>
-              <Ionicons name="settings-outline" size={20} color={colors.text} />
-            </Pressable>
+            {permissions.canEditCircle && (
+              <Pressable 
+                style={styles.navButton}
+                onPress={() => router.push(`/circles/${id}/settings`)}
+              >
+                <Ionicons name="settings-outline" size={20} color={colors.text} />
+              </Pressable>
+            )}
           </View>
         </View>
         
@@ -273,6 +293,32 @@ export default function CircleDetailScreen() {
             ]}>
               Activity
             </Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.tab,
+              activeTab === 'chat' && [styles.activeTab, { backgroundColor: colors.background }]
+            ]}
+            onPress={() => setActiveTab('chat')}
+          >
+            <View style={styles.tabWithBadge}>
+              <Ionicons 
+                name="chatbubbles" 
+                size={20} 
+                color={activeTab === 'chat' ? colors.text : colors.textSecondary} 
+              />
+              <Text style={[
+                styles.tabText,
+                { color: activeTab === 'chat' ? colors.text : colors.textSecondary }
+              ]}>
+                Chat
+              </Text>
+              {unreadCount > 0 && (
+                <View style={[styles.badge, { backgroundColor: colors.error }]}>
+                  <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                </View>
+              )}
+            </View>
           </Pressable>
           <Pressable
             style={[
@@ -319,6 +365,15 @@ export default function CircleDetailScreen() {
                   </Text>
                 </View>
               }
+            />
+          ) : activeTab === 'chat' ? (
+            <CircleChat
+              circleId={id as string}
+              circleName={circleData.name}
+              members={circleData.members}
+              currentUserId={currentUser.id}
+              currentUserName={currentUser.name}
+              currentUserAvatar={currentUser.avatar}
             />
           ) : activeTab === 'members' ? (
             <FlatList
@@ -686,5 +741,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 2,
     fontWeight: '500',
+  },
+  tabWithBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 11,
+    fontWeight: '700',
   },
 });
