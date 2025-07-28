@@ -15,7 +15,7 @@ import { Colors } from '@/constants/Colors';
 import { Button } from '@/components/ui/buttons/Button';
 import { DateCard } from '@/components/ui/cards/DateCard';
 import { CommentModal } from '@/components/ui/modals/CommentModal';
-import AddPlanModal, { PlanFormData } from '@/components/ui/modals/AddPlanModal';
+import { AddPlanModal, PlanFormData } from '@/components/ui/modals/AddPlanModal';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useDates } from '@/contexts/DateContext';
 import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';

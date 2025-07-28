@@ -18,6 +18,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
 import { ThemeProvider as AppThemeProvider, useTheme } from '@/contexts/ThemeContext';
@@ -41,20 +42,11 @@ function RootLayoutNav() {
           screenOptions={{
             gestureEnabled: true,
             gestureDirection: 'horizontal',
-            gestureResponseDistance: 50,
             fullScreenGestureEnabled: true,
           }}
         >
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen 
-            name="roster/[id]" 
-            options={{ 
-              headerShown: false,
-              gestureEnabled: true,
-              gestureDirection: 'horizontal',
-            }} 
-          />
           <Stack.Screen 
             name="circles/[id]" 
             options={{ 
@@ -72,11 +64,18 @@ function RootLayoutNav() {
             }} 
           />
           <Stack.Screen 
+            name="person/[personName]" 
+            options={{ 
+              headerShown: false,
+              gestureEnabled: true,
+              gestureDirection: 'horizontal',
+            }} 
+          />
+          <Stack.Screen 
             name="settings" 
             options={{ 
               presentation: 'modal',
               gestureDirection: 'vertical',
-              gestureResponseDistance: 100,
             }} 
           />
           <Stack.Screen name="+not-found" />
@@ -107,14 +106,16 @@ export default function RootLayout() {
   }
 
   return (
-    <AppThemeProvider>
-      <AuthProvider>
-        <UserProvider>
-          <DateProvider>
-            <RootLayoutNav />
-          </DateProvider>
-        </UserProvider>
-      </AuthProvider>
-    </AppThemeProvider>
+    <SafeAreaProvider>
+      <AppThemeProvider>
+        <AuthProvider>
+          <UserProvider>
+            <DateProvider>
+              <RootLayoutNav />
+            </DateProvider>
+          </UserProvider>
+        </AuthProvider>
+      </AppThemeProvider>
+    </SafeAreaProvider>
   );
 }
