@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase';
 export default function NameSetupScreen() {
   const router = useRouter();
   const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleBack = () => {
@@ -31,8 +32,13 @@ export default function NameSetupScreen() {
       return;
     }
 
-    if (firstName.trim().length < 2) {
-      Alert.alert('Error', 'Name must be at least 2 characters');
+    if (!lastName.trim()) {
+      Alert.alert('Error', 'Please enter your last name');
+      return;
+    }
+
+    if (firstName.trim().length < 2 || lastName.trim().length < 2) {
+      Alert.alert('Error', 'Names must be at least 2 characters');
       return;
     }
 
@@ -40,24 +46,49 @@ export default function NameSetupScreen() {
       setIsLoading(true);
       Keyboard.dismiss();
       
-      // Update user's name in Supabase
-      const { error } = await supabase.auth.updateUser({
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('No authenticated user found');
+      }
+      
+      console.log('📝 Saving name for user:', user.id);
+      
+      // Update user's name in Supabase auth metadata
+      const fullName = `${firstName.trim()} ${lastName.trim()}`;
+      const { error: authError } = await supabase.auth.updateUser({
         data: {
           first_name: firstName.trim(),
-          name: firstName.trim(), // Also update display name
+          last_name: lastName.trim(),
+          name: fullName, // Full display name
         },
       });
 
-      if (error) {
-        throw error;
+      if (authError) {
+        console.error('❌ Auth update error:', authError);
+        throw authError;
       }
+
+      console.log('✅ Auth metadata updated');
+
+      // TODO: Profile creation is temporarily disabled due to schema issues
+      // Will be re-enabled after database migration in production
+      console.log('⏭️ Skipping profile creation, proceeding to birthday setup');
 
       // Navigate to birthday setup
       router.push('/(auth)/birthday-setup');
     } catch (error: any) {
-      console.error('Name update error:', error);
-      Alert.alert('Error', 'Failed to save name. Please try again.');
-    } finally {
+      console.error('❌ Name setup error:', error);
+      Alert.alert(
+        'Error', 
+        error.message || 'Failed to save name. Please try again.',
+        [
+          {
+            text: 'Try Again',
+            onPress: () => setIsLoading(false)
+          }
+        ]
+      );
       setIsLoading(false);
     }
   };
@@ -91,7 +122,7 @@ export default function NameSetupScreen() {
 
             {/* Title Section */}
             <View style={styles.titleSection}>
-              <Text style={styles.title}>My first name is</Text>
+              <Text style={styles.title}>My full name is</Text>
             </View>
 
             {/* Name Input Section */}
@@ -101,6 +132,18 @@ export default function NameSetupScreen() {
                 value={firstName}
                 onChangeText={setFirstName}
                 placeholder="First name"
+                placeholderTextColor="#999"
+                autoCapitalize="words"
+                autoCorrect={false}
+                maxLength={50}
+                editable={!isLoading}
+              />
+              
+              <TextInput
+                style={styles.nameInput}
+                value={lastName}
+                onChangeText={setLastName}
+                placeholder="Last name"
                 placeholderTextColor="#999"
                 autoCapitalize="words"
                 autoCorrect={false}
@@ -118,14 +161,14 @@ export default function NameSetupScreen() {
               <Pressable
                 style={[
                   styles.continueButton,
-                  !firstName.trim() && styles.continueButtonDisabled
+                  (!firstName.trim() || !lastName.trim()) && styles.continueButtonDisabled
                 ]}
                 onPress={handleContinue}
-                disabled={isLoading || !firstName.trim()}
+                disabled={isLoading || !firstName.trim() || !lastName.trim()}
               >
                 <Text style={[
                   styles.continueButtonText,
-                  !firstName.trim() && styles.continueButtonTextDisabled
+                  (!firstName.trim() || !lastName.trim()) && styles.continueButtonTextDisabled
                 ]}>
                   {isLoading ? 'SAVING...' : 'CONTINUE'}
                 </Text>

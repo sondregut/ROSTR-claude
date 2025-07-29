@@ -5,6 +5,7 @@ import {
   StyleSheet,
   StatusBar,
   Pressable,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -59,7 +60,11 @@ export default function WelcomeScreen() {
             {/* Logo and App Name */}
             <View style={styles.brandingContainer}>
               <View style={styles.logoContainer}>
-                <Ionicons name="flame" size={80} color="white" />
+                <Image 
+                  source={require('@/assets/images/rostr-logo.png')}
+                  style={styles.logo}
+                  resizeMode="contain"
+                />
               </View>
               <Text style={styles.appName}>rostr</Text>
             </View>
@@ -101,30 +106,6 @@ export default function WelcomeScreen() {
                 <Text style={styles.troubleText}>Trouble signing in?</Text>
               </Pressable>
 
-              {/* Dev Mode Buttons */}
-              {__DEV__ && (
-                <View style={styles.devButtonsContainer}>
-                  <Pressable
-                    onPress={handleClearSession}
-                    style={[styles.troubleButton, { marginTop: 10 }]}
-                  >
-                    <Text style={[styles.troubleText, { fontSize: 12, opacity: 0.7 }]}>
-                      [DEV] Clear Session
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={async () => {
-                      const { testSupabaseSSLConnection } = await import('@/utils/testSSLConnection');
-                      await testSupabaseSSLConnection();
-                    }}
-                    style={[styles.troubleButton, { marginTop: 5 }]}
-                  >
-                    <Text style={[styles.troubleText, { fontSize: 12, opacity: 0.7 }]}>
-                      [DEV] Test SSL Connection
-                    </Text>
-                  </Pressable>
-                </View>
-              )}
             </View>
           </View>
         </SafeAreaView>
@@ -158,6 +139,10 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     marginBottom: 16,
+  },
+  logo: {
+    width: 80,
+    height: 80,
   },
   appName: {
     fontSize: 56,

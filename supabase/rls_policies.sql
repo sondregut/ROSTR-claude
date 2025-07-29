@@ -38,13 +38,15 @@ CREATE POLICY "Circle owners can delete their circles" ON public.circles
   FOR DELETE USING (auth.uid() = owner_id);
 
 -- Circle members table policies
-CREATE POLICY "Users can view circle memberships" ON public.circle_members
+CREATE POLICY "Users can view their own memberships" ON public.circle_members
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Circle owners can view all memberships" ON public.circle_members
   FOR SELECT USING (
-    auth.uid() = user_id OR 
     EXISTS (
-      SELECT 1 FROM public.circle_members cm2 
-      WHERE cm2.circle_id = circle_members.circle_id 
-      AND cm2.user_id = auth.uid()
+      SELECT 1 FROM public.circles c 
+      WHERE c.id = circle_members.circle_id 
+      AND c.owner_id = auth.uid()
     )
   );
 
@@ -54,13 +56,21 @@ CREATE POLICY "Users can join circles" ON public.circle_members
 CREATE POLICY "Users can leave circles" ON public.circle_members
   FOR DELETE USING (auth.uid() = user_id);
 
-CREATE POLICY "Circle owners and admins can manage members" ON public.circle_members
-  FOR ALL USING (
+CREATE POLICY "Circle owners can manage members" ON public.circle_members
+  FOR UPDATE USING (
     EXISTS (
-      SELECT 1 FROM public.circle_members cm 
-      WHERE cm.circle_id = circle_members.circle_id 
-      AND cm.user_id = auth.uid() 
-      AND cm.role IN ('owner', 'admin')
+      SELECT 1 FROM public.circles c 
+      WHERE c.id = circle_members.circle_id 
+      AND c.owner_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Circle owners can remove members" ON public.circle_members
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1 FROM public.circles c 
+      WHERE c.id = circle_members.circle_id 
+      AND c.owner_id = auth.uid()
     )
   );
 

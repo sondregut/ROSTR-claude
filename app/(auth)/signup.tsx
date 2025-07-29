@@ -16,7 +16,6 @@ import { AuthButton } from '@/components/ui/auth/AuthButton';
 import { PhoneInput } from '@/components/ui/auth/PhoneInput';
 import { useAuth } from '@/contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
-import { runNetworkDiagnostics } from '@/utils/networkDebug';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -153,29 +152,6 @@ export default function SignUpScreen() {
     router.back();
   };
 
-  const handleNetworkTest = async () => {
-    Alert.alert(
-      'Network Diagnostics',
-      'Running network tests...\n\nThis will test connectivity to various endpoints.',
-      [
-        {
-          text: 'Run Test',
-          onPress: async () => {
-            try {
-              const results = await runNetworkDiagnostics();
-              const message = results.map(r => 
-                `${r.success ? '✅' : '❌'} ${r.name}: ${r.success ? 'OK' : r.error || 'Failed'}`
-              ).join('\n');
-              Alert.alert('Network Test Results', message);
-            } catch (error) {
-              Alert.alert('Test Failed', 'Could not complete network diagnostics');
-            }
-          }
-        },
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
-  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -320,15 +296,6 @@ export default function SignUpScreen() {
               By creating an account, you agree to our Terms of Service and Privacy Policy
             </Text>
 
-            {/* Network diagnostics button - only in dev */}
-            {__DEV__ && (
-              <AuthButton
-                title="🔍 Network Diagnostics"
-                onPress={handleNetworkTest}
-                variant="text"
-                style={styles.diagnosticsButton}
-              />
-            )}
           </View>
 
           {/* Footer */}

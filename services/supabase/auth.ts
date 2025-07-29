@@ -234,20 +234,31 @@ export class AuthService {
   /**
    * Verify phone OTP and create user account
    */
-  static async verifyPhoneOtp(phone: string, token: string, name: string) {
+  static async verifyPhoneOtp(phone: string, token: string, name?: string) {
     try {
+      console.log('📱 Verifying OTP in auth service:', {
+        phone: phone.replace(/\s+/g, ''),
+        tokenLength: token.length,
+        token,
+        type: 'sms'
+      });
+
       const { data, error } = await supabase.auth.verifyOtp({
         phone: phone.replace(/\s+/g, ''),
         token,
         type: 'sms',
       });
 
+      console.log('🔑 Supabase OTP verification response:', { data, error });
+
       if (error) {
+        console.error('❌ Supabase OTP error:', error);
         throw error;
       }
 
-      // Update user metadata with name
-      if (data.user) {
+      // Update user metadata with name only if provided
+      if (data.user && name && name.trim()) {
+        console.log('📝 Updating user metadata with name:', name);
         const { error: updateError } = await supabase.auth.updateUser({
           data: {
             name,
@@ -258,6 +269,13 @@ export class AuthService {
           console.warn('Failed to update user metadata:', updateError);
           // Don't throw here as the main verification succeeded
         }
+      }
+
+      // Ensure session is properly established
+      if (data.session) {
+        console.log('✅ Session established successfully');
+      } else {
+        console.warn('⚠️ No session returned after verification');
       }
 
       return { user: data.user, session: data.session };

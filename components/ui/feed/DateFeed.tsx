@@ -26,6 +26,7 @@ interface DateEntry {
   instagramUsername?: string;
   authorName?: string;
   authorAvatar?: string;
+  isOwnPost?: boolean;
   poll?: {
     question: string;
     options: {
@@ -55,6 +56,7 @@ interface DateFeedProps {
   onAuthorPress?: (authorName: string) => void;
   onLike?: (dateId: string) => void;
   onComment?: (dateId: string) => void;
+  onEdit?: (dateId: string) => void;
   onPollVote?: (dateId: string, optionIndex: number) => void;
   ListEmptyComponent?: React.ReactElement;
   ListHeaderComponent?: React.ReactElement;
@@ -72,6 +74,7 @@ export function DateFeed({
   onAuthorPress,
   onLike,
   onComment,
+  onEdit,
   onPollVote,
   ListEmptyComponent,
   ListHeaderComponent,
@@ -93,6 +96,7 @@ export function DateFeed({
       instagramUsername={item.instagramUsername}
       authorName={item.authorName}
       authorAvatar={item.authorAvatar}
+      isOwnPost={item.isOwnPost}
       poll={item.poll}
       userPollVote={item.userPollVote}
       comments={item.comments}
@@ -105,6 +109,7 @@ export function DateFeed({
       onAuthorPress={() => onAuthorPress?.(item.authorName || item.personName)}
       onLike={() => onLike?.(item.id)}
       onComment={() => onComment?.(item.id)}
+      onEdit={item.isOwnPost && onEdit ? () => onEdit(item.id) : undefined}
       onPollVote={onPollVote}
     />
   );

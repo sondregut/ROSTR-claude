@@ -18,9 +18,6 @@ import { AuthButton } from '@/components/ui/auth/AuthButton';
 import { Colors } from '@/constants/Colors';
 import { PhoneInput, validatePhoneForCountry } from '@/components/ui/auth/PhoneInput';
 import { AuthService } from '@/services/supabase/auth';
-import { debugSupabaseConnection } from '@/utils/debugSupabase';
-import { testNetworkConnectivity, checkInternetConnection } from '@/utils/networkHelper';
-import { testSupabaseConnection, testRawNetwork } from '@/utils/testPhoneAuth';
 
 export default function PhoneAuthScreen() {
   const router = useRouter();
@@ -48,7 +45,7 @@ export default function PhoneAuthScreen() {
       
       // Navigate to verification screen
       router.push({
-        pathname: '/(auth)/verify-phone',
+        pathname: '/(auth)/verify-otp',
         params: { phoneNumber: phoneNumber }
       });
     } catch (error: any) {
@@ -314,6 +311,7 @@ const styles = StyleSheet.create({
   footer: {
     marginTop: 'auto',
     paddingTop: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
   },
   footerText: {
     fontSize: 12,

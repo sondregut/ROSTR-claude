@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   ScrollView,
@@ -8,6 +8,7 @@ import {
   Pressable,
   Image,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -22,74 +23,9 @@ import { CircleChat } from '@/components/ui/chat/CircleChat';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { getCurrentUser } from '@/lib/supabase';
 import { useCirclePermissions } from '@/hooks/useCirclePermissions';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/SimpleAuthContext';
+import { useCircles } from '@/contexts/CircleContext';
 
-// Mock data - in real app, this would come from database
-const MOCK_CIRCLE_DATA = {
-  '1': {
-    name: 'Besties',
-    description: 'My closest friends who know everything about my dating life',
-    createdAt: '2024-01-01',
-    isActive: true,
-    members: [
-      { id: '1', name: 'Sarah Chen', username: 'sarahc', avatar: 'https://randomuser.me/api/portraits/women/44.jpg', role: 'owner' as MemberRole, onlineStatus: 'online' as OnlineStatus },
-      { id: '2', name: 'Mike Johnson', username: 'mikej', avatar: 'https://randomuser.me/api/portraits/men/32.jpg', role: 'admin' as MemberRole, onlineStatus: 'online' as OnlineStatus },
-      { id: '3', name: 'Emma Wilson', username: 'emmaw', avatar: 'https://randomuser.me/api/portraits/women/22.jpg', role: 'member' as MemberRole, onlineStatus: 'offline' as OnlineStatus },
-      { id: '4', name: 'Jason Martinez', username: 'jasonm', avatar: 'https://randomuser.me/api/portraits/men/11.jpg', role: 'member' as MemberRole, onlineStatus: 'online' as OnlineStatus },
-      { id: '5', name: 'Alex Rodriguez', username: 'alexr', avatar: 'https://randomuser.me/api/portraits/men/43.jpg', role: 'member' as MemberRole, onlineStatus: 'offline' as OnlineStatus },
-    ],
-    recentUpdates: [
-      {
-        id: '1',
-        personName: 'Alex',
-        date: '2h ago',
-        location: 'Coffee Shop',
-        rating: 4.5,
-        notes: 'Great conversation over coffee. Talked about travel plans.',
-        tags: ['First Date', 'Chemistry'],
-        instagramUsername: 'alex_codes',
-        author: 'Sarah Johnson',
-        authorAvatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-        likeCount: 3,
-        commentCount: 2,
-        isLiked: false,
-        comments: [
-          { name: 'Mike', content: 'Sounds promising!' },
-          { name: 'Emma', content: 'Keep us updated!' }
-        ],
-      },
-      {
-        id: '2',
-        personName: 'Jordan',
-        date: '2h ago',
-        location: 'Italian Restaurant',
-        rating: 4.5,
-        notes: 'Dinner date at that new Italian place was amazing! Great conversation, lots of laughing. Definitely seeing him again.',
-        tags: ['Second Date', 'Chemistry'],
-        instagramUsername: 'jordandesigns',
-        author: 'Emma',
-        authorAvatar: 'https://randomuser.me/api/portraits/women/22.jpg',
-        likeCount: 1,
-        commentCount: 0,
-        isLiked: false,
-        comments: [],
-        poll: {
-          question: 'Will there be a third date?',
-          options: [
-            { text: 'Yes', votes: 3 },
-            { text: 'Maybe', votes: 1 },
-            { text: 'No', votes: 0 }
-          ]
-        }
-      },
-    ],
-    stats: {
-      totalUpdates: 45,
-      thisMonth: 12,
-      averageRating: 3.8,
-    },
-  },
-};
 
 export default function CircleDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -98,23 +34,62 @@ export default function CircleDetailScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const { user } = useAuth();
   const permissions = useCirclePermissions(id as string);
+  const { currentCircle, loadCircle, isLoading, error } = useCircles();
   
   const [isActive, setIsActive] = useState(true);
   const [activeTab, setActiveTab] = useState<'activity' | 'chat' | 'members' | 'insights'>('activity');
-  const [updates, setUpdates] = useState(MOCK_CIRCLE_DATA[id as keyof typeof MOCK_CIRCLE_DATA]?.recentUpdates || []);
+  const [updates, setUpdates] = useState([]);
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedUpdateId, setSelectedUpdateId] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   
-  // Get circle data - in real app, this would be fetched from database
-  const circleData = MOCK_CIRCLE_DATA[id as keyof typeof MOCK_CIRCLE_DATA] || MOCK_CIRCLE_DATA['1'];
+  // Load circle data when component mounts
+  useEffect(() => {
+    if (id) {
+      loadCircle(id as string);
+    }
+  }, [id]);
+  
+  // Update local state when circle data changes
+  useEffect(() => {
+    if (currentCircle) {
+      setUpdates(currentCircle.recentUpdates || []);
+      setIsActive(currentCircle.is_active);
+    }
+  }, [currentCircle]);
   
   // Get current user from auth context
   const currentUser = {
-    id: user?.id || '1',
-    name: user?.user_metadata?.name || 'User',
+    id: user?.id || '',
+    name: user?.user_metadata?.full_name || user?.email || 'User',
     avatar: user?.user_metadata?.avatar_url || ''
   };
+  
+  // Show loading state
+  if (isLoading || !currentCircle) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.text }]}>Loading circle...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+  
+  // Show error state
+  if (error) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={64} color={colors.error} />
+          <Text style={[styles.errorTitle, { color: colors.text }]}>Error Loading Circle</Text>
+          <Text style={[styles.errorSubtitle, { color: colors.textSecondary }]}>{error}</Text>
+          <Button title="Go Back" onPress={() => router.back()} style={{ marginTop: 24 }} />
+        </View>
+      </SafeAreaView>
+    );
+  }
   
   const handleLike = (updateId: string) => {
     setUpdates(updates.map(update => 
@@ -178,26 +153,38 @@ export default function CircleDetailScreen() {
       onPersonHistoryPress={() => router.push(`/person/${item.personName.toLowerCase()}?friendUsername=${item.author.toLowerCase().replace(' ', '')}&isOwnRoster=false`)}
       onAuthorPress={() => {
         // Navigate to the friend's profile who posted the update
-        const member = circleData.members.find(m => m.name === item.author);
-        if (member) {
-          router.push(`/profile/${member.username}`);
+        const member = currentCircle.members.find(m => m.user?.name === item.author);
+        if (member && member.user) {
+          router.push(`/profile/${member.user.username}`);
         }
       }}
     />
   );
   
-  const renderMember = ({ item }: { item: MemberData }) => (
-    <MemberCard
-      member={item}
-      onPress={() => router.push(`/profile/${item.username}`)}
-      currentUserRole={permissions.role || 'member'}
-      showActions={false} // Remove the ... buttons as requested
-    />
-  );
+  const renderMember = ({ item }: { item: any }) => {
+    // Transform database member data to MemberCard format
+    const memberData: MemberData = {
+      id: item.user_id,
+      name: item.user?.name || 'Unknown',
+      username: item.user?.username || 'unknown',
+      avatar: item.user?.image_uri || '',
+      role: item.role,
+      onlineStatus: 'offline' as OnlineStatus, // TODO: Implement real online status
+    };
+    
+    return (
+      <MemberCard
+        member={memberData}
+        onPress={() => router.push(`/profile/${memberData.username}`)}
+        currentUserRole={permissions.role || 'member'}
+        showActions={false} // Remove the ... buttons as requested
+      />
+    );
+  };
   
   const renderAvatarStack = () => {
-    const displayMembers = circleData.members.slice(0, 3);
-    const remainingCount = circleData.members.length - 3;
+    const displayMembers = currentCircle.members.slice(0, 3);
+    const remainingCount = currentCircle.members.length - 3;
     
     return (
       <View style={styles.avatarStack}>
@@ -213,7 +200,7 @@ export default function CircleDetailScreen() {
               }
             ]}
           >
-            <Image source={{ uri: member.avatar }} style={styles.avatar} />
+            <Image source={{ uri: member.user?.image_uri || '' }} style={styles.avatar} />
           </View>
         ))}
         {remainingCount > 0 && (
@@ -237,9 +224,9 @@ export default function CircleDetailScreen() {
           </Pressable>
           
           <View style={styles.navCenter}>
-            <Text style={[styles.navTitle, { color: colors.text }]}>{circleData.name}</Text>
+            <Text style={[styles.navTitle, { color: colors.text }]}>{currentCircle.name}</Text>
             <Text style={[styles.navSubtitle, { color: colors.textSecondary }]}>
-              {circleData.members.length} members
+              {currentCircle.members.length} members
             </Text>
           </View>
           
@@ -263,8 +250,8 @@ export default function CircleDetailScreen() {
         <View style={[styles.infoCard, { backgroundColor: colors.background }]}>
           <View style={styles.infoCardRow}>
             {renderAvatarStack()}
-            <Text style={[styles.circleName, { color: colors.primary }]}>{circleData.name}</Text>
-            {circleData.isActive && (
+            <Text style={[styles.circleName, { color: colors.primary }]}>{currentCircle.name}</Text>
+            {currentCircle.isActive && (
               <View style={[styles.activeBadge, { backgroundColor: colors.statusActive }]}>
                 <Text style={styles.activeText}>Active</Text>
               </View>
@@ -274,7 +261,7 @@ export default function CircleDetailScreen() {
             Created 2 months ago
           </Text>
           <Text style={[styles.circleDescription, { color: colors.text, marginTop: 16 }]}>
-            {circleData.description}
+            {currentCircle.description}
           </Text>
         </View>
         
@@ -369,15 +356,22 @@ export default function CircleDetailScreen() {
           ) : activeTab === 'chat' ? (
             <CircleChat
               circleId={id as string}
-              circleName={circleData.name}
-              members={circleData.members}
+              circleName={currentCircle.name}
+              members={currentCircle.members.map(m => ({
+                id: m.user_id,
+                name: m.user?.name || 'Unknown',
+                username: m.user?.username || 'unknown',
+                avatar: m.user?.image_uri || '',
+                role: m.role,
+                onlineStatus: 'offline' as OnlineStatus,
+              }))}
               currentUserId={currentUser.id}
               currentUserName={currentUser.name}
               currentUserAvatar={currentUser.avatar}
             />
           ) : activeTab === 'members' ? (
             <FlatList
-              data={circleData.members}
+              data={currentCircle.members}
               renderItem={renderMember}
               keyExtractor={item => item.id}
               scrollEnabled={false}
@@ -388,13 +382,19 @@ export default function CircleDetailScreen() {
               <CircleStatsCard
                 stats={{
                   postsThisMonth: 1,
-                  onlineMembers: circleData.members.filter(m => m.onlineStatus === 'online').length,
-                  totalMembers: circleData.members.length,
-                  mostActiveMembers: [
-                    { member: circleData.members[0], interactions: 19 },
-                    { member: circleData.members[1], interactions: 12 },
-                    { member: circleData.members[2], interactions: 15 },
-                  ]
+                  onlineMembers: 0, // TODO: Implement real online status
+                  totalMembers: currentCircle.members.length,
+                  mostActiveMembers: currentCircle.members.slice(0, 3).map((m, idx) => ({
+                    member: {
+                      id: m.user_id,
+                      name: m.user?.name || 'Unknown',
+                      username: m.user?.username || 'unknown',
+                      avatar: m.user?.image_uri || '',
+                      role: m.role,
+                      onlineStatus: 'offline' as OnlineStatus,
+                    },
+                    interactions: 0, // TODO: Track real interactions
+                  }))
                 }}
               />
             </View>
@@ -763,5 +763,30 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 11,
     fontWeight: '700',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    marginTop: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  errorSubtitle: {
+    fontSize: 16,
+    textAlign: 'center',
   },
 });

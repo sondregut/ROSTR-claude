@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CircleService } from '@/services/supabase/circles';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/SimpleAuthContext';
 
 interface CirclePermissions {
   isOwner: boolean;

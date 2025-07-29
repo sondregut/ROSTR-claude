@@ -12,6 +12,8 @@
       "bundleIdentifier": "com.sondregut.rostrdating",
       "supportsTablet": true,
       "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Allow RostrDating to access your photos to add profile pictures for people you're dating.",
+        "NSCameraUsageDescription": "Allow RostrDating to access your camera to take profile pictures.",
         "NSAllowsArbitraryLoads": false,
         "NSAllowsLocalNetworking": true,
         "NSAppTransportSecurity": {
@@ -63,10 +65,24 @@
         }
       ],
       "expo-web-browser",
+      "expo-apple-authentication",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow RostrDating to access your photos to add profile pictures for people you're dating.",
+          "cameraPermission": "Allow RostrDating to access your camera to take profile pictures."
+        }
+      ],
       "./expo.plugins.js"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "bda19927-debe-46ff-a855-28e21348c0de"
+      }
     }
   }
 }

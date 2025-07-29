@@ -5,17 +5,21 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { DateFeed } from '@/components/ui/feed/DateFeed';
 import { CommentModal } from '@/components/ui/modals/CommentModal';
+import { EditDateModal } from '@/components/ui/modals/EditDateModal';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useDates } from '@/contexts/DateContext';
 import { useRouter } from 'expo-router';
 import { getRosterIdFromPersonName } from '@/lib/rosterUtils';
 import { generateHistoryUrl, hasRelationshipData } from '@/lib/relationshipData';
+import { useAuth } from '@/contexts/SimpleAuthContext';
+import { Alert, Pressable } from 'react-native';
 
 export default function FeedScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
+  const { signOut } = useAuth();
   
   const {
     dates,
@@ -23,12 +27,16 @@ export default function FeedScreen() {
     addComment,
     voteOnPoll,
     refreshDates,
+    updateDate,
+    deleteDate,
     isLoading
   } = useDates();
   
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedDateId, setSelectedDateId] = useState<string | null>(null);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedDateForEdit, setSelectedDateForEdit] = useState<any>(null);
   
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -39,6 +47,28 @@ export default function FeedScreen() {
     } finally {
       setIsRefreshing(false);
     }
+  };
+
+  // Temporary sign out for development
+  const handleDevSignOut = async () => {
+    Alert.alert(
+      'Sign Out',
+      'This will sign you out and restart the onboarding flow.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut();
+            } catch (error) {
+              console.error('Sign out error:', error);
+            }
+          }
+        }
+      ]
+    );
   };
   
   const handleLike = (dateId: string) => {
@@ -68,6 +98,36 @@ export default function FeedScreen() {
     router.push(`/profile/${authorName.toLowerCase()}`);
   };
   
+  const handleEdit = (dateId: string) => {
+    const date = dates.find(d => d.id === dateId);
+    if (date) {
+      setSelectedDateForEdit(date);
+      setEditModalVisible(true);
+    }
+  };
+  
+  const handleSaveEdit = async (id: string, updates: Partial<any>) => {
+    try {
+      await updateDate(id, updates);
+      setEditModalVisible(false);
+      setSelectedDateForEdit(null);
+    } catch (error) {
+      console.error('Error updating date:', error);
+      Alert.alert('Error', 'Failed to update date');
+    }
+  };
+  
+  const handleDeleteDate = async (id: string) => {
+    try {
+      await deleteDate(id);
+      setEditModalVisible(false);
+      setSelectedDateForEdit(null);
+    } catch (error) {
+      console.error('Error deleting date:', error);
+      Alert.alert('Error', 'Failed to delete date');
+    }
+  };
+  
   const renderEmptyComponent = () => (
     <View style={styles.emptyContainer}>
       <Ionicons name="calendar-outline" size={64} color={colors.textSecondary} />
@@ -84,6 +144,13 @@ export default function FeedScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>My Feed</Text>
+        {/* Temporary sign out button for development */}
+        <Pressable 
+          onPress={handleDevSignOut}
+          style={styles.devSignOutButton}
+        >
+          <Text style={[styles.devSignOutText, { color: colors.error }]}>Sign Out</Text>
+        </Pressable>
       </View>
       <DateFeed
         data={dates}
@@ -111,6 +178,7 @@ export default function FeedScreen() {
         onAuthorPress={handleAuthorPress}
         onLike={handleLike}
         onComment={handleComment}
+        onEdit={handleEdit}
         onPollVote={handlePollVote}
         ListEmptyComponent={renderEmptyComponent()}
       />
@@ -132,6 +200,17 @@ export default function FeedScreen() {
           })) || []}
         />
       )}
+      
+      <EditDateModal
+        visible={editModalVisible}
+        date={selectedDateForEdit}
+        onClose={() => {
+          setEditModalVisible(false);
+          setSelectedDateForEdit(null);
+        }}
+        onSave={handleSaveEdit}
+        onDelete={handleDeleteDate}
+      />
     </SafeAreaView>
   );
 }
@@ -144,10 +223,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: '700',
+  },
+  devSignOutButton: {
+    padding: 8,
+  },
+  devSignOutText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   headerButton: {
     padding: 8,

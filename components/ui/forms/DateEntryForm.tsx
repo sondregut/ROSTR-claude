@@ -17,9 +17,10 @@ import { PersonSelector } from './PersonSelector';
 import { TagSelector } from './TagSelector';
 import { CircleSelector } from './CircleSelector';
 import { PollCreator } from './PollCreator';
-import { AddNewPersonModal, NewPersonData } from '../modals/AddNewPersonModal';
+import { AddPersonModal, PersonData } from '../modals/AddPersonModal';
 import { Colors } from '../../../constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useRoster } from '@/contexts/RosterContext';
 
 const PREDEFINED_TAGS = [
   { id: 'first-date', label: 'First Date', color: '#9B59B6' },
@@ -66,6 +67,7 @@ export interface DateEntryFormData {
 export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = false }: DateEntryFormProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { activeRoster, pastConnections, addPerson } = useRoster();
   
   const [formData, setFormData] = useState<DateEntryFormData>({
     personId: initialData?.personId || '',
@@ -75,20 +77,15 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
     rating: initialData?.rating || 0,
     notes: initialData?.notes || '',
     tags: initialData?.tags || [],
-    circles: initialData?.circles || ['inner-circle', 'friends'],
+    circles: initialData?.circles || [],
     instagramUsername: initialData?.instagramUsername || '',
     poll: initialData?.poll,
     imageUri: initialData?.imageUri || '',
     isPrivate: initialData?.isPrivate ?? false,
   });
   
-  // Mock roster data - in real app, this would come from state/database
-  const [roster, setRoster] = useState([
-    { id: '1', name: 'Alex', lastDate: '3 days ago', rating: 4.2, status: 'active' as const },
-    { id: '2', name: 'Jordan', lastDate: '1 week ago', rating: 3.8, status: 'new' as const },
-    { id: '3', name: 'Taylor', lastDate: '2 days ago', rating: 4.5, status: 'active' as const },
-    { id: '4', name: 'Morgan', lastDate: '5 days ago', rating: 2.5, status: 'fading' as const },
-  ]);
+  // Get roster data from context (combine active and past connections)
+  const roster = [...activeRoster, ...pastConnections];
 
   const [errors, setErrors] = useState<Partial<Record<keyof DateEntryFormData, string>>>({});
   const [showAddPersonModal, setShowAddPersonModal] = useState(false);
@@ -121,7 +118,7 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
     }
     
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: [ImagePicker.MediaType.Images],
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
@@ -148,20 +145,24 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
     }
   };
 
-  const handleAddNewPerson = (newPerson: NewPersonData) => {
-    const newPersonEntry = {
-      id: `new-${Date.now()}`,
-      name: newPerson.name,
-      lastDate: 'Never',
-      rating: 0,
-      status: 'new' as const,
-    };
-    
-    setRoster([...roster, newPersonEntry]);
-    setShowAddPersonModal(false);
-    
-    // Auto-select the new person
-    handlePersonSelect(newPersonEntry.id, newPersonEntry.name);
+  const handleAddNewPerson = async (newPerson: PersonData) => {
+    try {
+      // Add the person to the roster using the context method
+      await addPerson(newPerson.name, newPerson);
+      setShowAddPersonModal(false);
+      
+      // Find the newly added person from the roster (it will be the most recent)
+      // In a real app, addPerson should return the new person's ID
+      const updatedRoster = [...activeRoster, ...pastConnections];
+      const newestPerson = updatedRoster.find(p => p.name === newPerson.name);
+      
+      if (newestPerson) {
+        // Auto-select the new person
+        handlePersonSelect(newestPerson.id, newestPerson.name);
+      }
+    } catch (error) {
+      console.error('Error adding new person:', error);
+    }
   };
 
   const validateForm = (): boolean => {
@@ -407,10 +408,10 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
       </ScrollView>
       </KeyboardAvoidingView>
       
-      <AddNewPersonModal
+      <AddPersonModal
         visible={showAddPersonModal}
         onClose={() => setShowAddPersonModal(false)}
-        onAdd={handleAddNewPerson}
+        onSave={handleAddNewPerson}
       />
     </>
   );

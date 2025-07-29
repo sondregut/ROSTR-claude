@@ -17,22 +17,19 @@ import { AuthButton } from '@/components/ui/auth/AuthButton';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserService } from '@/services/supabase/users';
+import { supabase } from '@/lib/supabase';
 
 interface FormData {
-  firstName: string;
-  lastName: string;
-  dateOfBirth: string;
   gender: 'male' | 'female' | 'other' | '';
+  username: string;
 }
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
   const { user, updateProfileComplete } = useAuth();
   const [formData, setFormData] = useState<FormData>({
-    firstName: '',
-    lastName: '',
-    dateOfBirth: '',
     gender: '',
+    username: '',
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -40,59 +37,20 @@ export default function ProfileSetupScreen() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleDateOfBirthChange = (text: string) => {
-    // Format as MM/DD/YYYY
-    const cleaned = text.replace(/\D/g, '');
-    let formatted = cleaned;
-    
-    if (cleaned.length >= 2) {
-      formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2);
-    }
-    if (cleaned.length >= 4) {
-      formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2, 4) + '/' + cleaned.slice(4, 8);
-    }
-    
-    setFormData(prev => ({ ...prev, dateOfBirth: formatted }));
-  };
-
-  const validateAge = (dateString: string) => {
-    const [month, day, year] = dateString.split('/').map(Number);
-    const birthDate = new Date(year, month - 1, day);
-    const today = new Date();
-    const age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      return age - 1;
-    }
-    
-    return age;
-  };
 
   const handleContinue = async () => {
-    if (!formData.firstName.trim()) {
-      Alert.alert('Error', 'Please enter your first name');
-      return;
-    }
-
-    if (!formData.lastName.trim()) {
-      Alert.alert('Error', 'Please enter your last name');
-      return;
-    }
-
-    if (!formData.dateOfBirth.trim() || formData.dateOfBirth.length !== 10) {
-      Alert.alert('Error', 'Please enter a valid date of birth (MM/DD/YYYY)');
-      return;
-    }
-
-    const age = validateAge(formData.dateOfBirth);
-    if (age < 18) {
-      Alert.alert('Age Requirement', 'You must be at least 18 years old to use RostrDating');
-      return;
-    }
-
     if (!formData.gender) {
       Alert.alert('Error', 'Please select your gender');
+      return;
+    }
+
+    if (!formData.username.trim()) {
+      Alert.alert('Error', 'Please choose a username');
+      return;
+    }
+
+    if (formData.username.length < 3) {
+      Alert.alert('Error', 'Username must be at least 3 characters');
       return;
     }
 
@@ -104,23 +62,15 @@ export default function ProfileSetupScreen() {
     try {
       setIsLoading(true);
       
-      // Format date for database (YYYY-MM-DD)
-      const [month, day, year] = formData.dateOfBirth.split('/');
-      const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-      
-      // Calculate age from date of birth
-      const birthDate = new Date(formattedDate);
-      const today = new Date();
-      const age = today.getFullYear() - birthDate.getFullYear();
+      // Get user's existing profile data
+      const { data: userData } = await supabase.auth.getUser();
+      const firstName = userData?.user?.user_metadata?.first_name || userData?.user?.user_metadata?.name || 'User';
       
       // Create or update user profile - matching the database schema
       const profileData: any = {
-        name: `${formData.firstName} ${formData.lastName}`.trim(),
-        username: `user_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`, // Unique username
-        age: age,
-        gender: formData.gender, // This should match the enum type
-        date_of_birth: formattedDate, // Store both age and date_of_birth
-        bio: `Hi, I'm ${formData.firstName}!`,
+        username: formData.username.trim(),
+        gender: formData.gender,
+        bio: `Hi, I'm ${firstName}!`,
         location: '',
         occupation: '',
         interests: [],
@@ -252,53 +202,27 @@ export default function ProfileSetupScreen() {
           >
             {/* Title */}
             <View style={styles.titleContainer}>
-              <Text style={styles.title}>Complete your profile</Text>
+              <Text style={styles.title}>Almost done!</Text>
               <Text style={styles.subtitle}>
-                Let's get to know you better. This information helps us create a better experience.
+                Just a few more details to complete your profile.
               </Text>
             </View>
 
             {/* Form */}
             <View style={styles.formContainer}>
               <View style={styles.formGroup}>
-                <Text style={styles.inputLabel}>First Name</Text>
+                <Text style={styles.inputLabel}>Username</Text>
                 <TextInput
                   style={styles.textInput}
-                  value={formData.firstName}
-                  onChangeText={(text) => handleInputChange('firstName', text)}
-                  placeholder="Enter your first name"
+                  value={formData.username}
+                  onChangeText={(text) => handleInputChange('username', text)}
+                  placeholder="Choose a username"
                   placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                  autoComplete="given-name"
-                  textContentType="givenName"
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.inputLabel}>Last Name</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={formData.lastName}
-                  onChangeText={(text) => handleInputChange('lastName', text)}
-                  placeholder="Enter your last name"
-                  placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                  autoComplete="family-name"
-                  textContentType="familyName"
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.inputLabel}>Date of Birth</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={formData.dateOfBirth}
-                  onChangeText={handleDateOfBirthChange}
-                  placeholder="MM/DD/YYYY"
-                  placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                  keyboardType="numeric"
-                  maxLength={10}
+                  autoCapitalize="none"
+                  autoCorrect={false}
                 />
                 <Text style={styles.helperText}>
-                  You must be 18 or older to use RostrDating
+                  This will be your unique identifier on RostrDating
                 </Text>
               </View>
 

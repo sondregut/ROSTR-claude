@@ -19,67 +19,10 @@ import { Button } from '@/components/ui/buttons/Button';
 import { ShareAppModal } from '@/components/ui/modals/ShareAppModal';
 import { useUser } from '@/contexts/UserContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { SupabaseTestButton } from '@/components/SupabaseTestButton';
 import { uploadProfilePhoto } from '@/lib/photoUpload';
 import { supabase } from '@/lib/supabase';
 import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
 
-// Mock user data matching specification
-const MOCK_USER = {
-  name: 'Jamie Smith',
-  username: '@jamiesmith',
-  bio: 'Coffee enthusiast, hiking lover, and always up for trying new restaurants. Looking for someone who can make me laugh and shares my love for adventure.',
-  location: 'New York, NY',
-  occupation: 'Marketing Manager',
-  age: 28,
-  imageUri: 'https://randomuser.me/api/portraits/women/68.jpg',
-  stats: {
-    totalDates: 12,
-    activeConnections: 4,
-    avgRating: 3.8,
-    circles: 5,
-  }
-};
-
-// Mock data for About tab
-const MOCK_ABOUT = {
-  interests: ['Coffee', 'Hiking', 'Photography', 'Cooking', 'Travel', 'Art', 'Music', 'Fitness'],
-  connectedApps: [
-    { id: 'tinder', name: 'Tinder', isConnected: true, icon: '🔴' },
-    { id: 'hinge', name: 'Hinge', isConnected: false, icon: '🔵' },
-    { id: 'bumble', name: 'Bumble', isConnected: false, icon: '🟣' },
-  ]
-};
-
-// Mock data for Stats tab
-const MOCK_STATS = {
-  avgRating: 3.8,
-  firstDateRating: 3.5,
-  secondDateRating: 4.2,
-  datesThisMonth: 12,
-  monthTrend: 3,
-  successRate: 85,
-  mostUsedTags: [
-    { tag: 'Great conversation', count: 8 },
-    { tag: 'Chemistry', count: 6 },
-    { tag: 'Funny', count: 5 },
-    { tag: 'Potential', count: 3 },
-  ],
-  longestConnections: [
-    { id: '1', name: 'Alex', avatar: 'https://randomuser.me/api/portraits/men/32.jpg', dates: 6 },
-    { id: '2', name: 'Taylor', avatar: 'https://randomuser.me/api/portraits/women/44.jpg', dates: 4 },
-  ]
-};
-
-// Mock data for Preferences tab
-const MOCK_PREFERENCES = {
-  dating: {
-    lookingFor: 'Serious Relationship',
-    ageRange: '25-35',
-    education: 'College+',
-  },
-  dealBreakers: ['Smoking', 'No sense of humor', 'Rude to service staff', 'Always late', 'Poor hygiene']
-};
 
 
 export default function ProfileScreen() {
@@ -156,11 +99,26 @@ export default function ProfileScreen() {
     }
   };
   
-  if (isLoading || !userProfile) {
+  if (isLoading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
         <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.text }]}>Loading profile...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!userProfile) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+        <View style={styles.emptyContainer}>
+          <Ionicons name="person-outline" size={64} color={colors.textSecondary} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>No Profile Found</Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+            Please try logging in again
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -172,10 +130,21 @@ export default function ProfileScreen() {
       <View style={styles.profileTopSection}>
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
-          <Image 
-            source={{ uri: userProfile.imageUri }} 
-            style={styles.profileImage}
-          />
+          <Pressable
+            onPress={handlePhotoUpload}
+            disabled={isUploadingPhoto}
+          >
+            {userProfile.imageUri ? (
+              <Image 
+                source={{ uri: userProfile.imageUri }} 
+                style={styles.profileImage}
+              />
+            ) : (
+              <View style={[styles.profileImage, { backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="person-outline" size={64} color={colors.textSecondary} />
+              </View>
+            )}
+          </Pressable>
           <Pressable 
             style={[styles.cameraButton, { backgroundColor: colors.primary }]}
             onPress={handlePhotoUpload}
@@ -357,14 +326,14 @@ export default function ProfileScreen() {
           <Text style={styles.statEmoji}>📊</Text>
           <Text style={[styles.statCardTitle, { color: colors.text }]}>Average Rating</Text>
         </View>
-        <Text style={[styles.largeStatValue, { color: colors.primary }]}>{MOCK_STATS.avgRating}</Text>
+        <Text style={[styles.largeStatValue, { color: colors.primary }]}>{userProfile.stats.avgRating}</Text>
         <Text style={[styles.statSubtext, { color: colors.textSecondary }]}>out of 5</Text>
         <View style={styles.statBreakdown}>
           <Text style={[styles.breakdownText, { color: colors.textSecondary }]}>
-            First dates: {MOCK_STATS.firstDateRating}
+            First dates: -
           </Text>
           <Text style={[styles.breakdownText, { color: colors.textSecondary }]}>
-            Second dates: {MOCK_STATS.secondDateRating}
+            Second dates: -
           </Text>
         </View>
       </View>
@@ -375,10 +344,10 @@ export default function ProfileScreen() {
           <Text style={styles.statEmoji}>📅</Text>
           <Text style={[styles.statCardTitle, { color: colors.text }]}>Dating Activity</Text>
         </View>
-        <Text style={[styles.largeStatValue, { color: colors.primary }]}>{MOCK_STATS.datesThisMonth}</Text>
+        <Text style={[styles.largeStatValue, { color: colors.primary }]}>{userProfile.stats.totalDates}</Text>
         <Text style={[styles.statSubtext, { color: colors.textSecondary }]}>dates this month</Text>
         <Text style={[styles.trendText, { color: colors.statusActive }]}>
-          +{MOCK_STATS.monthTrend} from last month
+          View trends
         </Text>
       </View>
 
@@ -388,7 +357,7 @@ export default function ProfileScreen() {
           <Text style={styles.statEmoji}>👥</Text>
           <Text style={[styles.statCardTitle, { color: colors.text }]}>Success Rate</Text>
         </View>
-        <Text style={[styles.largeStatValue, { color: colors.primary }]}>{MOCK_STATS.successRate}%</Text>
+        <Text style={[styles.largeStatValue, { color: colors.primary }]}>-</Text>
         <Text style={[styles.statSubtext, { color: colors.textSecondary }]}>Second date rate</Text>
         <Text style={[styles.successText, { color: colors.statusActive }]}>Above average</Text>
       </View>
@@ -399,7 +368,7 @@ export default function ProfileScreen() {
           <Text style={styles.statEmoji}>⭐</Text>
           <Text style={[styles.statCardTitle, { color: colors.text }]}>Most-used Tags</Text>
         </View>
-        {MOCK_STATS.mostUsedTags.map((item, index) => (
+        {[].map((item, index) => (
           <View key={index} style={styles.tagStatItem}>
             <Text style={[styles.tagName, { color: colors.text }]}>{item.tag}</Text>
             <Text style={[styles.tagCount, { color: colors.textSecondary }]}>{item.count}</Text>
@@ -413,7 +382,7 @@ export default function ProfileScreen() {
           <Text style={styles.statEmoji}>❤️</Text>
           <Text style={[styles.statCardTitle, { color: colors.text }]}>Longest Connections</Text>
         </View>
-        {MOCK_STATS.longestConnections.map((connection) => (
+        {[].map((connection) => (
           <View key={connection.id} style={styles.connectionItem}>
             <Image source={{ uri: connection.avatar }} style={styles.connectionAvatar} />
             <Text style={[styles.connectionName, { color: colors.text }]}>{connection.name}</Text>
@@ -421,9 +390,6 @@ export default function ProfileScreen() {
           </View>
         ))}
       </View>
-      
-      {/* Supabase Test Button - Temporary for testing */}
-      <SupabaseTestButton />
     </View>
   );
 
@@ -800,5 +766,22 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
+    marginTop: 16,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    textAlign: 'center',
   },
 });

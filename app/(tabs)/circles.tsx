@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, FlatList, Pressable, Platform, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Text, FlatList, Pressable, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -8,115 +8,94 @@ import { FriendCircleModal } from '@/components/ui/modals/FriendCircleModal';
 import { SimpleCircleCard } from '@/components/ui/cards/SimpleCircleCard';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-
-// Mock data for demonstration - matching the specification
-const MOCK_FRIENDS = [
-  {
-    id: '1',
-    name: 'Sarah Chen',
-    username: 'sarahc',
-    avatarUri: 'https://randomuser.me/api/portraits/women/44.jpg',
-  },
-  {
-    id: '2',
-    name: 'Mike Johnson',
-    username: 'mikej',
-    avatarUri: 'https://randomuser.me/api/portraits/men/32.jpg',
-  },
-  {
-    id: '3',
-    name: 'Emma Wilson',
-    username: 'emmaw',
-    avatarUri: 'https://randomuser.me/api/portraits/women/22.jpg',
-  },
-  {
-    id: '4',
-    name: 'Jason Martinez',
-    username: 'jasonm',
-    avatarUri: 'https://randomuser.me/api/portraits/men/11.jpg',
-  },
-  {
-    id: '5',
-    name: 'Alex Rodriguez',
-    username: 'alexr',
-    avatarUri: 'https://randomuser.me/api/portraits/men/43.jpg',
-  },
-  {
-    id: '6',
-    name: 'Taylor Kim',
-    username: 'taylork',
-    avatarUri: 'https://randomuser.me/api/portraits/women/68.jpg',
-  },
-  {
-    id: '7',
-    name: 'Jordan Lee',
-    username: 'jordanl',
-    avatarUri: 'https://randomuser.me/api/portraits/men/15.jpg',
-  },
-  {
-    id: '8',
-    name: 'Casey Brown',
-    username: 'caseyb',
-    avatarUri: 'https://randomuser.me/api/portraits/women/65.jpg',
-  },
-];
-
-const MOCK_CIRCLES = [
-  {
-    id: '1',
-    name: 'Besties',
-    description: 'My closest friends who know everything about my dating life',
-    friends: [MOCK_FRIENDS[0], MOCK_FRIENDS[1], MOCK_FRIENDS[2], MOCK_FRIENDS[3], MOCK_FRIENDS[4]],
-    lastActivity: '2 hours ago',
-    isActive: true,
-  },
-  {
-    id: '2',
-    name: 'Roommates',
-    description: 'Living together, dating separately',
-    friends: [MOCK_FRIENDS[0], MOCK_FRIENDS[2], MOCK_FRIENDS[5]],
-    lastActivity: '1 day ago',
-    isActive: false,
-  },
-  {
-    id: '3',
-    name: 'College Crew',
-    description: 'Old friends from university days',
-    friends: [MOCK_FRIENDS[0], MOCK_FRIENDS[1], MOCK_FRIENDS[2], MOCK_FRIENDS[3], MOCK_FRIENDS[4], MOCK_FRIENDS[5], MOCK_FRIENDS[6], MOCK_FRIENDS[7]],
-    lastActivity: '1 week ago',
-    isActive: false,
-  },
-];
+import { CircleService } from '@/services/supabase/circles';
+import { useAuth } from '@/contexts/SimpleAuthContext';
 
 export default function CirclesScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
+  const { user } = useAuth();
   
-  const [circles, setCircles] = useState(MOCK_CIRCLES);
+  const [circles, setCircles] = useState<any[]>([]);
+  const [friends, setFriends] = useState<any[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
-  const handleCreateCircle = (circleName: string, description: string, friendIds: string[]) => {
-    const newCircle = {
-      id: `circle-${Date.now()}`,
-      name: circleName,
-      description: description,
-      friends: MOCK_FRIENDS.filter(friend => friendIds.includes(friend.id)),
-      lastActivity: 'Just now',
-      isActive: true,
-    };
+  // Load circles from Supabase
+  const loadCircles = async () => {
+    if (!user) return;
     
-    setCircles([...circles, newCircle]);
-    setIsModalVisible(false);
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Get user's circles
+      const userCircles = await CircleService.getUserCircles(user.id);
+      
+      // Transform circles data for display
+      const transformedCircles = userCircles.map(circle => ({
+        id: circle.id,
+        name: circle.name,
+        description: circle.description,
+        memberCount: circle.member_count,
+        members: circle.members?.map(m => m.user).filter(Boolean) || [],
+        isActive: circle.is_active,
+      }));
+      
+      setCircles(transformedCircles);
+      
+      // Extract unique friends from all circles
+      const allFriends = new Map();
+      userCircles.forEach(circle => {
+        circle.members?.forEach(member => {
+          if (member.user && member.user.id !== user.id) {
+            allFriends.set(member.user.id, member.user);
+          }
+        });
+      });
+      
+      setFriends(Array.from(allFriends.values()));
+    } catch (err) {
+      console.error('Error loading circles:', err);
+      setError('Failed to load circles');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  useEffect(() => {
+    loadCircles();
+  }, [user]);
   
-  const renderCircleItem = ({ item }: { item: typeof MOCK_CIRCLES[0] }) => (
+  const handleCreateCircle = async (circleName: string, description: string, friendIds: string[]) => {
+    if (!user) return;
+    
+    try {
+      // Create the circle
+      const newCircle = await CircleService.createCircle(circleName, description, user.id);
+      
+      // Add friends to the circle if any were selected
+      if (friendIds.length > 0) {
+        await CircleService.addMembers(newCircle.id, friendIds);
+      }
+      
+      // Refresh circles after creating
+      await loadCircles();
+      setIsModalVisible(false);
+    } catch (err) {
+      console.error('Error creating circle:', err);
+      setError('Failed to create circle');
+    }
+  };
+  
+  const renderCircleItem = ({ item }: { item: any }) => (
     <SimpleCircleCard
       id={item.id}
       name={item.name}
-      memberCount={item.friends.length}
-      members={item.friends}
+      memberCount={item.memberCount || 0}
+      members={item.members || []}
       isActive={item.isActive}
       onPress={() => {
         // Navigate to circle detail
@@ -125,6 +104,17 @@ export default function CirclesScreen() {
     />
   );
 
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.text }]}>Loading circles...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
@@ -132,59 +122,68 @@ export default function CirclesScreen() {
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        {/* My Circles Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Your Circles</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>My Circles</Text>
             <Pressable
-              style={[styles.createButton, { borderColor: colors.border }]}
+              style={[styles.createButton, { backgroundColor: colors.primary }]}
               onPress={() => setIsModalVisible(true)}
             >
-              <Ionicons name="add" size={18} color={colors.text} />
-              <Text style={[styles.createButtonText, { color: colors.text }]}>Create</Text>
+              <Ionicons name="add" size={20} color="white" />
+              <Text style={styles.createButtonText}>Create</Text>
             </Pressable>
           </View>
-
-          {circles.length > 0 ? (
-            <View style={styles.circlesList}>
-              {circles.map((item) => (
-                <SimpleCircleCard
-                  key={item.id}
-                  id={item.id}
-                  name={item.name}
-                  memberCount={item.friends.length}
-                  members={item.friends}
-                  isActive={item.isActive}
-                  onPress={() => {
-                    router.push(`/circles/${item.id}`);
-                  }}
-                />
-              ))}
+          
+          {circles.length === 0 ? (
+            <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
+              <Ionicons name="people-outline" size={48} color={colors.icon} />
+              <Text style={[styles.emptyStateTitle, { color: colors.text }]}>No circles yet</Text>
+              <Text style={[styles.emptyStateText, { color: colors.secondaryText }]}>
+                Create your first circle to start sharing dates with friends
+              </Text>
+              <Pressable
+                style={[styles.emptyStateButton, { backgroundColor: colors.primary }]}
+                onPress={() => setIsModalVisible(true)}
+              >
+                <Text style={styles.emptyStateButtonText}>Create First Circle</Text>
+              </Pressable>
             </View>
           ) : (
-            <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                No circles yet. Create one to start sharing!
-              </Text>
-            </View>
+            <FlatList
+              data={circles}
+              renderItem={renderCircleItem}
+              keyExtractor={(item) => item.id}
+              scrollEnabled={false}
+              contentContainerStyle={styles.circlesList}
+            />
           )}
         </View>
 
+        {/* Join Circle Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Invites</Text>
-          <View style={[styles.invitesCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.invitesText, { color: colors.textSecondary }]}>
-              No pending invites
-            </Text>
-          </View>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Join a Circle</Text>
+          <Pressable style={[styles.joinCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.joinIconContainer, { backgroundColor: colors.background }]}>
+              <Ionicons name="link-outline" size={24} color={colors.primary} />
+            </View>
+            <View style={styles.joinContent}>
+              <Text style={[styles.joinTitle, { color: colors.text }]}>Have an invite code?</Text>
+              <Text style={[styles.joinSubtitle, { color: colors.secondaryText }]}>
+                Join a friend's circle with their code
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.icon} />
+          </Pressable>
         </View>
       </ScrollView>
-      
+
+      {/* Create Circle Modal */}
       <FriendCircleModal
         visible={isModalVisible}
         onClose={() => setIsModalVisible(false)}
         onCreateCircle={handleCreateCircle}
-        friends={MOCK_FRIENDS}
-        existingCircles={circles}
+        friends={friends}
       />
     </SafeAreaView>
   );
@@ -195,8 +194,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
   },
   headerTitle: {
@@ -207,17 +206,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: Platform.OS === 'ios' ? 100 : 80,
+    paddingBottom: 100,
   },
   section: {
-    paddingHorizontal: 16,
-    paddingTop: 20,
-    paddingBottom: 8,
+    paddingTop: 24,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 20,
     marginBottom: 16,
   },
   sectionTitle: {
@@ -227,36 +225,82 @@ const styles = StyleSheet.create({
   createButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
-    borderWidth: 1,
     gap: 4,
   },
   createButtonText: {
+    color: 'white',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   circlesList: {
+    gap: 12,
+    paddingHorizontal: 20,
+  },
+  joinCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  joinIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  joinContent: {
+    flex: 1,
+  },
+  joinTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  joinSubtitle: {
+    fontSize: 14,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+  },
+  emptyState: {
+    marginHorizontal: 20,
+    padding: 32,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
     marginBottom: 8,
   },
-  emptyCard: {
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  emptyText: {
+  emptyStateText: {
     fontSize: 14,
     textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
   },
-  invitesCard: {
-    borderRadius: 16,
-    padding: 40,
-    alignItems: 'center',
-    borderWidth: 1,
+  emptyStateButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
   },
-  invitesText: {
-    fontSize: 16,
+  emptyStateButtonText: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

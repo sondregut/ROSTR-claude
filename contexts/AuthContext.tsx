@@ -36,6 +36,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Get initial session
     AuthService.getSession().then(async (session) => {
+      // In development, you can uncomment this line to always start fresh:
+      await supabase.auth.signOut();
+      
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -50,6 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('🔄 Auth state changed:', event, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -223,7 +227,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(true);
       setError(null);
       
+      console.log('📱 AuthContext: Starting phone OTP verification');
       const { user, session } = await AuthService.verifyPhoneOtp(phone, otp, name);
+      console.log('✅ AuthContext: OTP verification completed', { user: user?.id, session: !!session });
       
       // Create user profile in the users table
       if (user) {

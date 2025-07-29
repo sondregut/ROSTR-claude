@@ -17,7 +17,7 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useCirclePermissions } from '@/hooks/useCirclePermissions';
 import { CircleService, type Circle, type CircleMember } from '@/services/supabase/circles';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/SimpleAuthContext';
 
 export default function CircleSettingsScreen() {
   const { id } = useLocalSearchParams();

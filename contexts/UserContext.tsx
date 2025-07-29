@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { UserService } from '@/services/supabase/users';
+import { useAuth } from '@/contexts/SimpleAuthContext';
 
-interface UserProfile {
-  id?: string;
+export interface UserProfile {
+  id: string;
   name: string;
   username: string;
   bio: string;
@@ -40,110 +41,156 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-const USER_PROFILE_KEY = '@user_profile';
-
-// Default profile data (previously MOCK_USER)
-const DEFAULT_PROFILE: UserProfile = {
-  id: 'mock-user-id',
-  name: 'Jamie Smith',
-  username: '@jamiesmith',
-  bio: 'Coffee enthusiast, hiking lover, and always up for trying new restaurants. Looking for someone who can make me laugh and shares my love for adventure.',
-  location: 'New York, NY',
-  occupation: 'Marketing Manager',
-  age: 28,
-  imageUri: 'https://randomuser.me/api/portraits/women/68.jpg',
-  instagramUsername: 'alex_codes',
-  stats: {
-    totalDates: 12,
-    activeConnections: 4,
-    avgRating: 3.8,
-    circles: 5,
-  },
-  about: {
-    bio: 'Coffee enthusiast, hiking lover, and always up for trying new restaurants. Looking for someone who can make me laugh and shares my love for adventure.',
-    interests: ['Coffee', 'Hiking', 'Photography', 'Cooking', 'Travel', 'Art', 'Music', 'Fitness'],
-  },
-  preferences: {
-    dating: {
-      lookingFor: 'Serious Relationship',
-      ageRange: '25-35',
-      education: 'College+',
-    },
-    dealBreakers: ['Smoking', 'No sense of humor', 'Rude to service staff', 'Always late', 'Poor hygiene']
-  }
-};
-
 export function UserProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadUserProfile();
-  }, []);
+  // Transform database profile to UserProfile interface
+  const transformProfile = (dbProfile: any): UserProfile | null => {
+    if (!dbProfile) return null;
 
-  const loadUserProfile = async () => {
+    return {
+      id: dbProfile.id,
+      name: dbProfile.name || '',
+      username: dbProfile.username || '',
+      bio: dbProfile.bio || '',
+      location: dbProfile.location || '',
+      occupation: dbProfile.occupation || '',
+      age: dbProfile.age || 0,
+      imageUri: dbProfile.image_uri || '',
+      instagramUsername: dbProfile.instagram_username,
+      stats: {
+        totalDates: dbProfile.total_dates || 0,
+        activeConnections: dbProfile.active_connections || 0,
+        avgRating: dbProfile.avg_rating || 0,
+        circles: 0, // Will be populated from circles count
+      },
+      about: {
+        bio: dbProfile.bio || '',
+        interests: dbProfile.interests || [],
+      },
+      preferences: {
+        dating: {
+          lookingFor: dbProfile.dating_preferences?.lookingFor || '',
+          ageRange: dbProfile.dating_preferences?.ageRange || '',
+          education: dbProfile.dating_preferences?.education || '',
+        },
+        dealBreakers: dbProfile.deal_breakers || [],
+      },
+    };
+  };
+
+  // Load user profile from Supabase
+  const loadProfile = async () => {
+    if (!user) {
+      setUserProfile(null);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
-      const savedProfile = await AsyncStorage.getItem(USER_PROFILE_KEY);
-      if (savedProfile) {
-        setUserProfile(JSON.parse(savedProfile));
+      setError(null);
+      
+      // Get profile from database
+      const dbProfile = await UserService.getProfile(user.id);
+      
+      if (dbProfile) {
+        // Get user stats including circles count
+        const stats = await UserService.getUserStats(user.id);
+        
+        // Transform and set profile
+        const transformedProfile = transformProfile(dbProfile);
+        if (transformedProfile && stats) {
+          transformedProfile.stats = {
+            ...transformedProfile.stats,
+            ...stats,
+          };
+        }
+        
+        setUserProfile(transformedProfile);
       } else {
-        // First time user, set default profile
-        setUserProfile(DEFAULT_PROFILE);
-        await AsyncStorage.setItem(USER_PROFILE_KEY, JSON.stringify(DEFAULT_PROFILE));
+        setUserProfile(null);
       }
     } catch (err) {
-      console.error('Error loading user profile:', err);
+      console.error('Error loading profile:', err);
       setError('Failed to load profile');
-      // Fallback to default profile
-      setUserProfile(DEFAULT_PROFILE);
     } finally {
       setIsLoading(false);
     }
   };
 
+  useEffect(() => {
+    loadProfile();
+  }, [user]);
+
   const updateProfile = async (updates: Partial<UserProfile>) => {
+    if (!user) {
+      throw new Error('No user logged in');
+    }
+
     try {
-      if (!userProfile) return;
+      setError(null);
       
-      const updatedProfile = {
-        ...userProfile,
-        ...updates,
-        // Deep merge for nested objects
-        about: updates.about ? { ...userProfile.about, ...updates.about } : userProfile.about,
-        preferences: updates.preferences ? {
-          ...userProfile.preferences,
-          dating: updates.preferences.dating ? { ...userProfile.preferences.dating, ...updates.preferences.dating } : userProfile.preferences.dating,
-          lifestyle: updates.preferences.lifestyle ? { ...userProfile.preferences.lifestyle, ...updates.preferences.lifestyle } : userProfile.preferences.lifestyle,
-          dealBreakers: updates.preferences.dealBreakers || userProfile.preferences.dealBreakers,
-        } : userProfile.preferences,
-        stats: updates.stats ? { ...userProfile.stats, ...updates.stats } : userProfile.stats,
-      };
-
-      setUserProfile(updatedProfile);
-      await AsyncStorage.setItem(USER_PROFILE_KEY, JSON.stringify(updatedProfile));
-
-      // TODO: Sync with Supabase when user is authenticated
-      // For now, we're using local storage for the mock user
+      // Transform UserProfile updates to database format
+      const dbUpdates: any = {};
       
+      // Basic fields
+      if (updates.name !== undefined) dbUpdates.name = updates.name;
+      if (updates.username !== undefined) dbUpdates.username = updates.username;
+      if (updates.bio !== undefined) dbUpdates.bio = updates.bio;
+      if (updates.location !== undefined) dbUpdates.location = updates.location;
+      if (updates.occupation !== undefined) dbUpdates.occupation = updates.occupation;
+      if (updates.age !== undefined) dbUpdates.age = updates.age;
+      if (updates.imageUri !== undefined) dbUpdates.image_uri = updates.imageUri;
+      if (updates.instagramUsername !== undefined) dbUpdates.instagram_username = updates.instagramUsername;
+      
+      // Complex fields
+      if (updates.about?.interests !== undefined) dbUpdates.interests = updates.about.interests;
+      if (updates.preferences?.dealBreakers !== undefined) dbUpdates.deal_breakers = updates.preferences.dealBreakers;
+      
+      // Dating preferences (stored as JSONB)
+      if (updates.preferences?.dating) {
+        dbUpdates.dating_preferences = {
+          ...userProfile?.preferences?.dating,
+          ...updates.preferences.dating,
+        };
+      }
+      
+      // Update in database
+      await UserService.updateProfile(user.id, dbUpdates);
+      
+      // Optimistically update local state
+      if (userProfile) {
+        setUserProfile({ ...userProfile, ...updates });
+      }
+      
+      // Refresh profile to ensure consistency
+      await loadProfile();
     } catch (err) {
-      console.error('Error updating user profile:', err);
-      setError('Failed to save profile');
+      console.error('Error updating profile:', err);
+      setError('Failed to update profile');
+      // Revert optimistic update on error
+      await loadProfile();
       throw err;
     }
   };
 
-  return (
-    <UserContext.Provider value={{ userProfile, updateProfile, isLoading, error }}>
-      {children}
-    </UserContext.Provider>
-  );
+  const value = {
+    userProfile,
+    updateProfile,
+    isLoading,
+    error,
+  };
+
+  return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }
 
 export function useUser() {
   const context = useContext(UserContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useUser must be used within a UserProvider');
   }
   return context;

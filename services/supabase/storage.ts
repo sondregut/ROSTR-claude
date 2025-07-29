@@ -41,21 +41,25 @@ export class StorageService {
         throw new Error('Cannot upload photos for other users');
       }
 
+      // Generate unique filename
+      const filename = this.generateUniqueFilename(userId, 'profile_photo.jpg', 'profile');
+
       // Read file as base64
       const base64 = await FileSystem.readAsStringAsync(imageUri, {
         encoding: FileSystem.EncodingType.Base64,
       });
 
-      // Generate unique filename
-      const filename = this.generateUniqueFilename(userId, 'profile_photo.jpg', 'profile');
-
-      // Convert base64 to blob
-      const blob = this.base64ToBlob(base64, 'image/jpeg');
+      // Decode base64 to ArrayBuffer for Supabase
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
 
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
         .from(this.BUCKETS.USER_PHOTOS)
-        .upload(filename, blob, {
+        .upload(filename, bytes.buffer, {
           contentType: 'image/jpeg',
           upsert: false,
         });
@@ -112,21 +116,25 @@ export class StorageService {
         throw new Error('Cannot upload images for other users');
       }
 
+      // Generate unique filename
+      const filename = this.generateUniqueFilename(userId, 'date_image.jpg', 'date');
+
       // Read file as base64
       const base64 = await FileSystem.readAsStringAsync(imageUri, {
         encoding: FileSystem.EncodingType.Base64,
       });
 
-      // Generate unique filename
-      const filename = this.generateUniqueFilename(userId, 'date_image.jpg', 'date');
-
-      // Convert base64 to blob
-      const blob = this.base64ToBlob(base64, 'image/jpeg');
+      // Decode base64 to ArrayBuffer for Supabase
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
 
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
         .from(this.BUCKETS.DATE_ENTRY_IMAGES)
-        .upload(filename, blob, {
+        .upload(filename, bytes.buffer, {
           contentType: 'image/jpeg',
           upsert: false,
         });
@@ -171,23 +179,29 @@ export class StorageService {
         throw new Error('Cannot upload media for other users');
       }
 
+      // Generate unique filename
+      const extension = mediaType === 'video' ? 'mp4' : 'jpg';
+      const filename = this.generateUniqueFilename(userId, `chat_media.${extension}`, 'chat');
+
       // Read file as base64
       const base64 = await FileSystem.readAsStringAsync(mediaUri, {
         encoding: FileSystem.EncodingType.Base64,
       });
 
-      // Generate unique filename
-      const extension = mediaType === 'video' ? 'mp4' : 'jpg';
-      const filename = this.generateUniqueFilename(userId, `chat_media.${extension}`, 'chat');
-
       // Convert base64 to blob
       const contentType = mediaType === 'video' ? 'video/mp4' : 'image/jpeg';
-      const blob = this.base64ToBlob(base64, contentType);
+      
+      // Decode base64 to ArrayBuffer for Supabase
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
 
       // Upload to Supabase Storage (private bucket)
       const { data, error } = await supabase.storage
         .from(this.BUCKETS.CHAT_MEDIA)
-        .upload(filename, blob, {
+        .upload(filename, bytes.buffer, {
           contentType,
           upsert: false,
         });
@@ -265,7 +279,7 @@ export class StorageService {
   ): Promise<string> {
     try {
       const manipResult = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: [ImagePicker.MediaType.Images],
         allowsEditing: true,
         aspect: [1, 1],
         quality,
@@ -280,21 +294,6 @@ export class StorageService {
       console.error('Process image error:', error);
       return imageUri; // Return original if processing fails
     }
-  }
-
-  /**
-   * Convert base64 string to blob
-   */
-  private static base64ToBlob(base64: string, mimeType: string): Blob {
-    const byteString = atob(base64);
-    const arrayBuffer = new ArrayBuffer(byteString.length);
-    const uint8Array = new Uint8Array(arrayBuffer);
-
-    for (let i = 0; i < byteString.length; i++) {
-      uint8Array[i] = byteString.charCodeAt(i);
-    }
-
-    return new Blob([arrayBuffer], { type: mimeType });
   }
 
   /**

@@ -18,7 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function BirthdaySetupScreen() {
   const router = useRouter();
-  const { refreshUser } = useAuth();
+  const { user } = useAuth();
   const [birthDate, setBirthDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [dateString, setDateString] = useState('');
@@ -90,7 +90,7 @@ export default function BirthdaySetupScreen() {
           .from('users')
           .upsert({
             id: user.id,
-            birthday: birthDate.toISOString(),
+            date_of_birth: birthDate.toISOString(),
             age: age,
             updated_at: new Date().toISOString(),
           }, {
@@ -102,11 +102,8 @@ export default function BirthdaySetupScreen() {
         }
       }
 
-      // Refresh user context
-      await refreshUser();
-      
-      // Navigate to main app - auth flow complete!
-      router.replace('/(tabs)/');
+      // Navigate to gender setup to complete the flow
+      router.push('/(auth)/gender-setup');
     } catch (error: any) {
       console.error('Birthday update error:', error);
       Alert.alert('Error', 'Failed to save birthday. Please try again.');

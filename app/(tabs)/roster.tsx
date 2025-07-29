@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, SectionList, View, Text, Pressable, Platform } from 'react-native';
+import { StyleSheet, SectionList, View, Text, Pressable, Platform, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -9,92 +9,104 @@ import { AddPersonModal, PersonData } from '@/components/ui/modals/AddPersonModa
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { getPersonNameFromRosterId } from '@/lib/rosterUtils';
+import { useRoster } from '@/contexts/RosterContext';
 
-// Mock data for demonstration
-// Define the types for our roster entries
-type RosterStatus = 'active' | 'new' | 'fading' | 'ended' | 'ghosted';
-
-interface RosterEntry {
-  id: string;
-  name: string;
-  lastDate: string;
-  nextDate?: string;
-  rating: number;
-  status: RosterStatus;
-}
-
-const ACTIVE_ROSTER: RosterEntry[] = [
-  {
-    id: '1',
-    name: 'Alex',
-    lastDate: '3 days ago',
-    nextDate: 'Tomorrow',
-    rating: 4.2,
-    status: 'active',
-  },
-  {
-    id: '2',
-    name: 'Jordan',
-    lastDate: '1 week ago',
-    rating: 3.8,
-    status: 'new',
-  },
-  {
-    id: '3',
-    name: 'Taylor',
-    lastDate: '2 days ago',
-    rating: 4.5,
-    status: 'active',
-  },
-  {
-    id: '4',
-    name: 'Morgan',
-    lastDate: '5 days ago',
-    rating: 2.5,
-    status: 'fading',
-  },
-];
-
-const PAST_CONNECTIONS: RosterEntry[] = [
-  {
-    id: '5',
-    name: 'Riley',
-    lastDate: '3 weeks ago',
-    rating: 3.0,
-    status: 'ended',
-  },
-  {
-    id: '6',
-    name: 'Casey',
-    lastDate: '2 months ago',
-    rating: 1.5,
-    status: 'ghosted',
-  },
-];
 
 export default function RosterScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
+  const { activeRoster, pastConnections, isLoading, addPerson, refreshRoster, updateEntry, deleteEntry } = useRoster();
   
   const [showAddModal, setShowAddModal] = useState(false);
-  const [activeRoster, setActiveRoster] = useState(ACTIVE_ROSTER);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
-  const handleAddPerson = (personData: PersonData) => {
-    // Create new roster entry from person data
-    const newEntry: RosterEntry = {
-      id: Date.now().toString(),
-      name: personData.name,
-      lastDate: 'Never',
-      rating: 0,
-      status: 'new',
-    };
+  const handleAddPerson = async (personData: PersonData) => {
+    try {
+      await addPerson(personData.name, personData);
+      setShowAddModal(false);
+    } catch (error) {
+      console.error('Error adding person:', error);
+    }
+  };
+  
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshRoster();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+  
+  const handleOptionsPress = (item: typeof activeRoster[0]) => {
+    const statusOptions = ['active', 'new', 'fading', 'ended', 'ghosted'];
     
-    setActiveRoster([...activeRoster, newEntry]);
-    setShowAddModal(false);
-    
-    // In a real app, this would save to a database
-    console.log('New person added:', personData);
+    Alert.alert(
+      item.name,
+      'Choose an action',
+      [
+        {
+          text: 'View Profile',
+          onPress: () => {
+            router.push(`/person/${encodeURIComponent(item.name)}?rosterId=${item.id}&isOwnRoster=true`);
+          }
+        },
+        {
+          text: 'Edit Recent Updates',
+          onPress: () => {
+            router.push(`/person/${encodeURIComponent(item.name)}?rosterId=${item.id}&isOwnRoster=true&showEditOptions=true`);
+          }
+        },
+        {
+          text: 'Change Status',
+          onPress: () => {
+            Alert.alert(
+              'Change Status',
+              `Current status: ${item.status}`,
+              [
+                ...statusOptions.map(status => ({
+                  text: status.charAt(0).toUpperCase() + status.slice(1),
+                  onPress: async () => {
+                    try {
+                      await updateEntry(item.id, { status: status as any });
+                    } catch (error) {
+                      Alert.alert('Error', 'Failed to update status');
+                    }
+                  }
+                })),
+                { text: 'Cancel', style: 'cancel' }
+              ]
+            );
+          }
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Delete Entry',
+              `Are you sure you want to delete ${item.name} from your roster?`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await deleteEntry(item.id);
+                    } catch (error) {
+                      Alert.alert('Error', 'Failed to delete entry');
+                    }
+                  }
+                }
+              ]
+            );
+          }
+        },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
   };
   
   // Prepare data for SectionList
@@ -105,23 +117,24 @@ export default function RosterScreen() {
     },
     {
       title: 'Past Connections',
-      data: PAST_CONNECTIONS,
+      data: pastConnections,
     },
-  ];
+  ].filter(section => section.data.length > 0); // Only show sections with data
 
-  const renderItem = ({ item }: { item: RosterEntry }) => (
+  const renderItem = ({ item }: { item: typeof activeRoster[0] }) => (
     <ProfileCard
       id={item.id}
       name={item.name}
+      avatarUri={item.photos?.[0]}
       lastDate={item.lastDate}
       nextDate={item.nextDate}
       rating={item.rating}
       status={item.status}
       onPress={() => {
-        // Navigate to unified person detail screen
-        const personName = getPersonNameFromRosterId(item.id) || item.name;
-        router.push(`/person/${personName.toLowerCase()}?isOwnRoster=true`);
+        // Navigate to roster person detail screen with the roster entry ID
+        router.push(`/person/${encodeURIComponent(item.name)}?rosterId=${item.id}&isOwnRoster=true`);
       }}
+      onOptionsPress={() => handleOptionsPress(item)}
     />
   );
 
@@ -144,18 +157,38 @@ export default function RosterScreen() {
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>My Roster</Text>
       </View>
-      <SectionList
-        sections={sections}
-        renderItem={renderItem}
-        renderSectionHeader={renderSectionHeader}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={true}
-        stickySectionHeadersEnabled={false}
-        contentInsetAdjustmentBehavior="automatic"
-        scrollEventThrottle={16}
-        bounces={true}
-      />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : sections.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="people-outline" size={64} color={colors.textSecondary} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>No roster entries yet</Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>Add someone to start tracking your dates</Text>
+          <Pressable 
+            style={[styles.emptyAddButton, { backgroundColor: colors.primary }]}
+            onPress={() => setShowAddModal(true)}
+          >
+            <Text style={styles.emptyAddButtonText}>Add First Person</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <SectionList
+          sections={sections}
+          renderItem={renderItem}
+          renderSectionHeader={renderSectionHeader}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={true}
+          stickySectionHeadersEnabled={false}
+          contentInsetAdjustmentBehavior="automatic"
+          scrollEventThrottle={16}
+          bounces={true}
+          refreshing={isRefreshing}
+          onRefresh={handleRefresh}
+        />
+      )}
       
       <AddPersonModal
         visible={showAddModal}
@@ -205,5 +238,37 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  emptyAddButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+  },
+  emptyAddButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

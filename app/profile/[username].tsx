@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   ScrollView,
@@ -6,6 +6,7 @@ import {
   Text,
   Pressable,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -15,115 +16,96 @@ import { Avatar } from '@/components/ui/Avatar';
 import { MemberStatsCard } from '@/components/ui/cards/MemberStatsCard';
 import { RosterPersonCard, type RosterPersonData } from '@/components/ui/cards/RosterPersonCard';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { UserService } from '@/services/supabase/users';
+import { useAuth } from '@/contexts/SimpleAuthContext';
 
-// Mock data - in real app, this would come from database
-const MOCK_PROFILE_DATA = {
-  'sarahc': {
-    id: '1',
-    name: 'Sarah Chen',
-    username: 'sarahc',
-    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-    bio: 'Coffee addict, bookworm, and hopeless romantic looking for someone who can make me laugh until my sides hurt.',
-    location: 'San Francisco, CA',
-    joinedDate: 'Mar 2024',
-    mutualCircles: ['Besties', 'College Crew'],
-    stats: {
-      totalDates: 18,
-      activeDates: 3,
-      averageRating: 4.1,
-      datesThisMonth: 5,
-    },
-    datingRoster: [
-      {
-        id: '1',
-        name: 'David',
-        avatar: 'https://randomuser.me/api/portraits/men/45.jpg',
-        status: 'active' as const,
-        lastDate: '2 days ago',
-        totalDates: 4,
-        averageRating: 4.3,
-        nextDate: 'This weekend',
-      },
-      {
-        id: '2',
-        name: 'Marcus',
-        avatar: 'https://randomuser.me/api/portraits/men/67.jpg',
-        status: 'new' as const,
-        lastDate: '1 week ago',
-        totalDates: 2,
-        averageRating: 3.8,
-      },
-      {
-        id: '3',
-        name: 'James',
-        avatar: 'https://randomuser.me/api/portraits/men/23.jpg',
-        status: 'fading' as const,
-        lastDate: '3 weeks ago',
-        totalDates: 6,
-        averageRating: 3.2,
-      },
-      {
-        id: '4',
-        name: 'Alex',
-        avatar: 'https://randomuser.me/api/portraits/men/89.jpg',
-        status: 'ended' as const,
-        lastDate: '2 months ago',
-        totalDates: 3,
-        averageRating: 2.8,
-      },
-    ]
-  },
-  'mikej': {
-    id: '2',
-    name: 'Mike Johnson',
-    username: 'mikej',
-    avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-    bio: 'Adventure seeker and craft beer enthusiast. Looking for someone to explore the city with.',
-    location: 'Portland, OR',
-    joinedDate: 'Jan 2024',
-    mutualCircles: ['Besties'],
-    stats: {
-      totalDates: 12,
-      activeDates: 2,
-      averageRating: 3.8,
-      datesThisMonth: 3,
-    },
-    datingRoster: [
-      {
-        id: '1',
-        name: 'Jessica',
-        avatar: 'https://randomuser.me/api/portraits/women/12.jpg',
-        status: 'active' as const,
-        lastDate: '1 week ago',
-        totalDates: 5,
-        averageRating: 4.0,
-      },
-      {
-        id: '2',
-        name: 'Amanda',
-        avatar: 'https://randomuser.me/api/portraits/women/34.jpg',
-        status: 'new' as const,
-        lastDate: '3 days ago',
-        totalDates: 1,
-        averageRating: 4.5,
-      },
-    ]
-  },
-};
+interface ProfileData {
+  id: string;
+  name: string;
+  username: string;
+  avatar?: string;
+  bio?: string;
+  location?: string;
+  joinedDate: string;
+  mutualCircles: string[];
+  stats: {
+    totalDates: number;
+    activeDates: number;
+    averageRating: number;
+    datesThisMonth: number;
+  };
+  datingRoster: RosterPersonData[];
+}
 
 export default function MemberProfileScreen() {
   const { username } = useLocalSearchParams();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { user } = useAuth();
   
   const [activeTab, setActiveTab] = useState<'roster' | 'activity'>('roster');
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
-  // Get profile data - in real app, this would be fetched from database
-  const profileData = MOCK_PROFILE_DATA[username as keyof typeof MOCK_PROFILE_DATA] || MOCK_PROFILE_DATA['sarahc'];
-  
+  // Load profile data from database
+  useEffect(() => {
+    const loadProfileData = async () => {
+      if (!username || typeof username !== 'string') {
+        setError('Invalid username');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        // Get user profile by username
+        const userProfile = await UserService.getUserByUsername(username);
+        
+        if (!userProfile) {
+          setError('User not found');
+          setIsLoading(false);
+          return;
+        }
+
+        // TODO: Load actual data from database
+        // For now, set basic profile data
+        const profile: ProfileData = {
+          id: userProfile.id,
+          name: userProfile.name,
+          username: userProfile.username,
+          avatar: userProfile.image_uri,
+          bio: userProfile.bio || '',
+          location: userProfile.location || '',
+          joinedDate: new Date(userProfile.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+          mutualCircles: [], // TODO: Load mutual circles
+          stats: {
+            totalDates: 0,
+            activeDates: 0,
+            averageRating: 0,
+            datesThisMonth: 0,
+          },
+          datingRoster: [], // TODO: Load dating roster if user has made it public
+        };
+
+        setProfileData(profile);
+      } catch (err) {
+        console.error('Error loading profile:', err);
+        setError('Failed to load profile');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProfileData();
+  }, [username]);
 
   const handleMoreOptions = () => {
+    if (!profileData) return;
+    
     Alert.alert(
       profileData.name,
       'Choose an action',
@@ -139,6 +121,31 @@ export default function MemberProfileScreen() {
     // Navigate to roster person detail screen
     router.push(`/roster/${person.name.toLowerCase()}?isOwnRoster=false`);
   };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.text }]}>Loading profile...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !profileData) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="person-outline" size={64} color={colors.textSecondary} />
+          <Text style={[styles.errorText, { color: colors.text }]}>{error || 'User not found'}</Text>
+          <Pressable onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.primary }]}>
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
@@ -185,18 +192,22 @@ export default function MemberProfileScreen() {
               )}
               
               {/* Bio */}
-              <Text style={[styles.bio, { color: colors.text }]}>
-                {profileData.bio}
-              </Text>
+              {profileData.bio && (
+                <Text style={[styles.bio, { color: colors.text }]}>
+                  {profileData.bio}
+                </Text>
+              )}
               
               {/* Location and join date */}
               <View style={styles.metadata}>
-                <View style={styles.metadataItem}>
-                  <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
-                  <Text style={[styles.metadataText, { color: colors.textSecondary }]}>
-                    {profileData.location}
-                  </Text>
-                </View>
+                {profileData.location && (
+                  <View style={styles.metadataItem}>
+                    <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
+                    <Text style={[styles.metadataText, { color: colors.textSecondary }]}>
+                      {profileData.location}
+                    </Text>
+                  </View>
+                )}
                 <View style={styles.metadataItem}>
                   <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
                   <Text style={[styles.metadataText, { color: colors.textSecondary }]}>
@@ -416,5 +427,31 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  errorText: {
+    fontSize: 18,
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 24,
+  },
+  backButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

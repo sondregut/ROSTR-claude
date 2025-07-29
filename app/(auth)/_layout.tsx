@@ -19,6 +19,11 @@ export default function AuthLayout() {
           animation: 'slide_from_right',
         }}
       >
+        <Stack.Screen name="welcome-new" />
+        <Stack.Screen name="email-signup" />
+        <Stack.Screen name="email-signin" />
+        
+        {/* Keep old screens temporarily for backwards compatibility */}
         <Stack.Screen name="welcome" />
         <Stack.Screen name="create-account" />
         <Stack.Screen name="verify-otp" />
@@ -26,6 +31,7 @@ export default function AuthLayout() {
         <Stack.Screen name="apple-connect" />
         <Stack.Screen name="name-setup" />
         <Stack.Screen name="birthday-setup" />
+        <Stack.Screen name="gender-setup" />
         <Stack.Screen name="signin" />
         <Stack.Screen name="signup" />
         <Stack.Screen name="forgot-password" />

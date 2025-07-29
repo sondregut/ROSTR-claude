@@ -8,10 +8,6 @@ if (typeof URL === 'undefined') {
   console.log('✅ URL polyfill loaded successfully');
 }
 
-// Network debugging in development
-if (__DEV__) {
-  require('@/utils/networkDebug');
-}
 
 import React from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
@@ -22,9 +18,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
 import { ThemeProvider as AppThemeProvider, useTheme } from '@/contexts/ThemeContext';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { SimpleAuthProvider } from '@/contexts/SimpleAuthContext';
 import { UserProvider } from '@/contexts/UserContext';
 import { DateProvider } from '@/contexts/DateContext';
+import { RosterProvider } from '@/contexts/RosterContext';
+import { CircleProvider } from '@/contexts/CircleContext';
 import { AuthenticatedApp } from '@/components/AuthenticatedApp';
 import { useDeepLinks } from '@/hooks/useDeepLinks';
 import { verifyEnvironmentVariables } from '@/utils/verifyEnv';
@@ -108,13 +106,17 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AppThemeProvider>
-        <AuthProvider>
+        <SimpleAuthProvider>
           <UserProvider>
             <DateProvider>
-              <RootLayoutNav />
+              <RosterProvider>
+                <CircleProvider>
+                  <RootLayoutNav />
+                </CircleProvider>
+              </RosterProvider>
             </DateProvider>
           </UserProvider>
-        </AuthProvider>
+        </SimpleAuthProvider>
       </AppThemeProvider>
     </SafeAreaProvider>
   );

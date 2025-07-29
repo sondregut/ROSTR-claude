@@ -59,8 +59,8 @@ export default function EmailAuthScreen() {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Navigate to profile setup
-      router.push('/(auth)/profile-setup');
+      // Navigate to name setup
+      router.push('/(auth)/name-setup');
     } catch (error) {
       Alert.alert('Error', 'Failed to create account. Please try again.');
     } finally {

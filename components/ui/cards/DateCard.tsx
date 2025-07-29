@@ -18,6 +18,7 @@ interface DateCardProps {
   instagramUsername?: string;
   authorName?: string;
   authorAvatar?: string;
+  isOwnPost?: boolean;
   poll?: {
     question: string;
     options: {
@@ -36,6 +37,7 @@ interface DateCardProps {
   onAuthorPress?: () => void;
   onLike?: () => void;
   onComment?: () => void;
+  onEdit?: () => void;
   onPollVote?: (dateId: string, optionIndex: number) => void;
   likeCount: number;
   commentCount: number;
@@ -54,6 +56,7 @@ export function DateCard({
   instagramUsername,
   authorName,
   authorAvatar,
+  isOwnPost = false,
   poll,
   userPollVote = null,
   comments = [],
@@ -63,6 +66,7 @@ export function DateCard({
   onAuthorPress,
   onLike,
   onComment,
+  onEdit,
   onPollVote,
   likeCount,
   commentCount,
@@ -84,8 +88,6 @@ export function DateCard({
         >
           {authorAvatar ? (
             <Image source={{ uri: authorAvatar }} style={styles.avatar} />
-          ) : imageUri ? (
-            <Image source={{ uri: imageUri }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
               <Text style={[styles.avatarInitial, { color: colors.buttonText }]}>
@@ -104,7 +106,18 @@ export function DateCard({
             </Text>
           </View>
         </Pressable>
-        <Text style={[styles.dateTime, { color: colors.textSecondary }]}>{date}</Text>
+        <View style={styles.headerRight}>
+          <Text style={[styles.dateTime, { color: colors.textSecondary }]}>{date}</Text>
+          {isOwnPost && onEdit && (
+            <Pressable 
+              onPress={onEdit}
+              style={styles.editButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="ellipsis-horizontal" size={20} color={colors.textSecondary} />
+            </Pressable>
+          )}
+        </View>
       </View>
 
       {/* Rating with clickable person name */}
@@ -149,6 +162,16 @@ export function DateCard({
         <Text style={[styles.notes, { color: colors.text }]}>
           {notes}
         </Text>
+      )}
+      
+      {imageUri && (
+        <View style={styles.imageContainer}>
+          <Image 
+            source={{ uri: imageUri }} 
+            style={styles.dateImage}
+            resizeMode="cover"
+          />
+        </View>
       )}
 
       {tags.length > 0 && (
@@ -282,6 +305,9 @@ const styles = StyleSheet.create({
   headerInfo: {
     flex: 1,
   },
+  headerRight: {
+    alignItems: 'flex-end',
+  },
   personName: {
     fontSize: 16,
     fontWeight: '600',
@@ -289,6 +315,10 @@ const styles = StyleSheet.create({
   dateTime: {
     fontSize: 14,
     marginTop: 2,
+  },
+  editButton: {
+    marginTop: 4,
+    padding: 4,
   },
   ratingContainer: {
     flexDirection: 'row',
@@ -425,5 +455,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     marginLeft: 2,
+  },
+  imageContainer: {
+    marginHorizontal: 16,
+    marginVertical: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  dateImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
   },
 });

@@ -258,13 +258,7 @@ export function FriendCircleModal({
               {/* Content Area */}
               <View style={styles.contentContainer}>
                 {activeTab === 'create' ? (
-                  <>
-                    <ScrollView 
-                      style={styles.content}
-                      contentContainerStyle={styles.scrollContent}
-                      keyboardShouldPersistTaps="handled"
-                      showsVerticalScrollIndicator={false}
-                    >
+                  <View style={styles.createContent}>
                 <View style={styles.formGroup}>
                   <View style={styles.labelRow}>
                     <Text style={[styles.label, { color: colors.text }]}>Circle Name</Text>
@@ -363,15 +357,15 @@ export function FriendCircleModal({
                     </View>
                   </View>
                 )}
-              </ScrollView>
               
-              <FlatList
-                data={filteredFriends}
-                renderItem={renderFriendItem}
-                keyExtractor={item => item.id}
-                style={styles.friendsList}
-                contentContainerStyle={styles.friendsListContent}
-                keyboardShouldPersistTaps="handled"
+                    <FlatList
+                      data={filteredFriends}
+                      renderItem={renderFriendItem}
+                      keyExtractor={item => item.id}
+                      style={styles.friendsList}
+                      contentContainerStyle={styles.friendsListContent}
+                      keyboardShouldPersistTaps="handled"
+                      showsVerticalScrollIndicator={false}
                     />
                     
                     <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
@@ -389,7 +383,7 @@ export function FriendCircleModal({
                         disabled={!circleName.trim() || selectedFriends.length === 0}
                       />
                     </View>
-                  </>
+                  </View>
                 ) : (
                   <View style={styles.content}>
               {existingCircles.length > 0 ? (
@@ -456,6 +450,10 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
   },
+  createContent: {
+    flex: 1,
+    paddingBottom: 80, // Space for fixed footer
+  },
   title: {
     fontSize: 18,
     fontWeight: '600',
@@ -487,11 +485,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
   },
-  scrollContent: {
-    paddingBottom: 16,
-  },
   formGroup: {
     marginBottom: 16,
+    paddingHorizontal: 16,
   },
   label: {
     fontSize: 16,
@@ -530,6 +526,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
+    marginHorizontal: 16,
   },
   searchInput: {
     flex: 1,
@@ -538,6 +535,7 @@ const styles = StyleSheet.create({
   },
   selectedContainer: {
     marginBottom: 16,
+    paddingHorizontal: 16,
   },
   selectedLabel: {
     fontSize: 14,
@@ -582,10 +580,10 @@ const styles = StyleSheet.create({
   friendsList: {
     flex: 1,
     marginTop: 8,
-    paddingHorizontal: 16,
   },
   friendsListContent: {
-    paddingBottom: 80, // Space for footer
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   friendItem: {
     flexDirection: 'row',
@@ -642,6 +640,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
     gap: 12,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   footerButton: {
     flex: 1,

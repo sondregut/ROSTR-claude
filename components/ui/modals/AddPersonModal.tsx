@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,15 +26,14 @@ interface AddPersonModalProps {
 
 export interface PersonData {
   name: string;
-  age: string;
-  occupation: string;
-  location: string;
-  howWeMet: string;
-  interests: string;
-  phone?: string;
+  age?: string;
+  occupation?: string;
+  location?: string;
+  howWeMet?: string;
+  interests?: string;
   instagram?: string;
   notes?: string;
-  photos: string[];
+  photos?: string[];
 }
 
 const HOW_WE_MET_OPTIONS = [
@@ -57,13 +57,12 @@ export function AddPersonModal({ visible, onClose, onSave }: AddPersonModalProps
     location: '',
     howWeMet: '',
     interests: '',
-    phone: '',
     instagram: '',
     notes: '',
     photos: [],
   });
 
-  const [errors, setErrors] = useState<Partial<Record<keyof PersonData, string>>>({});
+  // Removed errors state as validation is no longer required
   const [showHowWeMetOptions, setShowHowWeMetOptions] = useState(false);
 
   const handleChange = (field: keyof PersonData, value: string | string[]) => {
@@ -72,13 +71,7 @@ export function AddPersonModal({ visible, onClose, onSave }: AddPersonModalProps
       [field]: value
     }));
     
-    // Clear error when user types
-    if (errors[field]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: undefined
-      }));
-    }
+    // No error clearing needed as validation is removed
   };
 
   const handleImagePick = async () => {
@@ -90,41 +83,25 @@ export function AddPersonModal({ visible, onClose, onSave }: AddPersonModalProps
     }
     
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
     });
     
     if (!result.canceled) {
-      handleChange('photos', [...formData.photos, result.assets[0].uri]);
+      handleChange('photos', [...(formData.photos || []), result.assets[0].uri]);
     }
   };
 
   const removePhoto = (index: number) => {
-    const newPhotos = formData.photos.filter((_, i) => i !== index);
+    const newPhotos = (formData.photos || []).filter((_, i) => i !== index);
     handleChange('photos', newPhotos);
   };
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<Record<keyof PersonData, string>> = {};
-    
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
-    }
-    
-    if (!formData.age.trim()) {
-      newErrors.age = 'Age is required';
-    } else if (isNaN(Number(formData.age)) || Number(formData.age) < 18) {
-      newErrors.age = 'Please enter a valid age (18+)';
-    }
-    
-    if (!formData.howWeMet.trim()) {
-      newErrors.howWeMet = 'Please select how you met';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    // No validation required - users can save with any amount of info
+    return true;
   };
 
   const handleSave = () => {
@@ -143,12 +120,11 @@ export function AddPersonModal({ visible, onClose, onSave }: AddPersonModalProps
       location: '',
       howWeMet: '',
       interests: '',
-      phone: '',
-      instagram: '',
+        instagram: '',
       notes: '',
       photos: [],
     });
-    setErrors({});
+    // No errors to reset
   };
 
   const handleClose = () => {
@@ -186,11 +162,12 @@ export function AddPersonModal({ visible, onClose, onSave }: AddPersonModalProps
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Photos</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.photoContainer}>
-                  {formData.photos.map((photo, index) => (
+                  {(formData.photos || []).map((photo, index) => (
                     <View key={index} style={styles.photoWrapper}>
-                      <View style={[styles.photoPlaceholder, { backgroundColor: colors.card }]}>
-                        <Text style={{ color: colors.text }}>Photo {index + 1}</Text>
-                      </View>
+                      <Image 
+                        source={{ uri: photo }} 
+                        style={[styles.photoImage, { backgroundColor: colors.card }]}
+                      />
                       <Pressable
                         style={styles.removePhotoButton}
                         onPress={() => removePhoto(index)}
@@ -214,14 +191,14 @@ export function AddPersonModal({ visible, onClose, onSave }: AddPersonModalProps
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Basic Info</Text>
               
               <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Name *</Text>
+                <Text style={[styles.label, { color: colors.text }]}>Name</Text>
                 <TextInput
                   style={[
                     styles.input,
                     {
                       color: colors.text,
                       backgroundColor: colors.card,
-                      borderColor: errors.name ? 'red' : colors.border
+                      borderColor: colors.border
                     }
                   ]}
                   placeholder="Enter name"
@@ -229,19 +206,18 @@ export function AddPersonModal({ visible, onClose, onSave }: AddPersonModalProps
                   value={formData.name}
                   onChangeText={(text) => handleChange('name', text)}
                 />
-                {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
               </View>
 
               <View style={styles.row}>
                 <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
-                  <Text style={[styles.label, { color: colors.text }]}>Age *</Text>
+                  <Text style={[styles.label, { color: colors.text }]}>Age</Text>
                   <TextInput
                     style={[
                       styles.input,
                       {
                         color: colors.text,
                         backgroundColor: colors.card,
-                        borderColor: errors.age ? 'red' : colors.border
+                        borderColor: colors.border
                       }
                     ]}
                     placeholder="Age"
@@ -250,7 +226,6 @@ export function AddPersonModal({ visible, onClose, onSave }: AddPersonModalProps
                     onChangeText={(text) => handleChange('age', text)}
                     keyboardType="numeric"
                   />
-                  {errors.age && <Text style={styles.errorText}>{errors.age}</Text>}
                 </View>
 
                 <View style={[styles.formGroup, { flex: 2 }]}>
@@ -291,14 +266,14 @@ export function AddPersonModal({ visible, onClose, onSave }: AddPersonModalProps
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>How We Met *</Text>
+                <Text style={[styles.label, { color: colors.text }]}>How We Met</Text>
                 <Pressable
                   style={[
                     styles.input,
                     styles.selectInput,
                     {
                       backgroundColor: colors.card,
-                      borderColor: errors.howWeMet ? 'red' : colors.border
+                      borderColor: colors.border
                     }
                   ]}
                   onPress={() => setShowHowWeMetOptions(!showHowWeMetOptions)}
@@ -314,7 +289,6 @@ export function AddPersonModal({ visible, onClose, onSave }: AddPersonModalProps
                     color={colors.text} 
                   />
                 </Pressable>
-                {errors.howWeMet && <Text style={styles.errorText}>{errors.howWeMet}</Text>}
                 
                 {showHowWeMetOptions && (
                   <View style={[styles.optionsList, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -357,25 +331,6 @@ export function AddPersonModal({ visible, onClose, onSave }: AddPersonModalProps
                   multiline
                   numberOfLines={3}
                   textAlignVertical="top"
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Phone</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      color: colors.text,
-                      backgroundColor: colors.card,
-                      borderColor: colors.border
-                    }
-                  ]}
-                  placeholder="Phone number"
-                  placeholderTextColor={colors.textSecondary}
-                  value={formData.phone}
-                  onChangeText={(text) => handleChange('phone', text)}
-                  keyboardType="phone-pad"
                 />
               </View>
 
@@ -496,6 +451,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  photoImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    resizeMode: 'cover',
+  },
   removePhotoButton: {
     position: 'absolute',
     top: -8,
@@ -553,11 +514,6 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-  },
-  errorText: {
-    color: 'red',
-    fontSize: 12,
-    marginTop: 4,
   },
   buttonsContainer: {
     flexDirection: 'row',

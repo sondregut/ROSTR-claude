@@ -22,20 +22,8 @@ export default function UpdateScreen() {
       // Save the date entry to the context
       await addDate(formData);
       
-      // Show success message
-      Alert.alert(
-        'Date Added!',
-        'Your date update has been shared successfully.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Navigate to feed tab to show the new entry
-              router.push('/(tabs)/');
-            },
-          },
-        ]
-      );
+      // Navigate directly to feed tab to show the new entry
+      router.push('/(tabs)/');
     } catch (error) {
       console.error('Error saving date:', error);
       Alert.alert(

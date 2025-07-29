@@ -45,7 +45,7 @@ export const pickImage = async (
   options: PhotoUploadOptions = {}
 ): Promise<ImagePicker.ImagePickerResult> => {
   const defaultOptions: ImagePicker.ImagePickerOptions = {
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    mediaTypes: [ImagePicker.MediaType.Images],
     allowsEditing: options.allowsEditing ?? true,
     aspect: options.aspect ?? [1, 1],
     quality: options.quality ?? 0.8,

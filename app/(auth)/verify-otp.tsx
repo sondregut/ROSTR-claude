@@ -18,14 +18,17 @@ import { AuthService } from '@/services/supabase/auth';
 export default function VerifyOTPScreen() {
   const router = useRouter();
   const { phoneNumber } = useLocalSearchParams<{ phoneNumber: string }>();
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(30);
-  const inputRefs = useRef<(TextInput | null)[]>([]);
+  const [verificationComplete, setVerificationComplete] = useState(false);
+  const hiddenInputRef = useRef<TextInput | null>(null);
 
   useEffect(() => {
-    // Focus first input on mount
-    inputRefs.current[0]?.focus();
+    // Focus hidden input on mount
+    setTimeout(() => {
+      hiddenInputRef.current?.focus();
+    }, 100);
   }, []);
 
   useEffect(() => {
@@ -40,34 +43,19 @@ export default function VerifyOTPScreen() {
     router.back();
   };
 
-  const handleOtpChange = (value: string, index: number) => {
-    // Only allow numbers
-    if (value && !/^\d$/.test(value)) return;
+  const handleOtpChange = (value: string) => {
+    // Only allow numbers and limit to 6 digits
+    const cleanValue = value.replace(/\D/g, '').slice(0, 6);
+    setOtp(cleanValue);
 
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
-
-    // Auto-focus next input
-    if (value && index < 5) {
-      inputRefs.current[index + 1]?.focus();
-    }
-
-    // Auto-submit when all digits are entered
-    if (value && index === 5 && newOtp.every(digit => digit)) {
-      handleVerify(newOtp.join(''));
-    }
-  };
-
-  const handleKeyPress = (e: any, index: number) => {
-    if (e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
-      // Move to previous input on backspace if current is empty
-      inputRefs.current[index - 1]?.focus();
+    // Auto-submit when 6 digits are entered
+    if (cleanValue.length === 6) {
+      handleVerify(cleanValue);
     }
   };
 
   const handleVerify = async (code?: string) => {
-    const verificationCode = code || otp.join('');
+    const verificationCode = code || otp;
     
     if (verificationCode.length !== 6) {
       Alert.alert('Error', 'Please enter the complete 6-digit code');
@@ -77,27 +65,64 @@ export default function VerifyOTPScreen() {
     try {
       setIsLoading(true);
       
-      // For now, we'll just use the phone number as the name
-      // In the full flow, we'll collect this after verification
-      const tempName = 'User';
+      console.log('🔐 Verifying OTP:', {
+        phoneNumber,
+        codeLength: verificationCode.length,
+        code: verificationCode
+      });
       
-      await AuthService.verifyPhoneOtp(phoneNumber, verificationCode, tempName);
+      // Set a timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        if (isLoading) {
+          setIsLoading(false);
+          Alert.alert(
+            'Verification Timeout',
+            'The verification is taking longer than expected. Please try again.',
+            [{
+              text: 'Try Again',
+              onPress: () => handleVerify(verificationCode)
+            }]
+          );
+        }
+      }, 30000); // 30 second timeout
       
-      // Navigate to email setup
-      router.push('/(auth)/email-setup');
+      // Verify the OTP without providing a name yet
+      // We'll collect the name in the next step
+      const result = await AuthService.verifyPhoneOtp(phoneNumber, verificationCode);
+      
+      clearTimeout(timeoutId);
+      console.log('✅ OTP verification result:', result);
+      
+      if (result.user) {
+        console.log('🚀 Navigating to name setup...');
+        setVerificationComplete(true);
+        // Use replace to prevent going back to verification
+        router.replace('/(auth)/name-setup');
+      } else {
+        throw new Error('Verification succeeded but no user returned');
+      }
     } catch (error: any) {
-      console.error('OTP verification error:', error);
+      console.error('❌ OTP verification error:', error);
+      console.error('Error details:', {
+        message: error?.message,
+        status: error?.status,
+        code: error?.code
+      });
       
       let errorMessage = 'Invalid verification code. Please try again.';
       if (error?.message?.includes('expired')) {
         errorMessage = 'Verification code has expired. Please request a new one.';
+      } else if (error?.message?.includes('Invalid token')) {
+        errorMessage = 'Invalid verification code. Please check and try again.';
+      } else if (error?.message?.includes('User already registered')) {
+        errorMessage = 'This phone number is already registered. Please sign in instead.';
       }
       
       Alert.alert('Error', errorMessage);
       
-      // Clear OTP inputs
-      setOtp(['', '', '', '', '', '']);
-      inputRefs.current[0]?.focus();
+      // Clear OTP input
+      setOtp('');
+      hiddenInputRef.current?.focus();
     } finally {
       setIsLoading(false);
     }
@@ -145,21 +170,36 @@ export default function VerifyOTPScreen() {
 
             {/* OTP Input Section */}
             <View style={styles.otpSection}>
-              <View style={styles.otpContainer}>
-                {otp.map((digit, index) => (
-                  <TextInput
-                    key={index}
-                    ref={(ref) => (inputRefs.current[index] = ref)}
-                    style={styles.otpInput}
-                    value={digit}
-                    onChangeText={(value) => handleOtpChange(value, index)}
-                    onKeyPress={(e) => handleKeyPress(e, index)}
-                    keyboardType="number-pad"
-                    maxLength={1}
-                    selectTextOnFocus
-                    editable={!isLoading}
-                  />
-                ))}
+              <View style={styles.otpWrapper}>
+                {/* Invisible input that covers the boxes for manual input */}
+                <TextInput
+                  ref={hiddenInputRef}
+                  value={otp}
+                  onChangeText={handleOtpChange}
+                  keyboardType="number-pad"
+                  textContentType="oneTimeCode"
+                  autoComplete="sms-otp"
+                  style={styles.invisibleInput}
+                  maxLength={6}
+                  editable={!isLoading}
+                  autoFocus
+                  caretHidden={true}
+                />
+                
+                {/* Visual OTP boxes */}
+                <View style={styles.otpContainer} pointerEvents="none">
+                  {[0, 1, 2, 3, 4, 5].map((index) => (
+                    <View
+                      key={index}
+                      style={[
+                        styles.otpBox,
+                        otp[index] && styles.otpBoxFilled
+                      ]}
+                    >
+                      <Text style={styles.otpDigit}>{otp[index] || ''}</Text>
+                    </View>
+                  ))}
+                </View>
               </View>
 
               <Pressable
@@ -184,18 +224,30 @@ export default function VerifyOTPScreen() {
               <Pressable
                 style={[
                   styles.continueButton,
-                  !otp.every(d => d) && styles.continueButtonDisabled
+                  otp.length !== 6 && styles.continueButtonDisabled
                 ]}
                 onPress={() => handleVerify()}
-                disabled={isLoading || !otp.every(d => d)}
+                disabled={isLoading || otp.length !== 6}
               >
                 <Text style={[
                   styles.continueButtonText,
-                  !otp.every(d => d) && styles.continueButtonTextDisabled
+                  otp.length !== 6 && styles.continueButtonTextDisabled
                 ]}>
                   {isLoading ? 'VERIFYING...' : 'CONTINUE'}
                 </Text>
               </Pressable>
+              
+              {/* Manual continue button if verification is complete but navigation failed */}
+              {verificationComplete && (
+                <Pressable
+                  style={[styles.continueButton, { marginTop: 16 }]}
+                  onPress={() => router.replace('/(auth)/name-setup')}
+                >
+                  <Text style={styles.continueButtonText}>
+                    PROCEED TO NEXT STEP
+                  </Text>
+                </Pressable>
+              )}
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -237,19 +289,40 @@ const styles = StyleSheet.create({
   otpSection: {
     flex: 1,
   },
+  otpWrapper: {
+    position: 'relative',
+    marginBottom: 32,
+  },
   otpContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 32,
   },
-  otpInput: {
+  invisibleInput: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0,
+    fontSize: 20,
+    letterSpacing: 30,
+    paddingHorizontal: 20,
+  },
+  otpBox: {
     width: 48,
     height: 56,
     borderBottomWidth: 2,
     borderBottomColor: '#E0E0E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  otpBoxFilled: {
+    borderBottomColor: '#FE5268',
+  },
+  otpDigit: {
     fontSize: 24,
-    textAlign: 'center',
     color: '#000',
+    fontWeight: '500',
   },
   resendButton: {
     alignSelf: 'center',
@@ -264,7 +337,7 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   buttonContainer: {
-    paddingBottom: 32,
+    paddingBottom: Platform.OS === 'ios' ? 100 : 80,
   },
   continueButton: {
     backgroundColor: '#FE5268',

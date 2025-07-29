@@ -31,44 +31,8 @@ interface CircleSelectorProps {
   showPrivateOption?: boolean;
 }
 
-// Mock data - in real app, this would come from state/database
-const MOCK_CIRCLES: Circle[] = [
-  {
-    id: 'inner-circle',
-    name: 'Inner Circle',
-    memberCount: 2,
-    members: [
-      { id: '1', name: 'Sarah' },
-      { id: '2', name: 'Mike' },
-    ],
-    isActive: true,
-  },
-  {
-    id: 'friends',
-    name: 'Friends',
-    memberCount: 5,
-    members: [
-      { id: '3', name: 'Emma' },
-      { id: '4', name: 'John' },
-      { id: '5', name: 'Lisa' },
-      { id: '6', name: 'Alex' },
-      { id: '7', name: 'Jamie' },
-    ],
-    isActive: true,
-  },
-  {
-    id: 'work-friends',
-    name: 'Work Friends',
-    memberCount: 4,
-    members: [
-      { id: '10', name: 'David' },
-      { id: '11', name: 'Rachel' },
-      { id: '12', name: 'Kevin' },
-      { id: '13', name: 'Amy' },
-    ],
-    isActive: true,
-  },
-];
+// Circles should be passed as props from parent component that loads them from database
+const EMPTY_CIRCLES: Circle[] = [];
 
 export function CircleSelector({ 
   selectedCircles, 
@@ -81,7 +45,7 @@ export function CircleSelector({
   const [modalVisible, setModalVisible] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
   
-  const activeCircles = MOCK_CIRCLES.filter(circle => circle.isActive);
+  const activeCircles = EMPTY_CIRCLES.filter(circle => circle.isActive);
   
   const toggleCircle = (circleId: string) => {
     if (circleId === 'private') {
