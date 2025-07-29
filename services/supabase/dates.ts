@@ -287,6 +287,25 @@ export const DateService = {
   // Create a roster addition entry for the feed
   async createRosterAddition(personName: string, rosterInfo: any, userId: string, circles: string[] = [], isPrivate: boolean = false) {
     try {
+      // Handle "ALL_FRIENDS" special case - convert to actual circle UUIDs or filter out
+      let validCircles: string[] = [];
+      
+      if (circles.includes('ALL_FRIENDS')) {
+        // If "All Friends" is selected, get all user's circles
+        const { data: userCircles } = await supabase
+          .from('circle_members')
+          .select('circle_id')
+          .eq('user_id', userId);
+        
+        validCircles = userCircles?.map(uc => uc.circle_id) || [];
+      } else {
+        // Filter out any non-UUID values and keep only valid circle IDs
+        validCircles = circles.filter(circleId => 
+          circleId !== 'ALL_FRIENDS' && 
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(circleId)
+        );
+      }
+
       const { data, error } = await supabase
         .from('date_entries')
         .insert({
@@ -297,7 +316,7 @@ export const DateService = {
           rating: 1, // Set to minimum valid rating for roster additions
           notes: `Added ${personName} to roster`,
           tags: [],
-          shared_circles: circles,
+          shared_circles: validCircles,
           is_private: isPrivate,
           image_uri: rosterInfo.photos?.[0] || '',
           entry_type: 'roster_addition',

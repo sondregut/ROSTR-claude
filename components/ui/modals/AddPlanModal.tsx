@@ -8,13 +8,14 @@ import {
   Pressable,
   TextInput,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Button } from '@/components/ui/buttons/Button';
-import { TagInput } from '@/components/ui/inputs/TagInput';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface AddPlanModalProps {
   visible: boolean;
@@ -25,11 +26,9 @@ interface AddPlanModalProps {
 
 export interface PlanFormData {
   date: string;
-  time: string;
   location: string;
   customLocation: string;
   content: string;
-  tags: string[];
 }
 
 const locationOptions = [
@@ -49,14 +48,14 @@ export function AddPlanModal({ visible, onClose, onSubmit, personName }: AddPlan
 
   const [formData, setFormData] = useState<PlanFormData>({
     date: '',
-    time: '',
     location: '',
     customLocation: '',
     content: '',
-    tags: [],
   });
 
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Form validation
   const isValidDate = (dateString: string) => {
@@ -96,13 +95,12 @@ export function AddPlanModal({ visible, onClose, onSubmit, personName }: AddPlan
   const resetForm = () => {
     setFormData({
       date: '',
-      time: '',
       location: '',
       customLocation: '',
       content: '',
-      tags: [],
     });
     setShowLocationDropdown(false);
+    setSelectedDate(new Date());
   };
 
   const handleClose = () => {
@@ -133,10 +131,7 @@ export function AddPlanModal({ visible, onClose, onSubmit, personName }: AddPlan
     }
   };
 
-  const canSubmit = 
-    isValidDate(formData.date) && 
-    formData.location.trim() && 
-    (formData.location !== 'Other' || formData.customLocation.trim());
+  const canSubmit = formData.date.trim();
 
   const remainingChars = 300 - formData.content.length;
 
@@ -147,37 +142,42 @@ export function AddPlanModal({ visible, onClose, onSubmit, personName }: AddPlan
       presentationStyle="pageSheet"
       onRequestClose={handleClose}
     >
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-        {/* Header */}
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <Pressable onPress={handleClose} style={styles.headerButton}>
-            <Text style={[styles.cancelText, { color: colors.text }]}>Cancel</Text>
-          </Pressable>
-          
-          <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Plan Date with {personName}
-          </Text>
-          
-          <Pressable 
-            onPress={handleSubmit} 
-            style={[
-              styles.headerButton,
-              styles.submitButton,
-              { 
-                backgroundColor: canSubmit ? colors.primary : colors.border,
-                opacity: canSubmit ? 1 : 0.6
-              }
-            ]}
-            disabled={!canSubmit}
-          >
-            <Text style={[styles.submitText, { color: canSubmit ? 'white' : colors.textSecondary }]}>
-              Plan Date
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+          {/* Header */}
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <Pressable onPress={handleClose} style={styles.headerButton}>
+              <Text style={[styles.cancelText, { color: colors.text }]}>Cancel</Text>
+            </Pressable>
+            
+            <Text style={[styles.headerTitle, { color: colors.text }]}>
+              Plan Date with {personName}
             </Text>
-          </Pressable>
-        </View>
+            
+            <Pressable 
+              onPress={handleSubmit} 
+              style={[
+                styles.headerButton,
+                styles.submitButton,
+                { 
+                  backgroundColor: canSubmit ? colors.primary : colors.border,
+                  opacity: canSubmit ? 1 : 0.6
+                }
+              ]}
+              disabled={!canSubmit}
+            >
+              <Text style={[styles.submitText, { color: canSubmit ? 'white' : colors.textSecondary }]}>
+                Plan Date
+              </Text>
+            </Pressable>
+          </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Date & Time Section */}
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Date Section */}
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>When</Text>
             
@@ -186,28 +186,46 @@ export function AddPlanModal({ visible, onClose, onSubmit, personName }: AddPlan
               <Text style={[styles.inputLabel, { color: colors.text }]}>
                 Date <Text style={{ color: colors.error }}>*</Text>
               </Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
-                placeholder="YYYY-MM-DD (e.g., 2024-12-25)"
-                placeholderTextColor={colors.textSecondary}
-                value={formData.date}
-                onChangeText={(value) => updateFormData('date', value)}
-              />
-              <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-                Enter date in format: YYYY-MM-DD
-              </Text>
-            </View>
-
-            {/* Time Input */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>Time (Optional)</Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
-                placeholder="HH:MM (e.g., 19:30)"
-                placeholderTextColor={colors.textSecondary}
-                value={formData.time}
-                onChangeText={(value) => updateFormData('time', value)}
-              />
+              <Pressable
+                style={[styles.datePickerButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+                <Text style={[styles.datePickerText, { color: formData.date ? colors.text : colors.textSecondary }]}>
+                  {formData.date ? formatDateDisplay(formData.date) : 'Select date'}
+                </Text>
+              </Pressable>
+              
+              {showDatePicker && (
+                <View style={Platform.OS === 'ios' ? [styles.datePickerContainer, { backgroundColor: colors.card }] : undefined}>
+                  <DateTimePicker
+                    value={selectedDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    minimumDate={new Date()}
+                    themeVariant={colorScheme === 'dark' ? 'dark' : 'light'}
+                    textColor={colors.text}
+                    onChange={(event, date) => {
+                      if (Platform.OS === 'android') {
+                        setShowDatePicker(false);
+                      }
+                      if (date) {
+                        setSelectedDate(date);
+                        updateFormData('date', date.toISOString().split('T')[0]);
+                      }
+                    }}
+                  />
+                </View>
+              )}
+              
+              {Platform.OS === 'ios' && showDatePicker && (
+                <Button
+                  title="Done"
+                  variant="primary"
+                  onPress={() => setShowDatePicker(false)}
+                  style={{ marginTop: 12 }}
+                />
+              )}
             </View>
           </View>
 
@@ -217,7 +235,7 @@ export function AddPlanModal({ visible, onClose, onSubmit, personName }: AddPlan
             
             <View style={styles.inputGroup}>
               <Text style={[styles.inputLabel, { color: colors.text }]}>
-                Location <Text style={{ color: colors.error }}>*</Text>
+                Location
               </Text>
               
               <Pressable 
@@ -235,7 +253,11 @@ export function AddPlanModal({ visible, onClose, onSubmit, personName }: AddPlan
               </Pressable>
 
               {showLocationDropdown && (
-                <View style={[styles.dropdownList, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <ScrollView 
+                  style={[styles.dropdownList, { backgroundColor: colors.background, borderColor: colors.border }]}
+                  nestedScrollEnabled={true}
+                  showsVerticalScrollIndicator={true}
+                >
                   {locationOptions.map((option) => (
                     <Pressable
                       key={option}
@@ -255,7 +277,7 @@ export function AddPlanModal({ visible, onClose, onSubmit, personName }: AddPlan
                       )}
                     </Pressable>
                   ))}
-                </View>
+                </ScrollView>
               )}
             </View>
 
@@ -282,7 +304,7 @@ export function AddPlanModal({ visible, onClose, onSubmit, personName }: AddPlan
             
             <View style={styles.inputGroup}>
               <Text style={[styles.inputLabel, { color: colors.text }]}>
-                What are you planning? (Optional)
+                What are you planning?
               </Text>
               <TextInput
                 style={[styles.textArea, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
@@ -299,21 +321,10 @@ export function AddPlanModal({ visible, onClose, onSubmit, personName }: AddPlan
                 {remainingChars} characters remaining
               </Text>
             </View>
-            
-            {/* Tags Section */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>
-                Tags (Optional)
-              </Text>
-              <TagInput
-                tags={formData.tags}
-                onChange={(tags) => updateFormData('tags', tags)}
-                placeholder="Add tags..."
-              />
-            </View>
           </View>
-        </ScrollView>
-      </SafeAreaView>
+          </ScrollView>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -426,5 +437,24 @@ const styles = StyleSheet.create({
   helperText: {
     fontSize: 12,
     marginTop: 4,
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  datePickerText: {
+    fontSize: 16,
+    flex: 1,
+  },
+  datePickerContainer: {
+    borderRadius: 12,
+    marginTop: 8,
+    paddingVertical: 8,
+    overflow: 'hidden',
   },
 });
