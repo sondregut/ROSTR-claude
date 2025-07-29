@@ -23,6 +23,7 @@ interface SimpleCircleCardProps {
   memberCount: number;
   members: Friend[];
   isActive?: boolean;
+  groupPhotoUri?: string;
   onPress: () => void;
   onInvitePress?: () => void;
 }
@@ -32,6 +33,7 @@ export function SimpleCircleCard({
   memberCount,
   members,
   isActive = true,
+  groupPhotoUri,
   onPress,
   onInvitePress,
 }: SimpleCircleCardProps) {
@@ -90,6 +92,12 @@ export function SimpleCircleCard({
       ]}
       onPress={onPress}
     >
+      {groupPhotoUri && (
+        <View style={styles.groupPhotoContainer}>
+          <Image source={{ uri: groupPhotoUri }} style={styles.groupPhoto} />
+        </View>
+      )}
+      
       <View style={styles.leftContent}>
         <Text style={[styles.name, { color: colors.primary }]}>{name}</Text>
         <View style={styles.memberInfo}>
@@ -205,5 +213,14 @@ const styles = StyleSheet.create({
   },
   inviteButton: {
     padding: 4,
+  },
+  groupPhotoContainer: {
+    marginRight: 12,
+  },
+  groupPhoto: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#E0E0E0',
   },
 });

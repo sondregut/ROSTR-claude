@@ -9,10 +9,12 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useCirclePermissions } from '@/hooks/useCirclePermissions';
@@ -36,6 +38,7 @@ export default function CircleSettingsScreen() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
+  const [groupPhotoUri, setGroupPhotoUri] = useState<string | null>(null);
   
   useEffect(() => {
     loadCircleData();
@@ -49,12 +52,37 @@ export default function CircleSettingsScreen() {
       setName(circle.name);
       setDescription(circle.description || '');
       setIsPrivate(circle.is_private);
+      setGroupPhotoUri(circle.group_photo_url || null);
     } catch (error) {
       console.error('Failed to load circle data:', error);
       Alert.alert('Error', 'Failed to load circle settings');
     } finally {
       setIsLoading(false);
     }
+  };
+  
+  const handleImagePick = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (!permissionResult.granted) {
+      Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+      return;
+    }
+    
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    
+    if (!result.canceled) {
+      setGroupPhotoUri(result.assets[0].uri);
+    }
+  };
+
+  const removeGroupPhoto = () => {
+    setGroupPhotoUri(null);
   };
   
   const handleSaveChanges = async () => {
@@ -66,6 +94,7 @@ export default function CircleSettingsScreen() {
         name: name.trim(),
         description: description.trim(),
         is_private: isPrivate,
+        group_photo_url: groupPhotoUri,
       });
       Alert.alert('Success', 'Circle settings updated');
     } catch (error) {
@@ -233,6 +262,36 @@ export default function CircleSettingsScreen() {
         {/* Circle Info Section */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Circle Information</Text>
+          
+          <View style={[styles.inputContainer, { backgroundColor: colors.card }]}>
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Group Photo</Text>
+            
+            {groupPhotoUri ? (
+              <View style={styles.photoContainer}>
+                <Image source={{ uri: groupPhotoUri }} style={styles.groupPhoto} />
+                <Pressable
+                  style={styles.removePhotoButton}
+                  onPress={removeGroupPhoto}
+                  accessibilityLabel="Remove group photo"
+                  accessibilityRole="button"
+                >
+                  <Ionicons name="close-circle" size={24} color={colors.error || '#FF3B30'} />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                style={[styles.photoUploadButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={handleImagePick}
+                accessibilityLabel="Add group photo"
+                accessibilityRole="button"
+              >
+                <Ionicons name="camera" size={32} color={colors.textSecondary} />
+                <Text style={[styles.photoUploadText, { color: colors.textSecondary }]}>
+                  Add Group Photo
+                </Text>
+              </Pressable>
+            )}
+          </View>
           
           <View style={[styles.inputContainer, { backgroundColor: colors.card }]}>
             <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Name</Text>
@@ -440,5 +499,43 @@ const styles = StyleSheet.create({
   dangerButtonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  photoContainer: {
+    position: 'relative',
+    alignSelf: 'center',
+    marginTop: 8,
+  },
+  groupPhoto: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#E0E0E0',
+  },
+  removePhotoButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  photoUploadButton: {
+    height: 120,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  photoUploadText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 8,
   },
 });

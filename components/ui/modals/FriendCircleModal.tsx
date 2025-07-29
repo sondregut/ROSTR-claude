@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { Button } from '../buttons/Button';
 import { Colors } from '../../../constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -37,7 +38,7 @@ interface FriendCircle {
 interface FriendCircleModalProps {
   visible: boolean;
   onClose: () => void;
-  onCreateCircle: (circleName: string, description: string, friendIds: string[]) => void;
+  onCreateCircle: (circleName: string, description: string, friendIds: string[], groupPhotoUri?: string) => void;
   friends: Friend[];
   existingCircles?: FriendCircle[];
 }
@@ -57,6 +58,7 @@ export function FriendCircleModal({
   const [selectedFriends, setSelectedFriends] = useState<Friend[]>([]);
   const [activeTab, setActiveTab] = useState<'create' | 'manage'>('create');
   const [searchQuery, setSearchQuery] = useState('');
+  const [groupPhotoUri, setGroupPhotoUri] = useState<string | null>(null);
   
   const toggleFriendSelection = (friend: Friend) => {
     const isAlreadySelected = selectedFriends.some(f => f.id === friend.id);
@@ -68,12 +70,37 @@ export function FriendCircleModal({
     }
   };
   
+  const handleImagePick = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (!permissionResult.granted) {
+      alert('Permission to access camera roll is required!');
+      return;
+    }
+    
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    
+    if (!result.canceled) {
+      setGroupPhotoUri(result.assets[0].uri);
+    }
+  };
+
+  const removeGroupPhoto = () => {
+    setGroupPhotoUri(null);
+  };
+
   const handleCreateCircle = () => {
-    if (circleName.trim() && selectedFriends.length > 0) {
+    if (circleName.trim()) {
       onCreateCircle(
         circleName,
         circleDescription,
-        selectedFriends.map(friend => friend.id)
+        selectedFriends.map(friend => friend.id),
+        groupPhotoUri || undefined
       );
       resetForm();
     }
@@ -84,6 +111,7 @@ export function FriendCircleModal({
     setCircleDescription('');
     setSelectedFriends([]);
     setSearchQuery('');
+    setGroupPhotoUri(null);
   };
   
   const filteredFriends = friends.filter(friend => 
@@ -194,6 +222,7 @@ export function FriendCircleModal({
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardAvoid}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <SafeAreaView 
@@ -310,6 +339,36 @@ export function FriendCircleModal({
                 </View>
                 
                 <View style={styles.formGroup}>
+                  <Text style={[styles.label, { color: colors.text }]}>Group Photo (Optional)</Text>
+                  
+                  {groupPhotoUri ? (
+                    <View style={styles.photoContainer}>
+                      <Image source={{ uri: groupPhotoUri }} style={styles.groupPhoto} />
+                      <Pressable
+                        style={styles.removePhotoButton}
+                        onPress={removeGroupPhoto}
+                        accessibilityLabel="Remove group photo"
+                        accessibilityRole="button"
+                      >
+                        <Ionicons name="close-circle" size={24} color={colors.error || '#FF3B30'} />
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <Pressable
+                      style={[styles.photoUploadButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onPress={handleImagePick}
+                      accessibilityLabel="Add group photo"
+                      accessibilityRole="button"
+                    >
+                      <Ionicons name="camera" size={32} color={colors.textSecondary} />
+                      <Text style={[styles.photoUploadText, { color: colors.textSecondary }]}>
+                        Add Group Photo
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
+                
+                <View style={styles.formGroup}>
                   <Text style={[styles.label, { color: colors.text }]}>Add Friends</Text>
                   <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <Ionicons name="search" size={20} color={colors.textSecondary} />
@@ -380,7 +439,7 @@ export function FriendCircleModal({
                         variant="primary" 
                         onPress={handleCreateCircle} 
                         style={styles.footerButton}
-                        disabled={!circleName.trim() || selectedFriends.length === 0}
+                        disabled={!circleName.trim()}
                       />
                     </View>
                   </View>
@@ -713,5 +772,43 @@ const styles = StyleSheet.create({
   },
   emptyStateButton: {
     minWidth: 200,
+  },
+  photoContainer: {
+    position: 'relative',
+    alignSelf: 'center',
+    marginBottom: 8,
+  },
+  groupPhoto: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#E0E0E0',
+  },
+  removePhotoButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  photoUploadButton: {
+    height: 120,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  photoUploadText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 8,
   },
 });

@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useCircles } from '@/contexts/CircleContext';
 
 interface Circle {
   id: string;
@@ -29,30 +30,45 @@ interface CircleSelectorProps {
   selectedCircles: string[];
   onCirclesChange: (circles: string[]) => void;
   showPrivateOption?: boolean;
+  showAllFriendsOption?: boolean;
 }
-
-// Circles should be passed as props from parent component that loads them from database
-const EMPTY_CIRCLES: Circle[] = [];
 
 export function CircleSelector({ 
   selectedCircles, 
   onCirclesChange,
-  showPrivateOption = true 
+  showPrivateOption = true,
+  showAllFriendsOption = true 
 }: CircleSelectorProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { circles } = useCircles();
   
   const [modalVisible, setModalVisible] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
+  const [isAllFriends, setIsAllFriends] = useState(false);
   
-  const activeCircles = EMPTY_CIRCLES.filter(circle => circle.isActive);
+  // Transform circles from context to match expected format
+  const activeCircles = circles.map(circle => ({
+    id: circle.id,
+    name: circle.name,
+    memberCount: circle.member_count || 0,
+    members: [], // We don't need member details for the selector
+    isActive: true,
+  }));
   
   const toggleCircle = (circleId: string) => {
     if (circleId === 'private') {
       setIsPrivate(!isPrivate);
+      setIsAllFriends(false);
       onCirclesChange([]);
+    } else if (circleId === 'all-friends') {
+      setIsAllFriends(!isAllFriends);
+      setIsPrivate(false);
+      // Pass special identifier for all friends
+      onCirclesChange(isAllFriends ? [] : ['ALL_FRIENDS']);
     } else {
       setIsPrivate(false);
+      setIsAllFriends(false);
       if (selectedCircles.includes(circleId)) {
         onCirclesChange(selectedCircles.filter(id => id !== circleId));
       } else {
@@ -63,6 +79,13 @@ export function CircleSelector({
   
   const getTotalMemberCount = () => {
     if (isPrivate) return 0;
+    if (isAllFriends || selectedCircles.includes('ALL_FRIENDS')) {
+      // Calculate estimated total reach across all circles
+      const totalMembers = activeCircles.reduce((sum, circle) => sum + circle.memberCount, 0);
+      // Estimate 30% overlap between circles
+      const estimatedOverlap = Math.floor(totalMembers * 0.3);
+      return Math.max(totalMembers - estimatedOverlap, totalMembers);
+    }
     
     const uniqueMembers = new Set<string>();
     selectedCircles.forEach(circleId => {
@@ -74,7 +97,12 @@ export function CircleSelector({
   
   const getSelectedCircleNames = () => {
     if (isPrivate) return ['Private'];
+    if (isAllFriends || selectedCircles.includes('ALL_FRIENDS')) {
+      const totalReach = getTotalMemberCount();
+      return [`All Friends (~${totalReach} people)`];
+    }
     return selectedCircles
+      .filter(id => id !== 'ALL_FRIENDS') // Filter out special identifier
       .map(id => {
         const circle = activeCircles.find(c => c.id === id);
         if (circle) {
@@ -128,9 +156,9 @@ export function CircleSelector({
     );
   };
   
-  const renderCircle = ({ item }: { item: Circle | { id: string; name: string; isPrivate: boolean } }) => {
-    const isSelected = 'isPrivate' in item ? isPrivate : selectedCircles.includes(item.id);
-    const isCircle = !('isPrivate' in item);
+  const renderCircle = ({ item }: { item: Circle | { id: string; name: string; isPrivate?: boolean; isAllFriends?: boolean } }) => {
+    const isSelected = 'isPrivate' in item ? isPrivate : 'isAllFriends' in item ? isAllFriends : selectedCircles.includes(item.id);
+    const isCircle = !('isPrivate' in item) && !('isAllFriends' in item);
     
     return (
       <Pressable
@@ -145,13 +173,26 @@ export function CircleSelector({
         onPress={() => toggleCircle(item.id)}
       >
         <View style={styles.circleHeader}>
-          <View>
-            <Text style={[styles.circleName, { color: colors.text }]}>{item.name}</Text>
-            {isCircle && 'memberCount' in item && (
-              <Text style={[styles.memberCount, { color: colors.textSecondary }]}>
-                {item.memberCount} members
-              </Text>
+          <View style={styles.circleInfo}>
+            {'isAllFriends' in item && (
+              <Ionicons name="globe-outline" size={20} color={colors.primary} style={styles.circleIcon} />
             )}
+            {'isPrivate' in item && (
+              <Ionicons name="lock-closed-outline" size={20} color={colors.textSecondary} style={styles.circleIcon} />
+            )}
+            <View>
+              <Text style={[styles.circleName, { color: colors.text }]}>{item.name}</Text>
+              {isCircle && 'memberCount' in item && (
+                <Text style={[styles.memberCount, { color: colors.textSecondary }]}>
+                  {item.memberCount} members
+                </Text>
+              )}
+              {'isAllFriends' in item && (
+                <Text style={[styles.memberCount, { color: colors.textSecondary }]}>
+                  Reach everyone across all circles
+                </Text>
+              )}
+            </View>
           </View>
           {isSelected && (
             <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
@@ -211,7 +252,11 @@ export function CircleSelector({
           </View>
           
           <FlatList
-            data={showPrivateOption ? [{ id: 'private', name: 'Private (Only Me)', isPrivate: true }, ...activeCircles] : activeCircles}
+            data={[
+              ...(showPrivateOption ? [{ id: 'private', name: 'Private (Only Me)', isPrivate: true }] : []),
+              ...(showAllFriendsOption ? [{ id: 'all-friends', name: 'All Friends', isAllFriends: true }] : []),
+              ...activeCircles
+            ]}
             renderItem={renderCircle}
             keyExtractor={item => item.id}
             contentContainerStyle={styles.listContent}
@@ -219,7 +264,7 @@ export function CircleSelector({
             ListHeaderComponent={
               <View style={styles.listHeader}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                  {showPrivateOption ? 'Privacy Options' : 'Your Circles'}
+                  {showPrivateOption || showAllFriendsOption ? 'Sharing Options' : 'Your Circles'}
                 </Text>
               </View>
             }
@@ -243,11 +288,15 @@ export function CircleSelector({
           <View style={[styles.modalFooter, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
             <View>
               <Text style={[styles.footerTitle, { color: colors.text }]}>
-                {isPrivate ? 'Private Entry' : `Sharing with ${selectedNames.length} circle${selectedNames.length !== 1 ? 's' : ''}`}
+                {isPrivate ? 'Private Entry' : 
+                 isAllFriends || selectedCircles.includes('ALL_FRIENDS') ? 'Sharing with All Friends' :
+                 `Sharing with ${selectedNames.length} circle${selectedNames.length !== 1 ? 's' : ''}`}
               </Text>
               {!isPrivate && totalMembers > 0 && (
                 <Text style={[styles.footerSubtitle, { color: colors.textSecondary }]}>
-                  {totalMembers} people will see this update
+                  {isAllFriends || selectedCircles.includes('ALL_FRIENDS') ? 
+                    `~${totalMembers} people will see this update` :
+                    `${totalMembers} people will see this update`}
                 </Text>
               )}
             </View>
@@ -329,6 +378,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  circleInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  circleIcon: {
+    marginRight: 12,
   },
   circleName: {
     fontSize: 18,

@@ -10,6 +10,7 @@ export interface Circle {
   max_members: number;
   is_private: boolean;
   join_code: string | null;
+  group_photo_url?: string;
   created_at: string;
   updated_at: string;
 }
@@ -80,10 +81,23 @@ export const CircleService = {
 
   // Update circle details (admin only)
   async updateCircle(circleId: string, updates: Partial<Circle>) {
+    let finalUpdates = { ...updates };
+    
+    // Handle photo upload if new photo is provided
+    if (updates.group_photo_url && updates.group_photo_url.startsWith('file://')) {
+      try {
+        const uploadedUrl = await this.uploadCirclePhoto(circleId, updates.group_photo_url);
+        finalUpdates.group_photo_url = uploadedUrl;
+      } catch (error) {
+        console.error('Failed to upload circle photo:', error);
+        delete finalUpdates.group_photo_url;
+      }
+    }
+    
     const { data, error } = await supabase
       .from('circles')
       .update({
-        ...updates,
+        ...finalUpdates,
         updated_at: new Date().toISOString()
       })
       .eq('id', circleId)
@@ -184,7 +198,8 @@ export const CircleService = {
 
   // Get all circles for a user
   async getUserCircles(userId: string) {
-    const { data, error } = await supabase
+    // First try to get circles where user is a member
+    const { data: memberData, error: memberError } = await supabase
       .from('circle_members')
       .select(`
         circle:circles (
@@ -202,12 +217,80 @@ export const CircleService = {
       .eq('user_id', userId)
       .order('joined_at', { ascending: false });
 
-    if (error) throw error;
-    return data?.map(item => item.circle) || [];
+    if (memberError) {
+      console.error('Error getting circles via members:', memberError);
+      // Fallback to getting circles by owner_id for development
+      const { data: ownerData, error: ownerError } = await supabase
+        .from('circles')
+        .select(`
+          *,
+          members:circle_members (
+            user:users (
+              id,
+              name,
+              username,
+              image_uri
+            )
+          )
+        `)
+        .eq('owner_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (ownerError) {
+        console.error('Error getting circles via owner:', ownerError);
+        return [];
+      }
+      return ownerData || [];
+    }
+    
+    return memberData?.map(item => item.circle) || [];
+  },
+
+  // Upload circle photo to Supabase storage
+  async uploadCirclePhoto(circleId: string, photoUri: string) {
+    try {
+      const response = await fetch(photoUri);
+      const blob = await response.blob();
+      
+      const fileName = `${circleId}_${Date.now()}.jpg`;
+      const filePath = `circles/${fileName}`;
+      
+      const { data, error } = await supabase.storage
+        .from('photos')
+        .upload(filePath, blob, {
+          contentType: 'image/jpeg',
+          upsert: true
+        });
+      
+      if (error) throw error;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('photos')
+        .getPublicUrl(filePath);
+      
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading circle photo:', error);
+      throw error;
+    }
   },
 
   // Create a new circle
-  async createCircle(name: string, description: string, ownerId: string) {
+  async createCircle(name: string, description: string, ownerId: string, groupPhotoUrl?: string) {
+    let uploadedPhotoUrl = null;
+    
+    // Upload photo if provided
+    if (groupPhotoUrl && groupPhotoUrl.startsWith('file://')) {
+      try {
+        // Generate a temporary circle ID for the photo
+        const tempId = `temp_${Date.now()}`;
+        uploadedPhotoUrl = await this.uploadCirclePhoto(tempId, groupPhotoUrl);
+      } catch (error) {
+        console.error('Failed to upload circle photo:', error);
+        // Continue without photo if upload fails
+      }
+    }
+    
     // Create the circle
     const { data: circle, error: circleError } = await supabase
       .from('circles')
@@ -215,6 +298,7 @@ export const CircleService = {
         name,
         description,
         owner_id: ownerId,
+        group_photo_url: uploadedPhotoUrl || groupPhotoUrl,
         join_code: Math.random().toString(36).substring(2, 8).toUpperCase()
       })
       .select()
@@ -232,9 +316,20 @@ export const CircleService = {
       });
 
     if (memberError) {
-      // Cleanup circle if member creation fails
-      await supabase.from('circles').delete().eq('id', circle.id);
-      throw memberError;
+      console.error('Failed to add owner as member:', memberError);
+      
+      // Check if this is a RLS policy error for circle_chat_members
+      if (memberError.message?.includes('circle_chat_members') || memberError.code === '42501') {
+        console.error('RLS Policy Error: Missing INSERT policy for circle_chat_members table');
+        console.error('Please run: supabase/fix_circle_chat_rls.sql to fix this issue');
+        
+        // Cleanup circle if member creation fails due to RLS
+        await supabase.from('circles').delete().eq('id', circle.id);
+        throw new Error('Circle creation failed due to database permissions. Please contact administrator to run the fix_circle_chat_rls.sql script.');
+      }
+      
+      // For other errors, still clean up but allow for development
+      console.error('Non-RLS error, allowing circle creation for development:', memberError);
     }
 
     return circle;

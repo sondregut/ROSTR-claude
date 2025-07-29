@@ -18,6 +18,21 @@ export interface DatabaseDateEntry {
   comment_count: number;
   created_at: string;
   updated_at: string;
+  entry_type?: 'date' | 'roster_addition';
+  poll_question?: string;
+  poll_options?: Array<{
+    text: string;
+    votes: number;
+  }>;
+  roster_info?: {
+    age?: number;
+    occupation?: string;
+    how_we_met?: string;
+    interests?: string;
+    instagram?: string;
+    phone?: string;
+    photos?: string[];
+  };
   user?: {
     id: string;
     name: string;
@@ -120,6 +135,34 @@ export const DateService = {
         .in('date_entry_id', dateIds)
         .order('created_at', { ascending: true });
 
+      // Get poll votes for dates with polls
+      const datesWithPolls = dates?.filter(d => d.poll_question) || [];
+      const pollDateIds = datesWithPolls.map(d => d.id);
+      
+      const { data: pollVotes } = await supabase
+        .from('poll_votes')
+        .select('date_entry_id, option_index, user_id')
+        .in('date_entry_id', pollDateIds);
+
+      // Get user's own poll votes
+      const userPollVotes = pollVotes?.filter(v => v.user_id === userId) || [];
+      const userVotesByDate = userPollVotes.reduce((acc, vote) => {
+        acc[vote.date_entry_id] = vote.option_index;
+        return acc;
+      }, {} as Record<string, number>);
+
+      // Count votes for each option
+      const votesByDateAndOption = pollVotes?.reduce((acc, vote) => {
+        if (!acc[vote.date_entry_id]) {
+          acc[vote.date_entry_id] = {};
+        }
+        if (!acc[vote.date_entry_id][vote.option_index]) {
+          acc[vote.date_entry_id][vote.option_index] = 0;
+        }
+        acc[vote.date_entry_id][vote.option_index]++;
+        return acc;
+      }, {} as Record<string, Record<number, number>>) || {};
+
       // Group comments by date
       const commentsByDate = comments?.reduce((acc, comment) => {
         if (!acc[comment.date_entry_id]) {
@@ -132,14 +175,31 @@ export const DateService = {
         return acc;
       }, {} as Record<string, Array<{ name: string; content: string }>>) || {};
 
-      // Transform dates with likes and comments
-      const transformedDates = dates?.map(date => ({
-        ...date,
-        isLiked: likedDateIds.has(date.id),
-        comments: commentsByDate[date.id] || [],
-        authorName: date.user?.name || 'Unknown',
-        authorAvatar: date.user?.image_uri,
-      })) || [];
+      // Transform dates with likes, comments, and polls
+      const transformedDates = dates?.map(date => {
+        // Update poll options with actual vote counts
+        let poll = undefined;
+        if (date.poll_question && date.poll_options) {
+          const voteCounts = votesByDateAndOption[date.id] || {};
+          poll = {
+            question: date.poll_question,
+            options: date.poll_options.map((option, index) => ({
+              text: option.text,
+              votes: voteCounts[index] || 0,
+            })),
+          };
+        }
+
+        return {
+          ...date,
+          isLiked: likedDateIds.has(date.id),
+          comments: commentsByDate[date.id] || [],
+          authorName: date.user?.name || 'Unknown',
+          authorAvatar: date.user?.image_uri,
+          poll,
+          userPollVote: userVotesByDate[date.id] ?? null,
+        };
+      }) || [];
 
       return transformedDates;
     } catch (error) {
@@ -179,9 +239,21 @@ export const DateService = {
   // Create a new date entry
   async createDate(formData: DateEntryFormData, userId: string) {
     try {
-      // Filter out any non-UUID values from circles
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const validCircles = (formData.circles || []).filter(circle => uuidRegex.test(circle));
+      let validCircles: string[] = [];
+      
+      if (formData.circles?.includes('ALL_FRIENDS')) {
+        // If "All Friends" is selected, get all user's circles
+        const { data: userCircles } = await supabase
+          .from('circle_members')
+          .select('circle_id')
+          .eq('user_id', userId);
+        
+        validCircles = userCircles?.map(c => c.circle_id) || [];
+      } else {
+        // Filter out any non-UUID values from circles
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        validCircles = (formData.circles || []).filter(circle => uuidRegex.test(circle));
+      }
       
       const { data, error } = await supabase
         .from('date_entries')
@@ -196,6 +268,10 @@ export const DateService = {
           shared_circles: validCircles,
           is_private: formData.isPrivate || false,
           image_uri: formData.imageUri || '',
+          poll_question: formData.poll?.question || null,
+          poll_options: formData.poll?.options 
+            ? formData.poll.options.map(text => ({ text, votes: 0 }))
+            : null,
         })
         .select()
         .single();
@@ -204,6 +280,44 @@ export const DateService = {
       return data;
     } catch (error) {
       console.error('Error creating date:', error);
+      throw error;
+    }
+  },
+
+  // Create a roster addition entry for the feed
+  async createRosterAddition(personName: string, rosterInfo: any, userId: string, circles: string[] = [], isPrivate: boolean = false) {
+    try {
+      const { data, error } = await supabase
+        .from('date_entries')
+        .insert({
+          user_id: userId,
+          person_name: personName,
+          location: '', // Not applicable for roster additions
+          date: new Date().toISOString(), // Current timestamp
+          rating: 1, // Set to minimum valid rating for roster additions
+          notes: `Added ${personName} to roster`,
+          tags: [],
+          shared_circles: circles,
+          is_private: isPrivate,
+          image_uri: rosterInfo.photos?.[0] || '',
+          entry_type: 'roster_addition',
+          roster_info: {
+            age: rosterInfo.age,
+            occupation: rosterInfo.occupation,
+            how_we_met: rosterInfo.how_we_met,
+            interests: rosterInfo.interests,
+            instagram: rosterInfo.instagram,
+            phone: rosterInfo.phone,
+            photos: rosterInfo.photos,
+          },
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error creating roster addition:', error);
       throw error;
     }
   },
@@ -410,6 +524,104 @@ export const DateService = {
       if (error) throw error;
     } catch (error) {
       console.error('Error adding plan comment:', error);
+      throw error;
+    }
+  },
+
+  // Update a roster addition entry
+  async updateRosterAddition(id: string, updates: any) {
+    try {
+      const { data, error } = await supabase
+        .from('date_entries')
+        .update({
+          person_name: updates.personName,
+          notes: updates.notes || '',
+          image_uri: updates.photos?.[0] || '',
+          roster_info: {
+            age: updates.age,
+            occupation: updates.occupation,
+            how_we_met: updates.howWeMet,
+            interests: updates.interests,
+            instagram: updates.instagram,
+            phone: updates.phone,
+            photos: updates.photos,
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .eq('entry_type', 'roster_addition')
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating roster addition:', error);
+      throw error;
+    }
+  },
+
+  // Delete a roster addition entry
+  async deleteRosterAddition(id: string) {
+    try {
+      const { error } = await supabase
+        .from('date_entries')
+        .delete()
+        .eq('id', id)
+        .eq('entry_type', 'roster_addition');
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting roster addition:', error);
+      throw error;
+    }
+  },
+
+  // Sync roster changes to all corresponding feed entries
+  async syncRosterToFeedEntries(userId: string, originalPersonName: string, rosterData: any) {
+    try {
+      // Build the update object, only including fields that have values
+      const updateData: any = {
+        updated_at: new Date().toISOString(),
+      };
+
+      // Only update person_name if it's actually changing
+      if (rosterData.name && rosterData.name !== originalPersonName) {
+        updateData.person_name = rosterData.name;
+      }
+
+      // Update image if photos exist
+      if (rosterData.photos && rosterData.photos.length > 0) {
+        updateData.image_uri = rosterData.photos[0];
+      }
+
+      // Update roster_info with only the provided fields
+      const rosterInfo: any = {};
+      if (rosterData.age !== undefined) rosterInfo.age = rosterData.age;
+      if (rosterData.occupation !== undefined) rosterInfo.occupation = rosterData.occupation;
+      if (rosterData.how_we_met !== undefined) rosterInfo.how_we_met = rosterData.how_we_met;
+      if (rosterData.interests !== undefined) rosterInfo.interests = rosterData.interests;
+      if (rosterData.instagram !== undefined) rosterInfo.instagram = rosterData.instagram;
+      if (rosterData.phone !== undefined) rosterInfo.phone = rosterData.phone;
+      if (rosterData.photos !== undefined) rosterInfo.photos = rosterData.photos;
+
+      // Only update roster_info if we have fields to update
+      if (Object.keys(rosterInfo).length > 0) {
+        updateData.roster_info = rosterInfo;
+      }
+
+      const { data, error } = await supabase
+        .from('date_entries')
+        .update(updateData)
+        .eq('user_id', userId)
+        .eq('person_name', originalPersonName)
+        .eq('entry_type', 'roster_addition')
+        .select();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error syncing roster to feed entries:', error);
       throw error;
     }
   },

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, FlatList, Pressable, Platform, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, FlatList, Pressable, Platform, ScrollView, ActivityIndicator, Alert, Share, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -19,6 +19,8 @@ export default function CirclesScreen() {
   
   const [circles, setCircles] = useState<any[]>([]);
   const [friends, setFriends] = useState<any[]>([]);
+  const [allFriends, setAllFriends] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'circles' | 'friends'>('circles');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,21 +44,43 @@ export default function CirclesScreen() {
         memberCount: circle.member_count,
         members: circle.members?.map(m => m.user).filter(Boolean) || [],
         isActive: circle.is_active,
+        groupPhotoUri: circle.group_photo_url,
+        joinCode: circle.join_code,
       }));
       
       setCircles(transformedCircles);
       
-      // Extract unique friends from all circles
-      const allFriends = new Map();
+      // Extract unique friends from all circles with enhanced data structure
+      const friendsMap = new Map();
       userCircles.forEach(circle => {
         circle.members?.forEach(member => {
           if (member.user && member.user.id !== user.id) {
-            allFriends.set(member.user.id, member.user);
+            const existingFriend = friendsMap.get(member.user.id);
+            if (existingFriend) {
+              // Add this circle to the friend's circles array
+              existingFriend.circles.push({
+                id: circle.id,
+                name: circle.name
+              });
+            } else {
+              // Create new friend entry
+              friendsMap.set(member.user.id, {
+                ...member.user,
+                circles: [{
+                  id: circle.id,
+                  name: circle.name
+                }],
+                isOnline: Math.random() > 0.7, // Mock online status - replace with real data
+                lastSeen: new Date(Date.now() - Math.random() * 86400000).toISOString() // Mock last seen
+              });
+            }
           }
         });
       });
       
-      setFriends(Array.from(allFriends.values()));
+      const allFriendsArray = Array.from(friendsMap.values());
+      setFriends(Array.from(friendsMap.values())); // For circle creation modal
+      setAllFriends(allFriendsArray); // For All Friends tab
     } catch (err) {
       console.error('Error loading circles:', err);
       setError('Failed to load circles');
@@ -69,12 +93,12 @@ export default function CirclesScreen() {
     loadCircles();
   }, [user]);
   
-  const handleCreateCircle = async (circleName: string, description: string, friendIds: string[]) => {
+  const handleCreateCircle = async (circleName: string, description: string, friendIds: string[], groupPhotoUri?: string) => {
     if (!user) return;
     
     try {
       // Create the circle
-      const newCircle = await CircleService.createCircle(circleName, description, user.id);
+      const newCircle = await CircleService.createCircle(circleName, description, user.id, groupPhotoUri);
       
       // Add friends to the circle if any were selected
       if (friendIds.length > 0) {
@@ -90,6 +114,51 @@ export default function CirclesScreen() {
     }
   };
   
+  const handleInvitePress = async (circleId: string, circleName: string, joinCode: string) => {
+    try {
+      const inviteMessage = `Join my "${circleName}" circle on RostrDating!\n\nUse code: ${joinCode}`;
+      
+      if (Platform.OS === 'ios' || Platform.OS === 'android') {
+        // Use native share functionality
+        await Share.share({
+          message: inviteMessage,
+          title: `Join ${circleName}`,
+        });
+      } else {
+        // For web/desktop, copy to clipboard or show alert
+        Alert.alert(
+          'Circle Invite',
+          `Share this invite code with friends:\n\n${joinCode}`,
+          [
+            { text: 'OK' }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Error sharing invite:', error);
+      // Fallback to showing the join code
+      Alert.alert(
+        'Circle Invite',
+        `Share this invite code with friends:\n\n${joinCode}`,
+        [
+          { text: 'OK' }
+        ]
+      );
+    }
+  };
+
+  // Helper functions for friend statistics
+  const getTotalFriendCount = () => allFriends.length;
+  
+  const getOnlineFriendCount = () => allFriends.filter(friend => friend.isOnline).length;
+  
+  const estimateTotalReach = () => {
+    const totalMembers = circles.reduce((sum, circle) => sum + circle.memberCount, 0);
+    // Estimate 30% overlap between circles
+    const estimatedOverlap = Math.floor(totalMembers * 0.3);
+    return Math.max(totalMembers - estimatedOverlap, allFriends.length);
+  };
+
   const renderCircleItem = ({ item }: { item: any }) => (
     <SimpleCircleCard
       id={item.id}
@@ -97,11 +166,78 @@ export default function CirclesScreen() {
       memberCount={item.memberCount || 0}
       members={item.members || []}
       isActive={item.isActive}
+      groupPhotoUri={item.groupPhotoUri}
       onPress={() => {
         // Navigate to circle detail
         router.push(`/circles/${item.id}`);
       }}
+      onInvitePress={() => handleInvitePress(item.id, item.name, item.joinCode)}
     />
+  );
+
+  const renderFriendItem = ({ item }: { item: any }) => (
+    <Pressable
+      style={[styles.friendCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+      onPress={() => {
+        // Navigate to friend profile or start chat
+        console.log('Friend pressed:', item.name);
+      }}
+    >
+      <View style={styles.friendInfo}>
+        <View style={styles.friendAvatarContainer}>
+          {item.image_uri ? (
+            <Image source={{ uri: item.image_uri }} style={styles.friendAvatar} />
+          ) : (
+            <View style={[styles.friendAvatarPlaceholder, { backgroundColor: colors.primary }]}>
+              <Text style={styles.friendAvatarText}>
+                {item.name.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+          {item.isOnline && <View style={[styles.onlineIndicator, { backgroundColor: '#4CAF50' }]} />}
+        </View>
+        
+        <View style={styles.friendDetails}>
+          <View style={styles.friendNameRow}>
+            <Text style={[styles.friendName, { color: colors.text }]}>{item.name}</Text>
+            {item.isOnline && (
+              <View style={[styles.onlineBadge, { backgroundColor: '#4CAF50' + '20' }]}>
+                <Text style={[styles.onlineBadgeText, { color: '#4CAF50' }]}>Online</Text>
+              </View>
+            )}
+          </View>
+          <Text style={[styles.friendUsername, { color: colors.textSecondary }]}>
+            @{item.username}
+          </Text>
+          <View style={styles.friendCircles}>
+            {item.circles.slice(0, 2).map((circle: any, index: number) => (
+              <View key={circle.id} style={[styles.circleChip, { backgroundColor: colors.primary + '20' }]}>
+                <Text style={[styles.circleChipText, { color: colors.primary }]}>
+                  {circle.name}
+                </Text>
+              </View>
+            ))}
+            {item.circles.length > 2 && (
+              <Text style={[styles.moreCircles, { color: colors.textSecondary }]}>
+                +{item.circles.length - 2} more
+              </Text>
+            )}
+          </View>
+        </View>
+      </View>
+      
+      <View style={styles.friendActions}>
+        <Pressable
+          style={[styles.actionButton, { backgroundColor: colors.primary }]}
+          onPress={() => {
+            // Handle message action
+            console.log('Message friend:', item.name);
+          }}
+        >
+          <Ionicons name="chatbubble-outline" size={16} color="white" />
+        </Pressable>
+      </View>
+    </Pressable>
   );
 
   if (isLoading) {
@@ -115,54 +251,164 @@ export default function CirclesScreen() {
     );
   }
 
+  const renderFriendsOverview = () => (
+    <View style={[styles.overviewCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={styles.overviewHeader}>
+        <Text style={[styles.overviewTitle, { color: colors.text }]}>Your Network</Text>
+        <Text style={[styles.overviewStats, { color: colors.textSecondary }]}>
+          {getTotalFriendCount()} friends • {getOnlineFriendCount()} online
+        </Text>
+      </View>
+      
+      <View style={styles.avatarPreview}>
+        {allFriends.slice(0, 5).map((friend, index) => (
+          <View
+            key={friend.id}
+            style={[styles.previewAvatar, { marginLeft: index > 0 ? -8 : 0, zIndex: 5 - index }]}
+          >
+            {friend.image_uri ? (
+              <Image source={{ uri: friend.image_uri }} style={styles.previewAvatarImage} />
+            ) : (
+              <View style={[styles.previewAvatarPlaceholder, { backgroundColor: colors.primary }]}>
+                <Text style={styles.previewAvatarText}>
+                  {friend.name.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
+          </View>
+        ))}
+        {allFriends.length > 5 && (
+          <View style={[styles.previewAvatar, styles.remainingCount, { backgroundColor: colors.border, marginLeft: -8 }]}>
+            <Text style={[styles.remainingText, { color: colors.text }]}>
+              +{allFriends.length - 5}
+            </Text>
+          </View>
+        )}
+      </View>
+      
+      <Text style={[styles.overviewDescription, { color: colors.textSecondary }]}>
+        Estimated reach: ~{estimateTotalReach()} people across all circles
+      </Text>
+    </View>
+  );
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>My Circles</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          {activeTab === 'circles' ? 'My Circles' : 'All Friends'}
+        </Text>
+      </View>
+
+      {/* Tab Navigation */}
+      <View style={[styles.tabContainer, { borderBottomColor: colors.border }]}>
+        <Pressable
+          style={[
+            styles.tab,
+            activeTab === 'circles' && [styles.activeTab, { borderBottomColor: colors.primary }]
+          ]}
+          onPress={() => setActiveTab('circles')}
+        >
+          <Text style={[
+            styles.tabText,
+            { color: activeTab === 'circles' ? colors.primary : colors.textSecondary }
+          ]}>
+            My Circles
+          </Text>
+        </Pressable>
+        
+        <Pressable
+          style={[
+            styles.tab,
+            activeTab === 'friends' && [styles.activeTab, { borderBottomColor: colors.primary }]
+          ]}
+          onPress={() => setActiveTab('friends')}
+        >
+          <Text style={[
+            styles.tabText,
+            { color: activeTab === 'friends' ? colors.primary : colors.textSecondary }
+          ]}>
+            All Friends
+          </Text>
+        </Pressable>
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* My Circles Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>My Circles</Text>
-            <Pressable
-              style={[styles.createButton, { backgroundColor: colors.primary }]}
-              onPress={() => setIsModalVisible(true)}
-            >
-              <Ionicons name="add" size={20} color="white" />
-              <Text style={styles.createButtonText}>Create</Text>
-            </Pressable>
-          </View>
-          
-          {circles.length === 0 ? (
-            <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
-              <Ionicons name="people-outline" size={48} color={colors.icon} />
-              <Text style={[styles.emptyStateTitle, { color: colors.text }]}>No circles yet</Text>
-              <Text style={[styles.emptyStateText, { color: colors.secondaryText }]}>
-                Create your first circle to start sharing dates with friends
-              </Text>
+        {activeTab === 'circles' ? (
+          /* My Circles Tab Content */
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>My Circles</Text>
               <Pressable
-                style={[styles.emptyStateButton, { backgroundColor: colors.primary }]}
+                style={[styles.createButton, { backgroundColor: colors.primary }]}
                 onPress={() => setIsModalVisible(true)}
               >
-                <Text style={styles.emptyStateButtonText}>Create First Circle</Text>
+                <Ionicons name="add" size={20} color="white" />
+                <Text style={styles.createButtonText}>Create</Text>
               </Pressable>
             </View>
-          ) : (
-            <FlatList
-              data={circles}
-              renderItem={renderCircleItem}
-              keyExtractor={(item) => item.id}
-              scrollEnabled={false}
-              contentContainerStyle={styles.circlesList}
-            />
-          )}
-        </View>
+            
+            {circles.length === 0 ? (
+              <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
+                <Ionicons name="people-outline" size={48} color={colors.icon} />
+                <Text style={[styles.emptyStateTitle, { color: colors.text }]}>No circles yet</Text>
+                <Text style={[styles.emptyStateText, { color: colors.secondaryText }]}>
+                  Create your first circle to start sharing dates with friends
+                </Text>
+                <Pressable
+                  style={[styles.emptyStateButton, { backgroundColor: colors.primary }]}
+                  onPress={() => setIsModalVisible(true)}
+                >
+                  <Text style={styles.emptyStateButtonText}>Create First Circle</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <FlatList
+                data={circles}
+                renderItem={renderCircleItem}
+                keyExtractor={(item) => item.id}
+                scrollEnabled={false}
+                contentContainerStyle={styles.circlesList}
+              />
+            )}
+          </View>
+        ) : (
+          /* All Friends Tab Content */
+          <View style={styles.section}>
+            {/* Friends Overview */}
+            {renderFriendsOverview()}
+            
+            {/* Friends List */}
+            <View style={styles.friendsSection}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                All Friends ({getTotalFriendCount()})
+              </Text>
+              
+              {allFriends.length === 0 ? (
+                <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
+                  <Ionicons name="person-outline" size={48} color={colors.icon} />
+                  <Text style={[styles.emptyStateTitle, { color: colors.text }]}>No friends yet</Text>
+                  <Text style={[styles.emptyStateText, { color: colors.secondaryText }]}>
+                    Create circles and add friends to start building your network
+                  </Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={allFriends}
+                  renderItem={renderFriendItem}
+                  keyExtractor={item => item.id}
+                  scrollEnabled={false}
+                />
+              )}
+            </View>
+          </View>
+        )}
 
         {/* Join Circle Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Join a Circle</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Join a Circle</Text>
+          </View>
           <Pressable style={[styles.joinCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={[styles.joinIconContainer, { backgroundColor: colors.background }]}>
               <Ionicons name="link-outline" size={24} color={colors.primary} />
@@ -302,5 +548,182 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 15,
     fontWeight: '600',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+  },
+  tabText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  overviewCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+  },
+  overviewHeader: {
+    marginBottom: 16,
+  },
+  overviewTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  overviewStats: {
+    fontSize: 14,
+  },
+  avatarPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  previewAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'white',
+    overflow: 'hidden',
+  },
+  previewAvatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  previewAvatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewAvatarText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'white',
+  },
+  remainingCount: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  remainingText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  overviewDescription: {
+    fontSize: 14,
+  },
+  friendsSection: {
+    marginTop: 8,
+  },
+  friendCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  friendInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  friendAvatarContainer: {
+    position: 'relative',
+    marginRight: 16,
+  },
+  friendAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+  },
+  friendAvatarPlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  friendAvatarText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: 'white',
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  friendDetails: {
+    flex: 1,
+  },
+  friendNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  friendName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  onlineBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  onlineBadgeText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  friendUsername: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  friendCircles: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  circleChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 8,
+    marginBottom: 4,
+  },
+  circleChipText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  moreCircles: {
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  friendActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -14,7 +14,7 @@ interface CircleContextType {
   error: string | null;
   loadCircle: (circleId: string) => Promise<void>;
   refreshCircles: () => Promise<void>;
-  createCircle: (data: { name: string; description: string; isPrivate: boolean }) => Promise<Circle>;
+  createCircle: (data: { name: string; description: string; isPrivate: boolean; groupPhotoUrl?: string }) => Promise<Circle>;
   updateCircle: (circleId: string, updates: Partial<Circle>) => Promise<void>;
   deleteCircle: (circleId: string) => Promise<void>;
   addMember: (circleId: string, email: string) => Promise<void>;
@@ -78,14 +78,16 @@ export function CircleProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const createCircle = async (data: { name: string; description: string; isPrivate: boolean }) => {
+  const createCircle = async (data: { name: string; description: string; isPrivate: boolean; groupPhotoUrl?: string }) => {
     if (!user) throw new Error('No user logged in');
     
     try {
-      const newCircle = await CircleService.createCircle({
-        ...data,
-        owner_id: user.id,
-      });
+      const newCircle = await CircleService.createCircle(
+        data.name,
+        data.description,
+        user.id,
+        data.groupPhotoUrl
+      );
       
       // Refresh circles list
       await loadCircles();
