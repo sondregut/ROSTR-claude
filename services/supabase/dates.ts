@@ -196,6 +196,7 @@ export const DateService = {
           isLiked: likedDateIds.has(date.id),
           comments: commentsByDate[date.id] || [],
           authorName: date.user?.name || 'Unknown',
+          authorUsername: date.user?.username || '',
           authorAvatar: date.user?.image_uri,
           poll,
           userPollVote: userVotesByDate[date.id] ?? null,
@@ -262,9 +263,10 @@ export const DateService = {
         acc[comment.date_plan_id].push({
           name: comment.user?.name || 'Unknown',
           content: comment.content,
+          imageUri: comment.user?.image_uri || '',
         });
         return acc;
-      }, {} as Record<string, Array<{ name: string; content: string }>>) || {};
+      }, {} as Record<string, Array<{ name: string; content: string; imageUri: string }>>) || {};
 
       // Get like counts for plans
       const { data: likeCounts } = await supabase

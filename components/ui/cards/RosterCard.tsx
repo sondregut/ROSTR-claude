@@ -35,6 +35,7 @@ interface RosterCardProps {
   comments?: {
     name: string;
     content: string;
+    imageUri?: string;
   }[];
 }
 

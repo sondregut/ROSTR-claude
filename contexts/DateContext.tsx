@@ -28,6 +28,7 @@ export interface DateEntry {
   comments: Array<{
     name: string;
     content: string;
+    imageUri?: string;
   }>;
   likeCount: number;
   commentCount: number;
@@ -69,6 +70,7 @@ export interface PlanEntry {
   comments: Array<{
     name: string;
     content: string;
+    imageUri?: string;
   }>;
 }
 
@@ -210,7 +212,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Transform database plans to PlanEntry format
-  const transformPlan = (dbPlan: any): PlanEntry => {
+  const transformPlan = (dbPlan: any): PlanEntry & { user_id?: string } => {
     return {
       id: dbPlan.id,
       personName: dbPlan.person_name,
@@ -224,10 +226,11 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       authorAvatar: dbPlan.user?.image_uri,
       createdAt: dbPlan.created_at,
       isCompleted: dbPlan.is_completed,
-      likeCount: 0, // TODO: Implement plan likes
-      commentCount: 0, // TODO: Implement plan comments
-      isLiked: false,
-      comments: [],
+      likeCount: dbPlan.likeCount || 0,
+      commentCount: dbPlan.commentCount || 0,
+      isLiked: dbPlan.isLiked || false,
+      comments: dbPlan.comments || [],
+      user_id: dbPlan.user_id, // Pass through user_id for ownership check
     };
   };
 
@@ -276,7 +279,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
         authorAvatar: plan.authorAvatar,
         createdAt: plan.createdAt,
         updatedAt: plan.createdAt,
-        isOwnPost: true,
+        isOwnPost: plan.user_id === user.id, // Properly check ownership
         entryType: 'plan' as const,
         // Plan-specific fields
         time: plan.time,

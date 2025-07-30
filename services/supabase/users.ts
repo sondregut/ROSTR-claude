@@ -55,6 +55,32 @@ export class UserService {
   }
 
   /**
+   * Get user profile by username
+   */
+  static async getUserByUsername(username: string): Promise<UserProfile | null> {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', username)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No rows returned
+          return null;
+        }
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Get user by username error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Update user profile
    */
   static async updateProfile(userId: string, updates: UserUpdate): Promise<UserProfile> {
@@ -341,6 +367,139 @@ export class UserService {
     } catch (error) {
       console.error('Set primary photo error:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Get user's roster
+   */
+  static async getUserRoster(userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('roster')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Get user roster error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get user's date history
+   */
+  static async getUserDateHistory(userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('date_entries')
+        .select(`
+          *,
+          user:users (
+            id,
+            name,
+            username,
+            image_uri
+          )
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Get user date history error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get user's future dates (plans)
+   */
+  static async getUserFutureDates(userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('date_plans')
+        .select(`
+          *,
+          user:users (
+            id,
+            name,
+            username,
+            image_uri
+          )
+        `)
+        .eq('user_id', userId)
+        .eq('is_completed', false)
+        .order('date', { ascending: true })
+        .limit(20);
+
+      if (error) {
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Get user future dates error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get user's shared circles with current user
+   */
+  static async getSharedCircles(userId: string, currentUserId: string) {
+    try {
+      // Get circles where both users are members
+      const { data, error } = await supabase
+        .from('circle_members')
+        .select(`
+          circle_id,
+          circles!inner (
+            id,
+            name,
+            description
+          )
+        `)
+        .eq('user_id', userId);
+
+      if (error) {
+        throw error;
+      }
+
+      const userCircleIds = data?.map(d => d.circle_id) || [];
+
+      // Get current user's circles
+      const { data: currentUserCircles } = await supabase
+        .from('circle_members')
+        .select('circle_id')
+        .eq('user_id', currentUserId);
+
+      const currentUserCircleIds = currentUserCircles?.map(d => d.circle_id) || [];
+
+      // Find shared circles
+      const sharedCircleIds = userCircleIds.filter(id => currentUserCircleIds.includes(id));
+
+      // Get circle details
+      const { data: sharedCircles } = await supabase
+        .from('circles')
+        .select('id, name')
+        .in('id', sharedCircleIds);
+
+      return sharedCircles || [];
+    } catch (error) {
+      console.error('Get shared circles error:', error);
+      return [];
     }
   }
 }

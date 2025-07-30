@@ -15,6 +15,8 @@ import { Colors } from '@/constants/Colors';
 import { Avatar } from '@/components/ui/Avatar';
 import { MemberStatsCard } from '@/components/ui/cards/MemberStatsCard';
 import { RosterPersonCard, type RosterPersonData } from '@/components/ui/cards/RosterPersonCard';
+import { DateCard } from '@/components/ui/cards/DateCard';
+import PlanCard from '@/components/ui/cards/PlanCard';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { UserService } from '@/services/supabase/users';
 import { useAuth } from '@/contexts/SimpleAuthContext';
@@ -35,6 +37,8 @@ interface ProfileData {
     datesThisMonth: number;
   };
   datingRoster: RosterPersonData[];
+  dateHistory: any[];
+  futureDates: any[];
 }
 
 export default function MemberProfileScreen() {
@@ -44,7 +48,7 @@ export default function MemberProfileScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const { user } = useAuth();
   
-  const [activeTab, setActiveTab] = useState<'roster' | 'activity'>('roster');
+  const [activeTab, setActiveTab] = useState<'roster' | 'dates' | 'future'>('roster');
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,8 +75,38 @@ export default function MemberProfileScreen() {
           return;
         }
 
-        // TODO: Load actual data from database
-        // For now, set basic profile data
+        // Load roster data
+        const roster = await UserService.getUserRoster(userProfile.id);
+        const dateHistory = await UserService.getUserDateHistory(userProfile.id);
+        const futureDates = await UserService.getUserFutureDates(userProfile.id);
+        const sharedCircles = await UserService.getSharedCircles(userProfile.id, user?.id || '');
+        
+        // Transform roster data
+        const transformedRoster: RosterPersonData[] = roster.map(person => ({
+          id: person.id,
+          name: person.name,
+          avatar: person.photos?.[0] || '',
+          age: person.age,
+          occupation: person.occupation,
+          tags: [],
+          status: 'active' as const,
+          lastDate: person.last_date,
+          rating: person.rating || 0,
+          dateCount: person.date_count || 0,
+        }));
+        
+        // Calculate stats
+        const stats = {
+          totalDates: dateHistory.length,
+          activeDates: roster.filter(r => r.status === 'active').length,
+          averageRating: dateHistory.reduce((acc, d) => acc + (d.rating || 0), 0) / (dateHistory.length || 1),
+          datesThisMonth: dateHistory.filter(d => {
+            const dateTime = new Date(d.created_at);
+            const now = new Date();
+            return dateTime.getMonth() === now.getMonth() && dateTime.getFullYear() === now.getFullYear();
+          }).length,
+        };
+        
         const profile: ProfileData = {
           id: userProfile.id,
           name: userProfile.name,
@@ -81,14 +115,11 @@ export default function MemberProfileScreen() {
           bio: userProfile.bio || '',
           location: userProfile.location || '',
           joinedDate: new Date(userProfile.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-          mutualCircles: [], // TODO: Load mutual circles
-          stats: {
-            totalDates: 0,
-            activeDates: 0,
-            averageRating: 0,
-            datesThisMonth: 0,
-          },
-          datingRoster: [], // TODO: Load dating roster if user has made it public
+          mutualCircles: sharedCircles.map(c => c.name),
+          stats,
+          datingRoster: transformedRoster,
+          dateHistory,
+          futureDates,
         };
 
         setProfileData(profile);
@@ -242,15 +273,29 @@ export default function MemberProfileScreen() {
           <Pressable
             style={[
               styles.tab,
-              activeTab === 'activity' && [styles.activeTab, { backgroundColor: colors.background }]
+              activeTab === 'dates' && [styles.activeTab, { backgroundColor: colors.background }]
             ]}
-            onPress={() => setActiveTab('activity')}
+            onPress={() => setActiveTab('dates')}
           >
             <Text style={[
               styles.tabText,
-              { color: activeTab === 'activity' ? colors.text : colors.textSecondary }
+              { color: activeTab === 'dates' ? colors.text : colors.textSecondary }
             ]}>
-              Activity
+              Recent Dates ({profileData.dateHistory.length})
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.tab,
+              activeTab === 'future' && [styles.activeTab, { backgroundColor: colors.background }]
+            ]}
+            onPress={() => setActiveTab('future')}
+          >
+            <Text style={[
+              styles.tabText,
+              { color: activeTab === 'future' ? colors.text : colors.textSecondary }
+            ]}>
+              Future Dates ({profileData.futureDates.length})
             </Text>
           </Pressable>
         </View>
@@ -285,11 +330,83 @@ export default function MemberProfileScreen() {
                 </View>
               )}
             </View>
+          ) : activeTab === 'dates' ? (
+            <View>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  Recent Date History
+                </Text>
+              </View>
+              
+              {profileData.dateHistory.map((date) => (
+                <DateCard
+                  key={date.id}
+                  id={date.id}
+                  personName={date.person_name}
+                  date={new Date(date.created_at).toLocaleDateString()}
+                  location={date.location}
+                  rating={date.rating}
+                  notes={date.notes}
+                  imageUri={date.image_uri}
+                  tags={date.tags || []}
+                  authorName={profileData.name}
+                  authorAvatar={profileData.avatar}
+                  likeCount={date.like_count}
+                  commentCount={date.comment_count}
+                  isLiked={false}
+                  onPersonPress={() => router.push(`/person/${date.person_name.toLowerCase()}?friendUsername=${profileData.username}&isOwnRoster=false`)}
+                />
+              ))}
+              
+              {profileData.dateHistory.length === 0 && (
+                <View style={styles.emptyState}>
+                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                    {profileData.name} hasn't shared any dates yet.
+                  </Text>
+                </View>
+              )}
+            </View>
           ) : (
-            <View style={styles.emptyState}>
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                Activity feed coming soon...
-              </Text>
+            <View>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  Upcoming Dates
+                </Text>
+              </View>
+              
+              {profileData.futureDates.map((plan) => (
+                <PlanCard
+                  key={plan.id}
+                  plan={{
+                    id: plan.id,
+                    personName: plan.person_name,
+                    date: new Date(plan.date).toLocaleDateString(),
+                    rawDate: plan.date,
+                    time: plan.time,
+                    location: plan.location,
+                    content: plan.notes,
+                    tags: plan.tags || [],
+                    authorName: profileData.name,
+                    authorAvatar: profileData.avatar,
+                    createdAt: plan.created_at,
+                    isCompleted: plan.is_completed,
+                    likeCount: 0,
+                    commentCount: 0,
+                    isLiked: false,
+                    comments: [],
+                  }}
+                  onLike={() => {}}
+                  onPersonPress={() => router.push(`/person/${plan.person_name.toLowerCase()}?friendUsername=${profileData.username}&isOwnRoster=false`)}
+                />
+              ))}
+              
+              {profileData.futureDates.length === 0 && (
+                <View style={styles.emptyState}>
+                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                    {profileData.name} has no upcoming dates.
+                  </Text>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -299,6 +416,13 @@ export default function MemberProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  sectionHeader: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
   container: {
     flex: 1,
   },

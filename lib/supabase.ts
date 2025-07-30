@@ -1,24 +1,14 @@
 import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabaseUrl, supabaseAnonKey, debugMode } from '@/config/env';
 
-// Get environment variables
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
-
-// Validate environment variables
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Missing Supabase environment variables. Please check your .env file:\n' +
-    '- EXPO_PUBLIC_SUPABASE_URL\n' +
-    '- EXPO_PUBLIC_SUPABASE_ANON_KEY'
-  );
+// Log configuration for debugging (only in debug mode)
+if (debugMode) {
+  console.log('🔧 Initializing Supabase client...');
+  console.log('📍 URL:', supabaseUrl);
+  console.log('🔑 Key:', supabaseAnonKey.substring(0, 20) + '...');
 }
-
-// Log configuration for debugging
-console.log('🔧 Initializing Supabase client...');
-console.log('📍 URL:', supabaseUrl);
-console.log('🔑 Key:', supabaseAnonKey.substring(0, 20) + '...');
 
 
 // Create Supabase client

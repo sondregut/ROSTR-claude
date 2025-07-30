@@ -26,6 +26,7 @@ interface DateEntry {
   tags?: string[];
   instagramUsername?: string;
   authorName?: string;
+  authorUsername?: string;
   authorAvatar?: string;
   isOwnPost?: boolean;
   poll?: {
@@ -39,6 +40,7 @@ interface DateEntry {
   comments?: {
     name: string;
     content: string;
+    imageUri?: string;
   }[];
   likeCount: number;
   commentCount: number;
@@ -69,7 +71,7 @@ interface DateFeedProps {
   onDatePress?: (dateId: string) => void;
   onPersonPress?: (personName: string, authorName?: string) => void;
   onPersonHistoryPress?: (personName: string, authorName?: string) => void;
-  onAuthorPress?: (authorName: string) => void;
+  onAuthorPress?: (authorUsername: string) => void;
   onLike?: (dateId: string) => void;
   onSubmitComment?: (dateId: string, text: string) => Promise<void>;
   onEdit?: (dateId: string) => void;
@@ -121,7 +123,7 @@ export function DateFeed({
           rosterInfo={item.rosterInfo}
           onPress={() => onDatePress?.(item.id)}
           onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
-          onAuthorPress={() => onAuthorPress?.(item.authorName || item.personName)}
+          onAuthorPress={() => onAuthorPress?.(item.authorUsername || '')}
           onLike={() => {
             console.log('🔍 DateFeed: onLike called for item:', item.id, item.personName);
             onLike?.(item.id);
@@ -191,7 +193,7 @@ export function DateFeed({
         onPress={() => onDatePress?.(item.id)}
         onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
         onPersonHistoryPress={() => onPersonHistoryPress?.(item.personName, item.authorName)}
-        onAuthorPress={() => onAuthorPress?.(item.authorName || item.personName)}
+        onAuthorPress={() => onAuthorPress?.(item.authorUsername || '')}
         onLike={() => {
           console.log('🔍 DateFeed: onLike called for item:', item.id, item.personName);
           onLike?.(item.id);

@@ -97,9 +97,11 @@ export default function FeedScreen() {
     voteOnPoll(dateId, optionIndex);
   };
 
-  const handleAuthorPress = (authorName: string) => {
+  const handleAuthorPress = (authorUsername: string) => {
     // Navigate to the friend's profile who posted the update
-    router.push(`/profile/${authorName.toLowerCase()}`);
+    if (authorUsername) {
+      router.push(`/profile/${authorUsername}`);
+    }
   };
   
   const handleEdit = (dateId: string) => {
