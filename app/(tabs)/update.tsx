@@ -14,6 +14,7 @@ export default function UpdateScreen() {
   const router = useRouter();
   const { addDate } = useDates();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formKey, setFormKey] = useState(Date.now()); // Key to force form reset
   
   const handleSubmit = async (formData: DateEntryFormData) => {
     try {
@@ -21,6 +22,9 @@ export default function UpdateScreen() {
       
       // Save the date entry to the context
       await addDate(formData);
+      
+      // Reset the form by changing its key
+      setFormKey(Date.now());
       
       // Navigate directly to feed tab to show the new entry
       router.push('/(tabs)/');
@@ -49,9 +53,15 @@ export default function UpdateScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoid}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === 'ios' ? 110 : 90 }]}>
+        <ScrollView 
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === 'ios' ? 120 : 100 }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <DateEntryForm
+            key={formKey}
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             isSubmitting={isSubmitting}

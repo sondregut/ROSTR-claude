@@ -7,6 +7,7 @@ import {
   Image,
   Pressable,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -14,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { Button } from '@/components/ui/buttons/Button';
 import { DateCard } from '@/components/ui/cards/DateCard';
+import PlanCard from '@/components/ui/cards/PlanCard';
 import { CommentModal } from '@/components/ui/modals/CommentModal';
 import { AddPlanModal, PlanFormData } from '@/components/ui/modals/AddPlanModal';
 import { EditDateModal } from '@/components/ui/modals/EditDateModal';
@@ -22,19 +24,20 @@ import { useDates } from '@/contexts/DateContext';
 import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
 import { useRoster } from '@/contexts/RosterContext';
 
-type TabType = 'overview' | 'match' | 'plans';
+type TabType = 'overview' | 'plans';
 
 export default function UnifiedPersonDetailScreen() {
   const { personName, friendUsername, isOwnRoster, rosterId, showEditOptions } = useLocalSearchParams();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { dates, plans, addPlan, updatePlan, updateDate, deleteDate } = useDates();
+  const { dates, plans, addPlan, updatePlan, updateDate, deleteDate, likeDate, likePlan, addComment, addPlanComment } = useDates();
   const { activeRoster, pastConnections } = useRoster();
 
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [selectedDateId, setSelectedDateId] = useState<string | null>(null);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [showAddPlanModal, setShowAddPlanModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedDateForEdit, setSelectedDateForEdit] = useState<any>(null);
@@ -44,15 +47,18 @@ export default function UnifiedPersonDetailScreen() {
   
   // Get person data based on context
   let personData: any = null;
+  let personDates: any[] = [];
   
-  if (isOwnRoster === 'true' && rosterId) {
-    // Viewing own roster
+  if (isOwnRoster === 'true') {
+    // Viewing own roster - find by rosterId or personName
     const allRosterEntries = [...activeRoster, ...pastConnections];
-    const rosterEntry = allRosterEntries.find(e => e.id === rosterId);
+    const rosterEntry = rosterId 
+      ? allRosterEntries.find(e => e.id === rosterId)
+      : allRosterEntries.find(e => e.name.toLowerCase() === (personName as string)?.toLowerCase());
     
     if (rosterEntry) {
       // Get dates for this person
-      const personDates = dates.filter(date => 
+      personDates = dates.filter(date => 
         date.personName.toLowerCase() === rosterEntry.name.toLowerCase()
       );
       
@@ -82,6 +88,61 @@ export default function UnifiedPersonDetailScreen() {
         upcomingPlans: personPlans.filter(p => !p.isCompleted).length,
         notes: rosterEntry.notes || '',
         interests: rosterEntry.interests ? rosterEntry.interests.split(',').map(i => i.trim()) : [],
+        dateHistory: personDates.map(date => ({
+          id: date.id,
+          personName: date.personName,
+          date: date.date,
+          location: date.location,
+          rating: date.rating,
+          notes: date.notes,
+          tags: date.tags,
+          instagramUsername: date.instagramUsername,
+          imageUri: date.imageUri,
+          likeCount: date.likeCount,
+          commentCount: date.commentCount,
+          isLiked: date.isLiked,
+          comments: date.comments,
+          poll: date.poll,
+          authorName: date.authorName,
+          authorAvatar: date.authorAvatar,
+        })),
+      };
+    }
+  } else if (viewingFriendDate && friendUsername) {
+    // Viewing friend's date - check if we have this person in our own roster
+    const allRosterEntries = [...activeRoster, ...pastConnections];
+    const rosterEntry = allRosterEntries.find(e => e.name.toLowerCase() === (personName as string)?.toLowerCase());
+    
+    if (rosterEntry) {
+      // We have this person in our roster too, show their profile
+      personDates = dates.filter(date => 
+        date.personName.toLowerCase() === rosterEntry.name.toLowerCase() && 
+        date.authorName?.toLowerCase() === friendUsername.toLowerCase()
+      );
+      
+      const personPlans = plans.filter(plan => 
+        plan.personName.toLowerCase() === rosterEntry.name.toLowerCase()
+      );
+      
+      const avgRating = personDates.length > 0
+        ? personDates.reduce((sum, date) => sum + date.rating, 0) / personDates.length
+        : 0;
+      
+      personData = {
+        name: rosterEntry.name,
+        age: rosterEntry.age || 0,
+        occupation: rosterEntry.occupation || '',
+        location: rosterEntry.location || '',
+        howWeMet: rosterEntry.how_we_met || '',
+        avatarUri: rosterEntry.photos?.[0] || personDates[0]?.imageUri || null,
+        instagramUsername: rosterEntry.instagram || personDates[0]?.instagramUsername || '',
+        status: rosterEntry.status,
+        totalDates: personDates.length,
+        averageRating: avgRating || rosterEntry.rating,
+        lastDate: personDates[0]?.date || rosterEntry.lastDate,
+        upcomingPlans: 0, // Don't show friend's plans
+        notes: rosterEntry.notes || '',
+        interests: rosterEntry.interests ? rosterEntry.interests.split(',').map(i => i.trim()) : [],
         compatibility: {
           communication: 0,
           humor: 0,
@@ -104,15 +165,65 @@ export default function UnifiedPersonDetailScreen() {
           isLiked: date.isLiked,
           comments: date.comments,
           poll: date.poll,
+          authorName: date.authorName,
+          authorAvatar: date.authorAvatar,
         })),
       };
     }
-  } else if (viewingFriendDate && friendUsername) {
-    // Viewing friend's date - TODO: Implement friend data sharing
-    personData = null;
   } else {
-    // No fallback - real data only
-    personData = null;
+    // Try to find the person in roster even without explicit flags
+    const allRosterEntries = [...activeRoster, ...pastConnections];
+    const rosterEntry = allRosterEntries.find(e => e.name.toLowerCase() === (personName as string)?.toLowerCase());
+    
+    if (rosterEntry) {
+      // Found the person, treat as own roster view
+      personDates = dates.filter(date => 
+        date.personName.toLowerCase() === rosterEntry.name.toLowerCase()
+      );
+      
+      const personPlans = plans.filter(plan => 
+        plan.personName.toLowerCase() === rosterEntry.name.toLowerCase()
+      );
+      
+      const avgRating = personDates.length > 0
+        ? personDates.reduce((sum, date) => sum + date.rating, 0) / personDates.length
+        : 0;
+      
+      personData = {
+        name: rosterEntry.name,
+        age: rosterEntry.age || 0,
+        occupation: rosterEntry.occupation || '',
+        location: rosterEntry.location || '',
+        howWeMet: rosterEntry.how_we_met || '',
+        avatarUri: rosterEntry.photos?.[0] || personDates[0]?.imageUri || null,
+        instagramUsername: rosterEntry.instagram || personDates[0]?.instagramUsername || '',
+        status: rosterEntry.status,
+        totalDates: personDates.length,
+        averageRating: avgRating || rosterEntry.rating,
+        lastDate: personDates[0]?.date || rosterEntry.lastDate,
+        upcomingPlans: personPlans.filter(p => !p.isCompleted).length,
+        notes: rosterEntry.notes || '',
+        interests: rosterEntry.interests ? rosterEntry.interests.split(',').map(i => i.trim()) : [],
+        dateHistory: personDates.map(date => ({
+          id: date.id,
+          personName: date.personName,
+          date: date.date,
+          location: date.location,
+          rating: date.rating,
+          notes: date.notes,
+          tags: date.tags,
+          instagramUsername: date.instagramUsername,
+          imageUri: date.imageUri,
+          likeCount: date.likeCount,
+          commentCount: date.commentCount,
+          isLiked: date.isLiked,
+          comments: date.comments,
+          poll: date.poll,
+          authorName: date.authorName,
+          authorAvatar: date.authorAvatar,
+        })),
+      };
+    }
   }
   
   if (!personData) {
@@ -154,8 +265,7 @@ export default function UnifiedPersonDetailScreen() {
   };
 
   const handleLike = (dateId: string) => {
-    // Handle like functionality
-    console.log('Like date:', dateId);
+    likeDate(dateId);
   };
 
   const handleComment = (dateId: string) => {
@@ -163,13 +273,38 @@ export default function UnifiedPersonDetailScreen() {
     setShowCommentModal(true);
   };
 
-  const handleSubmitComment = (comment: string) => {
+  const handleSubmitComment = async (text: string) => {
     if (selectedDateId) {
-      // Handle comment submission
-      console.log('Submit comment:', comment, 'for date:', selectedDateId);
+      try {
+        await addComment(selectedDateId, {
+          name: 'You',
+          content: text
+        });
+        
+        // Close modal on success
+        setShowCommentModal(false);
+        setSelectedDateId(null);
+        
+      } catch (error) {
+        console.error('Error adding comment:', error);
+        Alert.alert('Error', 'Failed to add comment. Please try again.');
+      }
+    } else if (selectedPlanId) {
+      try {
+        await addPlanComment(selectedPlanId, {
+          name: 'You',
+          content: text
+        });
+        
+        // Close modal on success
+        setShowCommentModal(false);
+        setSelectedPlanId(null);
+        
+      } catch (error) {
+        console.error('Error adding plan comment:', error);
+        Alert.alert('Error', 'Failed to add comment. Please try again.');
+      }
     }
-    setShowCommentModal(false);
-    setSelectedDateId(null);
   };
 
   const handleNavigateToDate = (dateId: string) => {
@@ -179,7 +314,7 @@ export default function UnifiedPersonDetailScreen() {
 
   const handleAddPlan = async (planData: PlanFormData) => {
     try {
-      await addPlan(planData);
+      await addPlan(planData, personData.name);
       setShowAddPlanModal(false);
     } catch (error) {
       console.error('Error adding plan:', error);
@@ -196,6 +331,19 @@ export default function UnifiedPersonDetailScreen() {
 
   const handleNavigateToPlan = (planId: string) => {
     router.push(`/plans/${planId}`);
+  };
+
+  const handleLikePlan = (planId: string) => {
+    likePlan(planId);
+  };
+
+  const handleCommentPlan = (planId: string) => {
+    setSelectedPlanId(planId);
+    setShowCommentModal(true);
+  };
+
+  const handlePlanPersonPress = (personName: string) => {
+    router.push(`/person/${personName.toLowerCase()}?isOwnRoster=true`);
   };
 
   const handleEditDate = (dateId: string) => {
@@ -387,20 +535,6 @@ export default function UnifiedPersonDetailScreen() {
             {activeTab === 'overview' && <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />}
           </Pressable>
           
-          {Object.keys(personData.compatibility || {}).length > 0 && (
-            <Pressable
-              style={[styles.tab, activeTab === 'match' && styles.activeTab]}
-              onPress={() => setActiveTab('match')}
-            >
-              <Text style={[
-                styles.tabText,
-                { color: activeTab === 'match' ? colors.primary : colors.textSecondary }
-              ]}>
-                Compatibility
-              </Text>
-              {activeTab === 'match' && <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />}
-            </Pressable>
-          )}
           
           {!viewingFriendDate && (
             <Pressable
@@ -435,6 +569,8 @@ export default function UnifiedPersonDetailScreen() {
                     imageUri={date.imageUri}
                     tags={date.tags}
                     instagramUsername={date.instagramUsername}
+                    authorName={date.authorName}
+                    authorAvatar={date.authorAvatar}
                     isOwnPost={!viewingFriendDate}
                     poll={date.poll}
                     userPollVote={null}
@@ -468,41 +604,6 @@ export default function UnifiedPersonDetailScreen() {
             </View>
           )}
 
-          {activeTab === 'match' && Object.keys(personData.compatibility || {}).length > 0 && (
-            <View style={styles.compatibilitySection}>
-              {Object.entries(personData.compatibility || {}).map(([category, score]) => (
-                <View key={category} style={styles.compatibilityItem}>
-                  <View style={styles.compatibilityHeader}>
-                    <Text style={[styles.compatibilityCategory, { color: colors.text }]}>
-                      {category.charAt(0).toUpperCase() + category.slice(1)}
-                    </Text>
-                    <Text style={[styles.compatibilityScore, { color: getCompatibilityColor(score) }]}>
-                      {score.toFixed(1)}
-                    </Text>
-                  </View>
-                  <View style={[styles.compatibilityBar, { backgroundColor: colors.border }]}>
-                    <View
-                      style={[
-                        styles.compatibilityFill,
-                        {
-                          width: `${(score / 10) * 100}%`,
-                          backgroundColor: getCompatibilityColor(score),
-                        },
-                      ]}
-                    />
-                  </View>
-                </View>
-              ))}
-              
-              {getStatusMessage() && (
-                <View style={[styles.statusMessageCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <Text style={[styles.statusMessageText, { color: colors.text }]}>
-                    {getStatusMessage()}
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
 
           {activeTab === 'plans' && !viewingFriendDate && (
             <View style={styles.plansSection}>
@@ -518,41 +619,14 @@ export default function UnifiedPersonDetailScreen() {
                 plans
                   .filter(p => p.personName === personData.name && !p.isCompleted)
                   .map((plan) => (
-                    <Pressable
+                    <PlanCard
                       key={plan.id}
-                      style={[styles.planCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                      onPress={() => handleNavigateToPlan(plan.id)}
-                    >
-                      <View style={styles.planHeader}>
-                        <View style={styles.planInfo}>
-                          <Text style={[styles.planActivity, { color: colors.text }]}>{plan.activity}</Text>
-                          <Text style={[styles.planDate, { color: colors.textSecondary }]}>{plan.date}</Text>
-                        </View>
-                        <Pressable
-                          style={[styles.completePlanButton, { backgroundColor: colors.primary }]}
-                          onPress={() => handleCompletePlan(plan.id)}
-                        >
-                          <Ionicons name="checkmark" size={20} color="white" />
-                        </Pressable>
-                      </View>
-                      {plan.notes && (
-                        <Text style={[styles.planNotes, { color: colors.text }]} numberOfLines={2}>
-                          {plan.notes}
-                        </Text>
-                      )}
-                      <View style={styles.planFooter}>
-                        <View style={styles.planStats}>
-                          <Ionicons name="heart-outline" size={16} color={colors.textSecondary} />
-                          <Text style={[styles.planStatText, { color: colors.textSecondary }]}>
-                            {plan.likeCount}
-                          </Text>
-                          <Ionicons name="chatbubble-outline" size={16} color={colors.textSecondary} style={{ marginLeft: 12 }} />
-                          <Text style={[styles.planStatText, { color: colors.textSecondary }]}>
-                            {plan.commentCount}
-                          </Text>
-                        </View>
-                      </View>
-                    </Pressable>
+                      plan={plan}
+                      onLike={() => handleLikePlan(plan.id)}
+                      onComment={() => handleCommentPlan(plan.id)}
+                      onAddDetails={() => handleCompletePlan(plan.id)}
+                      onPersonPress={() => handlePlanPersonPress(plan.personName)}
+                    />
                   ))
               ) : (
                 <View style={styles.emptyState}>
@@ -571,17 +645,62 @@ export default function UnifiedPersonDetailScreen() {
       </ScrollView>
 
       {/* Modals */}
-      <CommentModal
-        visible={showCommentModal}
-        onClose={() => setShowCommentModal(false)}
-        onSubmit={handleSubmitComment}
-      />
+      {(selectedDateId || selectedPlanId) && showCommentModal && (() => {
+        if (selectedDateId) {
+          const selectedDate = personDates.find(d => d.id === selectedDateId);
+          if (!selectedDate) {
+            return null;
+          }
+          
+          return (
+            <CommentModal
+              visible={showCommentModal}
+              onClose={() => {
+                setShowCommentModal(false);
+                setSelectedDateId(null);
+              }}
+              onSubmitComment={handleSubmitComment}
+              dateId={selectedDateId}
+              personName={selectedDate.personName || personData?.name || 'Unknown'}
+              existingComments={selectedDate.comments?.map((c, idx) => ({
+                id: `${selectedDateId}-${idx}`,
+                name: c.name || 'Unknown',
+                content: c.content || '',
+              })) || []}
+            />
+          );
+        } else if (selectedPlanId) {
+          const selectedPlan = plans.find(p => p.id === selectedPlanId);
+          if (!selectedPlan) {
+            return null;
+          }
+          
+          return (
+            <CommentModal
+              visible={showCommentModal}
+              onClose={() => {
+                setShowCommentModal(false);
+                setSelectedPlanId(null);
+              }}
+              onSubmitComment={handleSubmitComment}
+              dateId={selectedPlanId}
+              personName={selectedPlan.personName || personData?.name || 'Unknown'}
+              existingComments={selectedPlan.comments?.map((c, idx) => ({
+                id: `${selectedPlanId}-${idx}`,
+                name: c.name || 'Unknown',
+                content: c.content || '',
+              })) || []}
+            />
+          );
+        }
+        return null;
+      })()}
 
       <AddPlanModal
         visible={showAddPlanModal}
         onClose={() => setShowAddPlanModal(false)}
-        onSave={handleAddPlan}
-        preselectedPerson={personData.name}
+        onSubmit={handleAddPlan}
+        personName={personData.name}
       />
       
       <EditDateModal

@@ -216,192 +216,299 @@ export default function CircleDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Navigation Bar */}
-        <View style={[styles.navBar, { backgroundColor: colors.background }]}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </Pressable>
-          
-          <View style={styles.navCenter}>
-            <Text style={[styles.navTitle, { color: colors.text }]}>{currentCircle.name}</Text>
-            <Text style={[styles.navSubtitle, { color: colors.textSecondary }]}>
-              {currentCircle.members.length} members
-            </Text>
-          </View>
-          
-          <View style={styles.navActions}>
-            <Pressable style={[styles.navButtonOutline, { borderColor: colors.border }]}>
-              <Ionicons name="person-add-outline" size={18} color={colors.text} />
-              <Text style={[styles.navButtonText, { color: colors.text }]}>Invite</Text>
+      {activeTab === 'chat' ? (
+        // Chat gets its own layout without ScrollView to handle keyboard properly
+        <>
+          {/* Navigation Bar for chat */}
+          <View style={[styles.navBar, { backgroundColor: colors.background }]}>
+            <Pressable onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
             </Pressable>
-            {permissions.canEditCircle && (
-              <Pressable 
-                style={styles.navButton}
-                onPress={() => router.push(`/circles/${id}/settings`)}
-              >
-                <Ionicons name="settings-outline" size={20} color={colors.text} />
+            
+            <View style={styles.navCenter}>
+              <Text style={[styles.navTitle, { color: colors.text }]}>{currentCircle.name}</Text>
+              <Text style={[styles.navSubtitle, { color: colors.textSecondary }]}>
+                {currentCircle.members.length} members
+              </Text>
+            </View>
+            
+            <View style={styles.navActions}>
+              <Pressable style={[styles.navButtonOutline, { borderColor: colors.border }]}>
+                <Ionicons name="person-add-outline" size={18} color={colors.text} />
+                <Text style={[styles.navButtonText, { color: colors.text }]}>Invite</Text>
               </Pressable>
-            )}
+              {permissions.canEditCircle && (
+                <Pressable 
+                  style={styles.navButton}
+                  onPress={() => router.push(`/circles/${id}/settings`)}
+                >
+                  <Ionicons name="settings-outline" size={20} color={colors.text} />
+                </Pressable>
+              )}
+            </View>
           </View>
-        </View>
-        
-        {/* Circle Info Card */}
-        <View style={[styles.infoCard, { backgroundColor: colors.background }]}>
-          <View style={styles.infoCardRow}>
-            {renderAvatarStack()}
-            <Text style={[styles.circleName, { color: colors.primary }]}>{currentCircle.name}</Text>
-            {currentCircle.isActive && (
-              <View style={[styles.activeBadge, { backgroundColor: colors.statusActive }]}>
-                <Text style={styles.activeText}>Active</Text>
-              </View>
-            )}
-          </View>
-          <Text style={[styles.createdText, { color: colors.textSecondary }]}>
-            Created 2 months ago
-          </Text>
-          <Text style={[styles.circleDescription, { color: colors.text, marginTop: 16 }]}>
-            {currentCircle.description}
-          </Text>
-        </View>
-        
-        {/* Tabs */}
-        <View style={[styles.tabs, { backgroundColor: colors.border }]}>
-          <Pressable
-            style={[
-              styles.tab,
-              activeTab === 'activity' && [styles.activeTab, { backgroundColor: colors.background }]
-            ]}
-            onPress={() => setActiveTab('activity')}
-          >
-            <Text style={[
-              styles.tabText,
-              { color: activeTab === 'activity' ? colors.text : colors.textSecondary }
-            ]}>
-              Activity
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.tab,
-              activeTab === 'chat' && [styles.activeTab, { backgroundColor: colors.background }]
-            ]}
-            onPress={() => setActiveTab('chat')}
-          >
-            <View style={styles.tabWithBadge}>
-              <Ionicons 
-                name="chatbubbles" 
-                size={20} 
-                color={activeTab === 'chat' ? colors.text : colors.textSecondary} 
-              />
+
+          {/* Tabs for chat */}
+          <View style={[styles.tabs, { backgroundColor: colors.border }]}>
+            <Pressable
+              style={[
+                styles.tab,
+                activeTab === 'activity' && [styles.activeTab, { backgroundColor: colors.background }]
+              ]}
+              onPress={() => setActiveTab('activity')}
+            >
               <Text style={[
                 styles.tabText,
-                { color: activeTab === 'chat' ? colors.text : colors.textSecondary }
+                { color: activeTab === 'activity' ? colors.text : colors.textSecondary }
               ]}>
-                Chat
+                Activity
               </Text>
-              {unreadCount > 0 && (
-                <View style={[styles.badge, { backgroundColor: colors.error }]}>
-                  <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.tab,
+                activeTab === 'chat' && [styles.activeTab, { backgroundColor: colors.background }]
+              ]}
+              onPress={() => setActiveTab('chat')}
+            >
+              <View style={styles.tabWithBadge}>
+                <Ionicons 
+                  name="chatbubbles" 
+                  size={20} 
+                  color={activeTab === 'chat' ? colors.text : colors.textSecondary} 
+                />
+                <Text style={[
+                  styles.tabText,
+                  { color: activeTab === 'chat' ? colors.text : colors.textSecondary }
+                ]}>
+                  Chat
+                </Text>
+                {unreadCount > 0 && (
+                  <View style={[styles.badge, { backgroundColor: colors.error }]}>
+                    <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                  </View>
+                )}
+              </View>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.tab,
+                activeTab === 'members' && [styles.activeTab, { backgroundColor: colors.background }]
+              ]}
+              onPress={() => setActiveTab('members')}
+            >
+              <Text style={[
+                styles.tabText,
+                { color: activeTab === 'members' ? colors.text : colors.textSecondary }
+              ]}>
+                Members
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.tab,
+                activeTab === 'insights' && [styles.activeTab, { backgroundColor: colors.background }]
+              ]}
+              onPress={() => setActiveTab('insights')}
+            >
+              <Text style={[
+                styles.tabText,
+                { color: activeTab === 'insights' ? colors.text : colors.textSecondary }
+              ]}>
+                Insights
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* Chat component takes remaining space */}
+          <CircleChat
+            circleId={id as string}
+            circleName={currentCircle.name}
+            members={currentCircle.members.map(m => ({
+              id: m.user_id,
+              name: m.user?.name || 'Unknown',
+              username: m.user?.username || 'unknown',
+              avatar: m.user?.image_uri || '',
+              role: m.role,
+              onlineStatus: 'offline' as OnlineStatus,
+            }))}
+            currentUserId={currentUser.id}
+            currentUserName={currentUser.name}
+            currentUserAvatar={currentUser.avatar}
+          />
+        </>
+      ) : (
+        // All other tabs use ScrollView
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Navigation Bar */}
+          <View style={[styles.navBar, { backgroundColor: colors.background }]}>
+            <Pressable onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
+            </Pressable>
+            
+            <View style={styles.navCenter}>
+              <Text style={[styles.navTitle, { color: colors.text }]}>{currentCircle.name}</Text>
+              <Text style={[styles.navSubtitle, { color: colors.textSecondary }]}>
+                {currentCircle.members.length} members
+              </Text>
+            </View>
+            
+            <View style={styles.navActions}>
+              <Pressable style={[styles.navButtonOutline, { borderColor: colors.border }]}>
+                <Ionicons name="person-add-outline" size={18} color={colors.text} />
+                <Text style={[styles.navButtonText, { color: colors.text }]}>Invite</Text>
+              </Pressable>
+              {permissions.canEditCircle && (
+                <Pressable 
+                  style={styles.navButton}
+                  onPress={() => router.push(`/circles/${id}/settings`)}
+                >
+                  <Ionicons name="settings-outline" size={20} color={colors.text} />
+                </Pressable>
+              )}
+            </View>
+          </View>
+          
+          {/* Circle Info Card */}
+          <View style={[styles.infoCard, { backgroundColor: colors.background }]}>
+            <View style={styles.infoCardRow}>
+              {renderAvatarStack()}
+              <Text style={[styles.circleName, { color: colors.primary }]}>{currentCircle.name}</Text>
+              {currentCircle.isActive && (
+                <View style={[styles.activeBadge, { backgroundColor: colors.statusActive }]}>
+                  <Text style={styles.activeText}>Active</Text>
                 </View>
               )}
             </View>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.tab,
-              activeTab === 'members' && [styles.activeTab, { backgroundColor: colors.background }]
-            ]}
-            onPress={() => setActiveTab('members')}
-          >
-            <Text style={[
-              styles.tabText,
-              { color: activeTab === 'members' ? colors.text : colors.textSecondary }
-            ]}>
-              Members
+            <Text style={[styles.createdText, { color: colors.textSecondary }]}>
+              Created 2 months ago
             </Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.tab,
-              activeTab === 'insights' && [styles.activeTab, { backgroundColor: colors.background }]
-            ]}
-            onPress={() => setActiveTab('insights')}
-          >
-            <Text style={[
-              styles.tabText,
-              { color: activeTab === 'insights' ? colors.text : colors.textSecondary }
-            ]}>
-              Insights
+            <Text style={[styles.circleDescription, { color: colors.text, marginTop: 16 }]}>
+              {currentCircle.description}
             </Text>
-          </Pressable>
-        </View>
-        
-        {/* Tab Content */}
-        <View style={styles.tabContent}>
-          {activeTab === 'activity' ? (
-            <FlatList
-              data={updates}
-              renderItem={renderUpdate}
-              keyExtractor={item => item.id}
-              scrollEnabled={false}
-              ListEmptyComponent={
-                <View style={styles.emptyState}>
-                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                    No recent updates from this circle
-                  </Text>
-                </View>
-              }
-            />
-          ) : activeTab === 'chat' ? (
-            <CircleChat
-              circleId={id as string}
-              circleName={currentCircle.name}
-              members={currentCircle.members.map(m => ({
-                id: m.user_id,
-                name: m.user?.name || 'Unknown',
-                username: m.user?.username || 'unknown',
-                avatar: m.user?.image_uri || '',
-                role: m.role,
-                onlineStatus: 'offline' as OnlineStatus,
-              }))}
-              currentUserId={currentUser.id}
-              currentUserName={currentUser.name}
-              currentUserAvatar={currentUser.avatar}
-            />
-          ) : activeTab === 'members' ? (
-            <FlatList
-              data={currentCircle.members}
-              renderItem={renderMember}
-              keyExtractor={item => item.id}
-              scrollEnabled={false}
-              ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-            />
-          ) : (
-            <View>
-              <CircleStatsCard
-                stats={{
-                  postsThisMonth: 1,
-                  onlineMembers: 0, // TODO: Implement real online status
-                  totalMembers: currentCircle.members.length,
-                  mostActiveMembers: currentCircle.members.slice(0, 3).map((m, idx) => ({
-                    member: {
-                      id: m.user_id,
-                      name: m.user?.name || 'Unknown',
-                      username: m.user?.username || 'unknown',
-                      avatar: m.user?.image_uri || '',
-                      role: m.role,
-                      onlineStatus: 'offline' as OnlineStatus,
-                    },
-                    interactions: 0, // TODO: Track real interactions
-                  }))
-                }}
+          </View>
+          
+          {/* Tabs */}
+          <View style={[styles.tabs, { backgroundColor: colors.border }]}>
+            <Pressable
+              style={[
+                styles.tab,
+                activeTab === 'activity' && [styles.activeTab, { backgroundColor: colors.background }]
+              ]}
+              onPress={() => setActiveTab('activity')}
+            >
+              <Text style={[
+                styles.tabText,
+                { color: activeTab === 'activity' ? colors.text : colors.textSecondary }
+              ]}>
+                Activity
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.tab,
+                activeTab === 'chat' && [styles.activeTab, { backgroundColor: colors.background }]
+              ]}
+              onPress={() => setActiveTab('chat')}
+            >
+              <View style={styles.tabWithBadge}>
+                <Ionicons 
+                  name="chatbubbles" 
+                  size={20} 
+                  color={activeTab === 'chat' ? colors.text : colors.textSecondary} 
+                />
+                <Text style={[
+                  styles.tabText,
+                  { color: activeTab === 'chat' ? colors.text : colors.textSecondary }
+                ]}>
+                  Chat
+                </Text>
+                {unreadCount > 0 && (
+                  <View style={[styles.badge, { backgroundColor: colors.error }]}>
+                    <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                  </View>
+                )}
+              </View>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.tab,
+                activeTab === 'members' && [styles.activeTab, { backgroundColor: colors.background }]
+              ]}
+              onPress={() => setActiveTab('members')}
+            >
+              <Text style={[
+                styles.tabText,
+                { color: activeTab === 'members' ? colors.text : colors.textSecondary }
+              ]}>
+                Members
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.tab,
+                activeTab === 'insights' && [styles.activeTab, { backgroundColor: colors.background }]
+              ]}
+              onPress={() => setActiveTab('insights')}
+            >
+              <Text style={[
+                styles.tabText,
+                { color: activeTab === 'insights' ? colors.text : colors.textSecondary }
+              ]}>
+                Insights
+              </Text>
+            </Pressable>
+          </View>
+          
+          {/* Tab Content */}
+          <View style={styles.tabContent}>
+            {activeTab === 'activity' ? (
+              <FlatList
+                data={updates}
+                renderItem={renderUpdate}
+                keyExtractor={item => item.id}
+                scrollEnabled={false}
+                ListEmptyComponent={
+                  <View style={styles.emptyState}>
+                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                      No recent updates from this circle
+                    </Text>
+                  </View>
+                }
               />
-            </View>
-          )}
-        </View>
-        
-      </ScrollView>
+            ) : activeTab === 'members' ? (
+              <FlatList
+                data={currentCircle.members}
+                renderItem={renderMember}
+                keyExtractor={item => item.id}
+                scrollEnabled={false}
+                ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+              />
+            ) : (
+              <View>
+                <CircleStatsCard
+                  stats={{
+                    postsThisMonth: 1,
+                    onlineMembers: 0, // TODO: Implement real online status
+                    totalMembers: currentCircle.members.length,
+                    mostActiveMembers: currentCircle.members.slice(0, 3).map((m, idx) => ({
+                      member: {
+                        id: m.user_id,
+                        name: m.user?.name || 'Unknown',
+                        username: m.user?.username || 'unknown',
+                        avatar: m.user?.image_uri || '',
+                        role: m.role,
+                        onlineStatus: 'offline' as OnlineStatus,
+                      },
+                      interactions: 0, // TODO: Track real interactions
+                    }))
+                  }}
+                />
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      )}
       
       {selectedUpdateId && (
         <CommentModal

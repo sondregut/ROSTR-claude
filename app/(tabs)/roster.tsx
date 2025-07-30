@@ -25,8 +25,34 @@ export default function RosterScreen() {
     try {
       await addPerson(personData.name, personData);
       setShowAddModal(false);
+      // Navigate to roster tab
+      router.push('/(tabs)/roster');
     } catch (error) {
       console.error('Error adding person:', error);
+    }
+  };
+
+  const handleEditPerson = async (personData: PersonData) => {
+    if (!editingPerson) return;
+    
+    try {
+      // Update the roster entry with new data
+      await updateEntry(editingPerson.id, {
+        name: personData.name,
+        age: personData.age ? parseInt(personData.age) : undefined,
+        occupation: personData.occupation,
+        location: personData.location,
+        how_we_met: personData.howWeMet,
+        interests: personData.interests,
+        instagram: personData.instagram,
+        notes: personData.notes,
+        photos: personData.photos,
+      });
+      setEditingPerson(null);
+      // Navigate to roster tab
+      router.push('/(tabs)/roster');
+    } catch (error) {
+      console.error('Error updating person:', error);
     }
   };
   
@@ -39,6 +65,8 @@ export default function RosterScreen() {
     }
   };
   
+  const [editingPerson, setEditingPerson] = useState<typeof activeRoster[0] | null>(null);
+
   const handleOptionsPress = (item: typeof activeRoster[0]) => {
     const statusOptions = ['active', 'new', 'fading', 'ended', 'ghosted'];
     
@@ -53,9 +81,9 @@ export default function RosterScreen() {
           }
         },
         {
-          text: 'Edit Recent Updates',
+          text: 'Edit Profile',
           onPress: () => {
-            router.push(`/person/${encodeURIComponent(item.name)}?rosterId=${item.id}&isOwnRoster=true&showEditOptions=true`);
+            setEditingPerson(item);
           }
         },
         {
@@ -194,6 +222,23 @@ export default function RosterScreen() {
         visible={showAddModal}
         onClose={() => setShowAddModal(false)}
         onSave={handleAddPerson}
+      />
+      
+      <AddPersonModal
+        visible={!!editingPerson}
+        onClose={() => setEditingPerson(null)}
+        onSave={handleEditPerson}
+        initialData={editingPerson ? {
+          name: editingPerson.name,
+          age: editingPerson.age?.toString() || '',
+          occupation: editingPerson.occupation || '',
+          location: editingPerson.location || '',
+          howWeMet: editingPerson.how_we_met || '',
+          interests: editingPerson.interests || '',
+          instagram: editingPerson.instagram || '',
+          notes: editingPerson.notes || '',
+          photos: editingPerson.photos || [],
+        } : undefined}
       />
     </SafeAreaView>
   );

@@ -14,6 +14,7 @@
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Allow RostrDating to access your photos to add profile pictures for people you're dating.",
         "NSCameraUsageDescription": "Allow RostrDating to access your camera to take profile pictures.",
+        "NSContactsUsageDescription": "Allow RostrDating to access your contacts to find friends and send invites.",
         "NSAllowsArbitraryLoads": false,
         "NSAllowsLocalNetworking": true,
         "NSAppTransportSecurity": {
@@ -37,7 +38,8 @@
               "NSExceptionMinimumTLSVersion": "TLSv1.2"
             }
           }
-        }
+        },
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -46,7 +48,11 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.READ_CONTACTS",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -54,6 +60,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "expo-dev-client",
       "expo-router",
       [
         "expo-splash-screen",

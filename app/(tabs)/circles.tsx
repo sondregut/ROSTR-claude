@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { FriendCircleModal } from '@/components/ui/modals/FriendCircleModal';
+import { ContactImportModal } from '@/components/ui/modals/ContactImportModal';
 import { SimpleCircleCard } from '@/components/ui/cards/SimpleCircleCard';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -22,6 +23,7 @@ export default function CirclesScreen() {
   const [allFriends, setAllFriends] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'circles' | 'friends'>('circles');
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isContactModalVisible, setIsContactModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -380,9 +382,18 @@ export default function CirclesScreen() {
             
             {/* Friends List */}
             <View style={styles.friendsSection}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                All Friends ({getTotalFriendCount()})
-              </Text>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  All Friends ({getTotalFriendCount()})
+                </Text>
+                <Pressable
+                  style={[styles.importButton, { backgroundColor: colors.primary }]}
+                  onPress={() => setIsContactModalVisible(true)}
+                >
+                  <Ionicons name="person-add" size={16} color="white" />
+                  <Text style={styles.importButtonText}>Import</Text>
+                </Pressable>
+              </View>
               
               {allFriends.length === 0 ? (
                 <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
@@ -430,6 +441,16 @@ export default function CirclesScreen() {
         onClose={() => setIsModalVisible(false)}
         onCreateCircle={handleCreateCircle}
         friends={friends}
+      />
+
+      {/* Contact Import Modal */}
+      <ContactImportModal
+        visible={isContactModalVisible}
+        onClose={() => setIsContactModalVisible(false)}
+        onInvitesSent={(count) => {
+          console.log(`Sent invites to ${count} contacts`);
+          // Optionally refresh friends list or show a success message
+        }}
       />
     </SafeAreaView>
   );
@@ -480,6 +501,19 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontWeight: '600',
+  },
+  importButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  importButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '500',
   },
   circlesList: {
     gap: 12,

@@ -7,6 +7,7 @@ import {
   Modal,
   FlatList,
   TextInput,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +20,7 @@ interface Person {
   lastDate?: string;
   rating?: number;
   status?: 'active' | 'new' | 'fading' | 'ended' | 'ghosted';
+  photos?: string[];
 }
 
 interface PersonSelectorProps {
@@ -76,9 +78,17 @@ export function PersonSelector({
       onPress={() => handleSelect(item)}
     >
       <View style={[styles.personAvatar, { backgroundColor: colors.primary + '20' }]}>
-        <Text style={[styles.personInitial, { color: colors.primary }]}>
-          {item.name.charAt(0)}
-        </Text>
+        {item.photos && item.photos.length > 0 ? (
+          <Image
+            source={{ uri: item.photos[0] }}
+            style={styles.personAvatarImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <Text style={[styles.personInitial, { color: colors.primary }]}>
+            {item.name.charAt(0)}
+          </Text>
+        )}
       </View>
       <View style={styles.personInfo}>
         <View style={styles.personNameRow}>
@@ -117,9 +127,17 @@ export function PersonSelector({
         {selectedPerson ? (
           <View style={styles.selectedPersonContainer}>
             <View style={[styles.selectedAvatar, { backgroundColor: colors.primary + '20' }]}>
-              <Text style={[styles.selectedInitial, { color: colors.primary }]}>
-                {selectedPerson.name.charAt(0)}
-              </Text>
+              {selectedPerson.photos && selectedPerson.photos.length > 0 ? (
+                <Image
+                  source={{ uri: selectedPerson.photos[0] }}
+                  style={styles.selectedAvatarImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={[styles.selectedInitial, { color: colors.primary }]}>
+                  {selectedPerson.name.charAt(0)}
+                </Text>
+              )}
             </View>
             <Text style={[styles.selectorText, { color: colors.text }]}>
               {selectedPerson.name}
@@ -294,6 +312,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
+    overflow: 'hidden',
+  },
+  selectedAvatarImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   selectedInitial: {
     fontSize: 14,
@@ -310,6 +334,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    overflow: 'hidden',
+  },
+  personAvatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   personInitial: {
     fontSize: 18,

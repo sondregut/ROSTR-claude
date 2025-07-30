@@ -485,8 +485,8 @@ const styles = StyleSheet.create({
   },
   profileTopSection: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
+    alignItems: 'flex-start',
+    gap: 12,
     marginBottom: 16,
   },
   avatarSection: {
@@ -511,6 +511,7 @@ const styles = StyleSheet.create({
   },
   profileInfoSection: {
     flex: 1,
+    paddingRight: 4,
   },
   profileName: {
     fontSize: 18,
@@ -523,7 +524,8 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: 8,
+    flexWrap: 'wrap',
+    gap: 6,
   },
   actionButton: {
     paddingHorizontal: 20,
@@ -532,14 +534,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
     borderWidth: 1,
-    height: 28,
+    height: 30,
   },
   compactButtonText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
   },
   quickStats: {

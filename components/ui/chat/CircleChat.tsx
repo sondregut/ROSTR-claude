@@ -171,9 +171,44 @@ export function CircleChat({
     
     console.log('🔌 Setting up real-time subscriptions for circle:', circleId);
     
-    // Try simpler subscription first
+    // Set up subscriptions for both possible table structures
     const messageChannel = supabase
       .channel(`circle-messages-${circleId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'circle_chat_messages'
+        },
+        async (payload) => {
+          console.log('📩 New message via real-time (circle_chat_messages):', payload);
+          
+          if (payload.new && payload.new.circle_id === circleId) {
+            try {
+              const { data: messageWithSender, error } = await supabase
+                .from('circle_chat_messages')
+                .select(`
+                  *,
+                  sender:users!circle_chat_messages_sender_id_fkey (
+                    id,
+                    name,
+                    username,
+                    image_uri
+                  )
+                `)
+                .eq('id', payload.new.id)
+                .single();
+                
+              if (!error && messageWithSender) {
+                setMessages(prev => [...prev, messageWithSender]);
+              }
+            } catch (err) {
+              console.error('Error fetching complete message from circle_chat_messages:', err);
+            }
+          }
+        }
+      )
       .on(
         'postgres_changes',
         {
@@ -182,7 +217,7 @@ export function CircleChat({
           table: 'messages'
         },
         async (payload) => {
-          console.log('📩 New message via real-time:', payload);
+          console.log('📩 New message via real-time (messages):', payload);
           
           // If we get a message for this circle, add it
           if (payload.new && payload.new.circle_id === circleId) {
@@ -206,7 +241,7 @@ export function CircleChat({
                 setMessages(prev => [...prev, messageWithSender]);
               }
             } catch (err) {
-              console.error('Error fetching complete message:', err);
+              console.error('Error fetching complete message from messages:', err);
             }
           }
         }
@@ -477,7 +512,7 @@ export function CircleChat({
     <KeyboardAvoidingView 
       style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
       <ConnectionStatus />
       <FlatList
@@ -495,7 +530,14 @@ export function CircleChat({
             flatListRef.current?.scrollToEnd({ animated: true });
           }, 100);
         }}
+        onLayout={() => {
+          // Scroll to bottom when chat is first loaded
+          setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: false });
+          }, 100);
+        }}
         showsVerticalScrollIndicator={false}
+        automaticallyAdjustKeyboardInsets={true}
       />
       
       <MessageInput

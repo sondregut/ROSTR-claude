@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
+import { pickImageWithCrop } from '@/lib/photoUpload';
 import { Button } from '../buttons/Button';
 import { PersonSelector } from './PersonSelector';
 import { TagSelector } from './TagSelector';
@@ -21,6 +21,7 @@ import { AddPersonModal, PersonData } from '../modals/AddPersonModal';
 import { Colors } from '../../../constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useRoster } from '@/contexts/RosterContext';
+import { useRouter } from 'expo-router';
 
 const PREDEFINED_TAGS = [
   { id: 'first-date', label: 'First Date', color: '#9B59B6' },
@@ -68,6 +69,7 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { activeRoster, pastConnections, addPerson } = useRoster();
+  const router = useRouter();
   
   const [formData, setFormData] = useState<DateEntryFormData>({
     personId: initialData?.personId || '',
@@ -110,22 +112,21 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
   };
 
   const handleImagePick = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (!permissionResult.granted) {
-      alert('Permission to access camera roll is required!');
-      return;
-    }
-    
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: [ImagePicker.MediaType.Images],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-    
-    if (!result.canceled) {
-      handleChange('imageUri', result.assets[0].uri);
+    try {
+      const result = await pickImageWithCrop('library', {
+        aspect: [4, 3], // 4:3 aspect ratio for date photos
+        quality: 0.8,
+        allowsEditing: true,
+      });
+      
+      if (result.success && result.uri) {
+        handleChange('imageUri', result.uri);
+      } else if (result.error && result.error !== 'Selection cancelled') {
+        alert(`Failed to pick image: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      alert('Failed to pick image. Please try again.');
     }
   };
 
@@ -151,15 +152,8 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
       await addPerson(newPerson.name, newPerson);
       setShowAddPersonModal(false);
       
-      // Find the newly added person from the roster (it will be the most recent)
-      // In a real app, addPerson should return the new person's ID
-      const updatedRoster = [...activeRoster, ...pastConnections];
-      const newestPerson = updatedRoster.find(p => p.name === newPerson.name);
-      
-      if (newestPerson) {
-        // Auto-select the new person
-        handlePersonSelect(newestPerson.id, newestPerson.name);
-      }
+      // Navigate to roster tab to show the newly added person
+      router.push('/(tabs)/roster');
     } catch (error) {
       console.error('Error adding new person:', error);
     }
@@ -172,13 +166,7 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
       newErrors.personId = 'Please select a person';
     }
     
-    if (!formData.rating || formData.rating === 0) {
-      newErrors.rating = 'Please rate your date';
-    }
-    
-    if (!formData.notes.trim()) {
-      newErrors.notes = 'Please add some details about your date';
-    }
+    // Rating and notes are now optional - no validation needed
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -217,11 +205,13 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoid}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView 
           style={[styles.container, { backgroundColor: colors.background }]}
           contentContainerStyle={styles.contentContainer}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
         <View style={styles.formGroup}>
           <Text style={[styles.label, { color: colors.text }]}>
@@ -265,7 +255,7 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
 
         <View style={styles.formGroup}>
           <Text style={[styles.label, { color: colors.text }]}>
-            Rate your date <Text style={{ color: colors.error }}>*</Text>
+            Rate your date
           </Text>
           <View style={styles.ratingSection}>
             {renderRatingPicker()}
@@ -275,12 +265,11 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
               </Text>
             )}
           </View>
-          {errors.rating && <Text style={styles.errorText}>{errors.rating}</Text>}
         </View>
 
         <View style={styles.formGroup}>
           <Text style={[styles.label, { color: colors.text }]}>
-            Date details <Text style={{ color: colors.error }}>*</Text>
+            Date details
           </Text>
           <TextInput
             style={[
@@ -299,7 +288,6 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
             numberOfLines={6}
             textAlignVertical="top"
           />
-          {errors.notes && <Text style={styles.errorText}>{errors.notes}</Text>}
         </View>
 
 
@@ -402,7 +390,7 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
             variant="primary" 
             onPress={handleSubmit} 
             style={[styles.button, styles.shareButton]}
-            disabled={isSubmitting || !formData.personId || !formData.rating || !formData.notes.trim()}
+            disabled={isSubmitting || !formData.personId}
           />
         </View>
       </ScrollView>
@@ -426,7 +414,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
-    paddingBottom: 32,
+    paddingBottom: Platform.OS === 'ios' ? 120 : 100,
   },
   formGroup: {
     marginBottom: 16,

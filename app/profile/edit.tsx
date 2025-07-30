@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
+import { pickImageWithCrop } from '@/lib/photoUpload';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Button } from '@/components/ui/buttons/Button';
@@ -101,11 +101,11 @@ export default function EditProfileScreen() {
         age: profileData.age,
         location: profileData.location,
         occupation: profileData.occupation,
+        bio: profileData.bio, // Fix: Pass bio as top-level field
         imageUri: profileData.avatarUri,
         about: {
           bio: profileData.bio,
           interests: profileData.interests,
-          connectedApps: userProfile?.about?.connectedApps || [],
         },
         preferences: {
           dating: {
@@ -137,15 +137,21 @@ export default function EditProfileScreen() {
   };
   
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: [ImagePicker.MediaType.Images],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      setProfileData({ ...profileData, avatarUri: result.assets[0].uri });
+    try {
+      const result = await pickImageWithCrop('library', {
+        aspect: [1, 1], // Square aspect ratio for profile photos
+        quality: 0.8,
+        allowsEditing: true,
+      });
+      
+      if (result.success && result.uri) {
+        setProfileData({ ...profileData, avatarUri: result.uri });
+      } else if (result.error && result.error !== 'Selection cancelled') {
+        Alert.alert('Error', `Failed to pick image: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
     }
   };
   

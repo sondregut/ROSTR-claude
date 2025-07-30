@@ -1,19 +1,17 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DateFeed } from '@/components/ui/feed/DateFeed';
-import { CommentModal } from '@/components/ui/modals/CommentModal';
 import { EditDateModal } from '@/components/ui/modals/EditDateModal';
+import { EditRosterModal, RosterUpdateData } from '@/components/ui/modals/EditRosterModal';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { useDates } from '@/contexts/DateContext';
-import { useRouter } from 'expo-router';
-import { getRosterIdFromPersonName } from '@/lib/rosterUtils';
-import { generateHistoryUrl, hasRelationshipData } from '@/lib/relationshipData';
 import { useAuth } from '@/contexts/SimpleAuthContext';
-import { Alert, Pressable } from 'react-native';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { useRouter } from 'expo-router';
+import { Alert } from 'react-native';
 
 export default function FeedScreen() {
   const colorScheme = useColorScheme();
@@ -24,19 +22,23 @@ export default function FeedScreen() {
   const {
     dates,
     likeDate,
+    likePlan,
     addComment,
+    addPlanComment,
     voteOnPoll,
     refreshDates,
     updateDate,
     deleteDate,
+    updateRosterAddition,
+    deleteRosterAddition,
     isLoading
   } = useDates();
   
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [commentModalVisible, setCommentModalVisible] = useState(false);
-  const [selectedDateId, setSelectedDateId] = useState<string | null>(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedDateForEdit, setSelectedDateForEdit] = useState<any>(null);
+  const [editRosterModalVisible, setEditRosterModalVisible] = useState(false);
+  const [selectedRosterForEdit, setSelectedRosterForEdit] = useState<any>(null);
   
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -49,44 +51,39 @@ export default function FeedScreen() {
     }
   };
 
-  // Temporary sign out for development
-  const handleDevSignOut = async () => {
-    Alert.alert(
-      'Sign Out',
-      'This will sign you out and restart the onboarding flow.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut();
-            } catch (error) {
-              console.error('Sign out error:', error);
-            }
-          }
-        }
-      ]
-    );
-  };
   
   const handleLike = (dateId: string) => {
+    console.log('🔍 Feed: handleLike called with dateId:', dateId);
     likeDate(dateId);
   };
-  
-  const handleComment = (dateId: string) => {
-    setSelectedDateId(dateId);
-    setCommentModalVisible(true);
+
+  const handleLikePlan = (planId: string) => {
+    console.log('🔍 Feed: handleLikePlan called with planId:', planId);
+    likePlan(planId);
   };
   
-  const handleSubmitComment = (text: string) => {
-    if (!selectedDateId) return;
-    
-    addComment(selectedDateId, {
-      name: 'You',
-      content: text
-    });
+  const handleSubmitComment = async (dateId: string, text: string) => {
+    try {
+      await addComment(dateId, {
+        name: 'You',
+        content: text
+      });
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      Alert.alert('Error', 'Failed to add comment. Please try again.');
+    }
+  };
+  
+  const handleSubmitPlanComment = async (planId: string, text: string) => {
+    try {
+      await addPlanComment(planId, {
+        name: 'You',
+        content: text
+      });
+    } catch (error) {
+      console.error('Error adding plan comment:', error);
+      Alert.alert('Error', 'Failed to add comment. Please try again.');
+    }
   };
   
   const handlePollVote = (dateId: string, optionIndex: number) => {
@@ -103,6 +100,14 @@ export default function FeedScreen() {
     if (date) {
       setSelectedDateForEdit(date);
       setEditModalVisible(true);
+    }
+  };
+
+  const handleEditRoster = (dateId: string) => {
+    const rosterEntry = dates.find(d => d.id === dateId && d.entryType === 'roster_addition');
+    if (rosterEntry) {
+      setSelectedRosterForEdit(rosterEntry);
+      setEditRosterModalVisible(true);
     }
   };
   
@@ -127,6 +132,28 @@ export default function FeedScreen() {
       Alert.alert('Error', 'Failed to delete date');
     }
   };
+
+  const handleSaveRosterEdit = async (id: string, updates: RosterUpdateData) => {
+    try {
+      await updateRosterAddition(id, updates);
+      setEditRosterModalVisible(false);
+      setSelectedRosterForEdit(null);
+    } catch (error) {
+      console.error('Error updating roster addition:', error);
+      Alert.alert('Error', 'Failed to update roster entry');
+    }
+  };
+
+  const handleDeleteRosterAddition = async (id: string) => {
+    try {
+      await deleteRosterAddition(id);
+      setEditRosterModalVisible(false);
+      setSelectedRosterForEdit(null);
+    } catch (error) {
+      console.error('Error deleting roster addition:', error);
+      Alert.alert('Error', 'Failed to delete roster entry');
+    }
+  };
   
   const renderEmptyComponent = () => (
     <View style={styles.emptyContainer}>
@@ -140,18 +167,40 @@ export default function FeedScreen() {
     </View>
   );
   
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+        <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>My Feed</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading your feed...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  console.log('🔍 Feed: Total dates loaded:', dates.length);
+  console.log('🔍 Feed: Date IDs and names:', dates.map(d => ({ id: d.id, personName: d.personName, entryType: d.entryType })));
+
+  if (dates.length === 0) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+        <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>My Feed</Text>
+        </View>
+        {renderEmptyComponent()}
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>My Feed</Text>
-        {/* Temporary sign out button for development */}
-        <Pressable 
-          onPress={handleDevSignOut}
-          style={styles.devSignOutButton}
-        >
-          <Text style={[styles.devSignOutText, { color: colors.error }]}>Sign Out</Text>
-        </Pressable>
       </View>
+      
       <DateFeed
         data={dates}
         isRefreshing={isRefreshing || isLoading}
@@ -177,29 +226,13 @@ export default function FeedScreen() {
         }}
         onAuthorPress={handleAuthorPress}
         onLike={handleLike}
-        onComment={handleComment}
+        onSubmitComment={handleSubmitComment}
         onEdit={handleEdit}
+        onEditRoster={handleEditRoster}
+        onLikePlan={handleLikePlan}
         onPollVote={handlePollVote}
         ListEmptyComponent={renderEmptyComponent()}
       />
-      
-      {selectedDateId && (
-        <CommentModal
-          visible={commentModalVisible}
-          onClose={() => {
-            setCommentModalVisible(false);
-            setSelectedDateId(null);
-          }}
-          onSubmitComment={handleSubmitComment}
-          dateId={selectedDateId}
-          personName={dates.find(d => d.id === selectedDateId)?.personName || ''}
-          existingComments={dates.find(d => d.id === selectedDateId)?.comments?.map((c, idx) => ({
-            id: `${selectedDateId}-${idx}`,
-            name: c.name,
-            content: c.content,
-          })) || []}
-        />
-      )}
       
       <EditDateModal
         visible={editModalVisible}
@@ -210,6 +243,17 @@ export default function FeedScreen() {
         }}
         onSave={handleSaveEdit}
         onDelete={handleDeleteDate}
+      />
+
+      <EditRosterModal
+        visible={editRosterModalVisible}
+        rosterEntry={selectedRosterForEdit}
+        onClose={() => {
+          setEditRosterModalVisible(false);
+          setSelectedRosterForEdit(null);
+        }}
+        onSave={handleSaveRosterEdit}
+        onDelete={handleDeleteRosterAddition}
       />
     </SafeAreaView>
   );
@@ -230,13 +274,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: '700',
-  },
-  devSignOutButton: {
-    padding: 8,
-  },
-  devSignOutText: {
-    fontSize: 14,
-    fontWeight: '600',
   },
   headerButton: {
     padding: 8,

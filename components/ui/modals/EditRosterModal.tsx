@@ -10,34 +10,33 @@ import {
   Platform,
   Pressable,
   Image,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { pickImageWithCrop } from '@/lib/photoUpload';
 import { Button } from '../buttons/Button';
-import { CircleSelector } from '../forms/CircleSelector';
 import { Colors } from '../../../constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { DateEntry } from '@/contexts/DateContext';
 
-interface AddPersonModalProps {
+interface EditRosterModalProps {
   visible: boolean;
   onClose: () => void;
-  onSave: (person: PersonData) => void;
-  initialData?: PersonData;
+  onSave: (id: string, updates: RosterUpdateData) => void;
+  onDelete?: (id: string) => void;
+  rosterEntry: DateEntry | null;
 }
 
-export interface PersonData {
-  name: string;
-  age?: string;
+export interface RosterUpdateData {
+  personName: string;
+  age?: number;
   occupation?: string;
-  location?: string;
   howWeMet?: string;
   interests?: string;
   instagram?: string;
   notes?: string;
   photos?: string[];
-  circles?: string[];
-  isPrivate?: boolean;
 }
 
 const HOW_WE_MET_OPTIONS = [
@@ -50,50 +49,56 @@ const HOW_WE_MET_OPTIONS = [
   'Other',
 ];
 
-export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPersonModalProps) {
+export function EditRosterModal({ 
+  visible, 
+  onClose, 
+  onSave, 
+  onDelete,
+  rosterEntry 
+}: EditRosterModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   
-  const [formData, setFormData] = useState<PersonData>({
-    name: '',
-    age: '',
+  const [formData, setFormData] = useState<RosterUpdateData>({
+    personName: '',
+    age: undefined,
     occupation: '',
-    location: '',
     howWeMet: '',
     interests: '',
     instagram: '',
     notes: '',
     photos: [],
-    circles: [],
-    isPrivate: false,
   });
 
-  // Removed errors state as validation is no longer required
   const [showHowWeMetOptions, setShowHowWeMetOptions] = useState(false);
 
-  // Initialize form data when initialData is provided (for editing)
+  // Initialize form data when rosterEntry is provided
   useEffect(() => {
-    if (visible && initialData) {
-      setFormData(initialData);
-    } else if (visible && !initialData) {
-      // Reset form for new person
-      resetForm();
+    if (visible && rosterEntry) {
+      setFormData({
+        personName: rosterEntry.personName,
+        age: rosterEntry.rosterInfo?.age,
+        occupation: rosterEntry.rosterInfo?.occupation || '',
+        howWeMet: rosterEntry.rosterInfo?.howWeMet || '',
+        interests: rosterEntry.rosterInfo?.interests || '',
+        instagram: rosterEntry.rosterInfo?.instagram || '',
+        notes: rosterEntry.notes || '',
+        photos: rosterEntry.rosterInfo?.photos || [],
+      });
     }
-  }, [visible, initialData]);
+  }, [visible, rosterEntry]);
 
-  const handleChange = (field: keyof PersonData, value: string | string[]) => {
+  const handleChange = (field: keyof RosterUpdateData, value: string | number | string[] | undefined) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
-    
-    // No error clearing needed as validation is removed
   };
 
   const handleImagePick = async () => {
     try {
       const result = await pickImageWithCrop('library', {
-        aspect: [1, 1], // Square aspect ratio for profile photos
+        aspect: [1, 1], // Square aspect ratio for roster photos
         quality: 0.8,
         allowsEditing: true,
       });
@@ -114,40 +119,38 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
     handleChange('photos', newPhotos);
   };
 
-  const validateForm = (): boolean => {
-    // No validation required - users can save with any amount of info
-    return true;
-  };
-
   const handleSave = () => {
-    if (validateForm()) {
-      onSave(formData);
-      resetForm();
-      onClose();
-    }
+    if (!rosterEntry) return;
+    
+    onSave(rosterEntry.id, formData);
+    onClose();
   };
 
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      age: '',
-      occupation: '',
-      location: '',
-      howWeMet: '',
-      interests: '',
-      instagram: '',
-      notes: '',
-      photos: [],
-      circles: [],
-      isPrivate: false,
-    });
-    // No errors to reset
+  const handleDelete = () => {
+    if (!rosterEntry || !onDelete) return;
+    
+    Alert.alert(
+      'Delete Roster Entry',
+      `Are you sure you want to remove ${rosterEntry.personName} from your roster? This will also remove the feed update.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            onDelete(rosterEntry.id);
+            onClose();
+          }
+        }
+      ]
+    );
   };
 
   const handleClose = () => {
-    resetForm();
     onClose();
   };
+
+  if (!rosterEntry) return null;
 
   return (
     <Modal
@@ -162,9 +165,13 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
             <Ionicons name="close" size={24} color={colors.text} />
           </Pressable>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
-            {initialData ? 'Edit Person' : 'Add New Person'}
+            Edit Roster Entry
           </Text>
-          <View style={{ width: 40 }} />
+          {onDelete && (
+            <Pressable onPress={handleDelete} style={styles.deleteButton}>
+              <Ionicons name="trash-outline" size={22} color={colors.error} />
+            </Pressable>
+          )}
         </View>
 
         <KeyboardAvoidingView
@@ -224,8 +231,8 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
                   ]}
                   placeholder="Enter name"
                   placeholderTextColor={colors.textSecondary}
-                  value={formData.name}
-                  onChangeText={(text) => handleChange('name', text)}
+                  value={formData.personName}
+                  onChangeText={(text) => handleChange('personName', text)}
                 />
               </View>
 
@@ -243,8 +250,8 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
                     ]}
                     placeholder="Age"
                     placeholderTextColor={colors.textSecondary}
-                    value={formData.age}
-                    onChangeText={(text) => handleChange('age', text)}
+                    value={formData.age ? formData.age.toString() : ''}
+                    onChangeText={(text) => handleChange('age', text ? parseInt(text) : undefined)}
                     keyboardType="numeric"
                   />
                 </View>
@@ -266,24 +273,6 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
                     onChangeText={(text) => handleChange('occupation', text)}
                   />
                 </View>
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Location</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      color: colors.text,
-                      backgroundColor: colors.card,
-                      borderColor: colors.border
-                    }
-                  ]}
-                  placeholder="City or neighborhood"
-                  placeholderTextColor={colors.textSecondary}
-                  value={formData.location}
-                  onChangeText={(text) => handleChange('location', text)}
-                />
               </View>
 
               <View style={styles.formGroup}>
@@ -396,27 +385,6 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
               </View>
             </View>
 
-            {/* Sharing Options */}
-            <View style={styles.formSection}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Share With</Text>
-              
-              <View style={styles.formGroup}>
-                <CircleSelector
-                  selectedCircles={formData.isPrivate ? [] : formData.circles || []}
-                  onCirclesChange={(circles) => {
-                    handleChange('circles', circles);
-                    // If circles are selected, it's not private
-                    if (circles.length > 0) {
-                      handleChange('isPrivate', false);
-                    } else {
-                      handleChange('isPrivate', true);
-                    }
-                  }}
-                  showPrivateOption={true}
-                />
-              </View>
-            </View>
-
             <View style={styles.buttonsContainer}>
               <Button
                 title="Cancel"
@@ -425,7 +393,7 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
                 style={styles.button}
               />
               <Button
-                title={initialData ? "Update Person" : "Save Person"}
+                title="Update"
                 variant="primary"
                 onPress={handleSave}
                 style={styles.button}
@@ -451,6 +419,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   closeButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteButton: {
     width: 40,
     height: 40,
     alignItems: 'center',
@@ -485,13 +459,6 @@ const styles = StyleSheet.create({
   photoWrapper: {
     marginRight: 12,
     position: 'relative',
-  },
-  photoPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   photoImage: {
     width: 100,

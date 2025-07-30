@@ -1,18 +1,19 @@
-import React from 'react';
-import { 
-  View, 
-  StyleSheet, 
-  FlatList, 
-  RefreshControl, 
-  ActivityIndicator, 
-  Text,
-  Platform
-} from 'react-native';
-import { DateCard } from '../cards/DateCard';
-import { Colors } from '../../../constants/Colors';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useWindowDimensions } from 'react-native';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import React from 'react';
+import {
+    ActivityIndicator,
+    FlatList,
+    Platform,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    useWindowDimensions,
+    View
+} from 'react-native';
+import { Colors } from '../../../constants/Colors';
+import { DateCard } from '../cards/DateCard';
+import PlanCard from '../cards/PlanCard';
+import { RosterCard } from '../cards/RosterCard';
 
 interface DateEntry {
   id: string;
@@ -42,6 +43,21 @@ interface DateEntry {
   likeCount: number;
   commentCount: number;
   isLiked?: boolean;
+  entryType?: 'date' | 'roster_addition' | 'plan';
+  rosterInfo?: {
+    age?: number;
+    occupation?: string;
+    howWeMet?: string;
+    interests?: string;
+    instagram?: string;
+    phone?: string;
+    photos?: string[];
+  };
+  // Plan-specific fields
+  time?: string;
+  content?: string;
+  rawDate?: string;
+  isCompleted?: boolean;
 }
 
 interface DateFeedProps {
@@ -55,8 +71,11 @@ interface DateFeedProps {
   onPersonHistoryPress?: (personName: string, authorName?: string) => void;
   onAuthorPress?: (authorName: string) => void;
   onLike?: (dateId: string) => void;
-  onComment?: (dateId: string) => void;
+  onSubmitComment?: (dateId: string, text: string) => Promise<void>;
   onEdit?: (dateId: string) => void;
+  onEditRoster?: (dateId: string) => void;
+  onLikePlan?: (planId: string) => void;
+  onCommentPlan?: (planId: string) => void;
   onPollVote?: (dateId: string, optionIndex: number) => void;
   ListEmptyComponent?: React.ReactElement;
   ListHeaderComponent?: React.ReactElement;
@@ -73,8 +92,11 @@ export function DateFeed({
   onPersonHistoryPress,
   onAuthorPress,
   onLike,
-  onComment,
+  onSubmitComment,
   onEdit,
+  onEditRoster,
+  onLikePlan,
+  onCommentPlan,  
   onPollVote,
   ListEmptyComponent,
   ListHeaderComponent,
@@ -83,36 +105,98 @@ export function DateFeed({
   const colors = Colors[colorScheme ?? 'light'];
   const { width } = useWindowDimensions();
 
-  const renderItem = ({ item }: { item: DateEntry }) => (
-    <DateCard
-      id={item.id}
-      personName={item.personName}
-      date={item.date}
-      location={item.location}
-      rating={item.rating}
-      notes={item.notes}
-      imageUri={item.imageUri}
-      tags={item.tags}
-      instagramUsername={item.instagramUsername}
-      authorName={item.authorName}
-      authorAvatar={item.authorAvatar}
-      isOwnPost={item.isOwnPost}
-      poll={item.poll}
-      userPollVote={item.userPollVote}
-      comments={item.comments}
-      likeCount={item.likeCount}
-      commentCount={item.commentCount}
-      isLiked={item.isLiked}
-      onPress={() => onDatePress?.(item.id)}
-      onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
-      onPersonHistoryPress={() => onPersonHistoryPress?.(item.personName, item.authorName)}
-      onAuthorPress={() => onAuthorPress?.(item.authorName || item.personName)}
-      onLike={() => onLike?.(item.id)}
-      onComment={() => onComment?.(item.id)}
-      onEdit={item.isOwnPost && onEdit ? () => onEdit(item.id) : undefined}
-      onPollVote={onPollVote}
-    />
-  );
+  const renderItem = ({ item }: { item: DateEntry }) => {
+    if (item.entryType === 'roster_addition') {
+      return (
+        <RosterCard
+          id={item.id}
+          personName={item.personName}
+          date={item.date}
+          authorName={item.authorName || 'Unknown'}
+          authorAvatar={item.authorAvatar}
+          isOwnPost={item.isOwnPost}
+          imageUri={item.imageUri}
+          rosterInfo={item.rosterInfo}
+          onPress={() => onDatePress?.(item.id)}
+          onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
+          onAuthorPress={() => onAuthorPress?.(item.authorName || item.personName)}
+          onLike={() => {
+            console.log('🔍 DateFeed: onLike called for item:', item.id, item.personName);
+            onLike?.(item.id);
+          }}
+          onEdit={item.isOwnPost && onEditRoster ? () => onEditRoster(item.id) : undefined}
+          likeCount={item.likeCount}
+          commentCount={item.commentCount}
+          isLiked={item.isLiked}
+          comments={item.comments}
+        />
+      );
+    }
+
+    if (item.entryType === 'plan') {
+      const planData = {
+        id: item.id,
+        personName: item.personName,
+        date: item.date,
+        rawDate: item.rawDate || item.date,
+        time: item.time,
+        location: item.location,
+        content: item.content,
+        tags: item.tags || [],
+        authorName: item.authorName || 'Unknown',
+        authorAvatar: item.authorAvatar,
+        createdAt: item.date,
+        isCompleted: item.isCompleted || false,
+        likeCount: item.likeCount,
+        commentCount: item.commentCount,
+        isLiked: item.isLiked || false,
+        comments: item.comments || [],
+      };
+
+      return (
+        <PlanCard
+          plan={planData}
+          onLike={() => onLikePlan?.(item.id)}
+          onComment={() => onCommentPlan?.(item.id)}
+          onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
+        />
+      );
+    }
+
+    return (
+      <DateCard
+        id={item.id}
+        personName={item.personName}
+        date={item.date}
+        location={item.location}
+        rating={item.rating}
+        notes={item.notes}
+        imageUri={item.imageUri}
+        tags={item.tags}
+        instagramUsername={item.instagramUsername}
+        authorName={item.authorName}
+        authorAvatar={item.authorAvatar}
+        isOwnPost={item.isOwnPost}
+        poll={item.poll}
+        userPollVote={item.userPollVote}
+        comments={item.comments}
+        likeCount={item.likeCount}
+        commentCount={item.commentCount}
+        isLiked={item.isLiked}
+        onPress={() => onDatePress?.(item.id)}
+        onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
+        onPersonHistoryPress={() => onPersonHistoryPress?.(item.personName, item.authorName)}
+        onAuthorPress={() => onAuthorPress?.(item.authorName || item.personName)}
+        onLike={() => {
+          console.log('🔍 DateFeed: onLike called for item:', item.id, item.personName);
+          onLike?.(item.id);
+        }}
+        onSubmitComment={onSubmitComment ? (text) => onSubmitComment(item.id, text) : undefined}
+        onEdit={item.isOwnPost && onEdit ? () => onEdit(item.id) : undefined}
+        onPollVote={onPollVote}
+      />
+    );
+  };
 
   const renderFooter = () => {
     if (!isLoading) return null;

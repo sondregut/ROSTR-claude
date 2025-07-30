@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { getDisplayUsername, openInstagramProfile } from '@/lib/instagramUtils';
 import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../../../constants/Colors';
 import { PollVoting } from '../feed/PollVoting';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
+import { InlineComments } from '../feed/InlineComments';
 
 interface DateCardProps {
   id: string;
@@ -36,7 +37,7 @@ interface DateCardProps {
   onPersonHistoryPress?: () => void;
   onAuthorPress?: () => void;
   onLike?: () => void;
-  onComment?: () => void;
+  onSubmitComment?: (text: string) => Promise<void>;
   onEdit?: () => void;
   onPollVote?: (dateId: string, optionIndex: number) => void;
   likeCount: number;
@@ -65,7 +66,7 @@ export function DateCard({
   onPersonHistoryPress,
   onAuthorPress,
   onLike,
-  onComment,
+  onSubmitComment,
   onEdit,
   onPollVote,
   likeCount,
@@ -74,6 +75,7 @@ export function DateCard({
 }: DateCardProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const [showComments, setShowComments] = useState(comments && comments.length > 0);
 
   const formatRating = (rating: number) => {
     return rating.toFixed(1) + '/5';
@@ -157,6 +159,16 @@ export function DateCard({
         </View>
       )}
 
+      {/* Location */}
+      {location && (
+        <View style={styles.locationContainer}>
+          <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
+          <Text style={[styles.locationText, { color: colors.textSecondary }]}>
+            {location}
+          </Text>
+        </View>
+      )}
+
 
       {notes && (
         <Text style={[styles.notes, { color: colors.text }]}>
@@ -214,7 +226,10 @@ export function DateCard({
       <View style={[styles.actionsContainer, { borderTopColor: colors.border }]}>
         <Pressable 
           style={styles.actionButton} 
-          onPress={onLike}
+          onPress={() => {
+            console.log(' DateCard: Like button pressed for:', personName, 'ID:', id);
+            onLike?.();
+          }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           accessibilityRole="button"
           accessibilityLabel={isLiked ? "Unlike" : "Like"}
@@ -236,30 +251,27 @@ export function DateCard({
         
         <Pressable 
           style={styles.actionButton} 
-          onPress={onComment}
+          onPress={() => {
+            console.log(' DateCard: Comment button pressed for:', personName, 'ID:', id);
+            setShowComments(!showComments);
+          }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           accessibilityRole="button"
           accessibilityLabel="Comment"
         >
-          <Ionicons name="chatbubble-outline" size={20} color={colors.textSecondary} />
-          <Text style={[styles.actionText, { color: colors.textSecondary }]}>
+          <Ionicons name={showComments ? "chatbubble" : "chatbubble-outline"} size={20} color={showComments ? colors.primary : colors.textSecondary} />
+          <Text style={[styles.actionText, { color: showComments ? colors.primary : colors.textSecondary }]}>
             {commentCount > 0 ? `${commentCount} Comment${commentCount > 1 ? 's' : ''}` : 'Comment'}
           </Text>
         </Pressable>
       </View>
 
-      {comments.length > 0 && (
-        <View style={styles.commentsContainer}>
-          {comments.map((comment, index) => (
-            <View key={index} style={styles.commentRow}>
-              <View style={styles.commentBubble}>
-                <Text style={[styles.commentName, { color: colors.text }]}>{comment.name}</Text>
-                <Text style={[styles.commentContent, { color: colors.text }]}>{comment.content}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
+      {/* Inline Comments Section */}
+      <InlineComments
+        comments={comments || []}
+        isExpanded={showComments}
+        onSubmitComment={onSubmitComment || (async () => {})}
+      />
     </View>
   );
 }
@@ -455,6 +467,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     marginLeft: 2,
+  },
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  locationText: {
+    fontSize: 14,
+    marginLeft: 4,
   },
   imageContainer: {
     marginHorizontal: 16,

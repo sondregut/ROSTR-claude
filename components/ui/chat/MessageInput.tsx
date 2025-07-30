@@ -61,98 +61,93 @@ export function MessageInput({
   const showCharCount = remainingChars < 50;
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
-    >
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[
-          styles.inputContainer,
-          { 
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-            minHeight: inputHeight + 20,
-          }
-        ]}>
-          {/* Attachment button */}
-          <Pressable 
-            style={styles.iconButton}
-            onPress={() => {
-              // TODO: Implement image picker
-              console.log('Add attachment');
-            }}
-          >
-            <Ionicons name="image-outline" size={24} color={colors.textSecondary} />
-          </Pressable>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[
+        styles.inputContainer,
+        { 
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          minHeight: inputHeight + 20,
+        }
+      ]}>
+        {/* Attachment button */}
+        <Pressable 
+          style={styles.iconButton}
+          onPress={() => {
+            // TODO: Implement image picker
+            console.log('Add attachment');
+          }}
+        >
+          <Ionicons name="image-outline" size={24} color={colors.textSecondary} />
+        </Pressable>
 
-          {/* Text input */}
-          <TextInput
-            ref={inputRef}
-            style={[
-              styles.textInput,
-              { 
-                color: colors.text,
-                height: inputHeight,
-              }
-            ]}
-            value={message}
-            onChangeText={handleTextChange}
-            placeholder={placeholder}
-            placeholderTextColor={colors.textSecondary}
-            multiline
-            maxLength={maxLength}
-            onContentSizeChange={handleContentSizeChange}
-            onSubmitEditing={(e) => {
-              // Only send on Enter without Shift
-              if (!e.nativeEvent.text.includes('\n')) {
-                handleSend();
-              }
-            }}
-            returnKeyType="default"
-            blurOnSubmit={false}
-          />
-
-          {/* Character count */}
-          {showCharCount && (
-            <Text style={[
-              styles.charCount,
-              { color: remainingChars < 20 ? colors.error : colors.textSecondary }
-            ]}>
-              {remainingChars}
-            </Text>
-          )}
-
-          {/* Emoji button */}
-          <Pressable 
-            style={styles.iconButton}
-            onPress={() => {
-              // TODO: Implement emoji picker
-              console.log('Add emoji');
-            }}
-          >
-            <Ionicons name="happy-outline" size={24} color={colors.textSecondary} />
-          </Pressable>
-        </View>
-
-        {/* Send button */}
-        <Pressable
+        {/* Text input */}
+        <TextInput
+          ref={inputRef}
           style={[
-            styles.sendButton,
-            {
-              backgroundColor: message.trim() ? colors.primary : colors.border,
+            styles.textInput,
+            { 
+              color: colors.text,
+              height: inputHeight,
             }
           ]}
-          onPress={handleSend}
-          disabled={!message.trim()}
+          value={message}
+          onChangeText={handleTextChange}
+          placeholder={placeholder}
+          placeholderTextColor={colors.textSecondary}
+          multiline
+          maxLength={maxLength}
+          onContentSizeChange={handleContentSizeChange}
+          onSubmitEditing={(e) => {
+            // Only send on Enter without Shift
+            if (!e.nativeEvent.text.includes('\n')) {
+              handleSend();
+            }
+          }}
+          returnKeyType="default"
+          blurOnSubmit={false}
+        />
+
+        {/* Character count */}
+        {showCharCount && (
+          <Text style={[
+            styles.charCount,
+            { color: remainingChars < 20 ? colors.error : colors.textSecondary }
+          ]}>
+            {remainingChars}
+          </Text>
+        )}
+
+        {/* Emoji button */}
+        <Pressable 
+          style={styles.iconButton}
+          onPress={() => {
+            // TODO: Implement emoji picker
+            console.log('Add emoji');
+          }}
         >
-          <Ionicons 
-            name="send" 
-            size={20} 
-            color={message.trim() ? 'white' : colors.textSecondary} 
-          />
+          <Ionicons name="happy-outline" size={24} color={colors.textSecondary} />
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+
+      {/* Send button */}
+      <Pressable
+        style={[
+          styles.sendButton,
+          {
+            backgroundColor: message.trim() ? colors.primary : colors.border,
+          }
+        ]}
+        onPress={handleSend}
+        disabled={!message.trim()}
+      >
+        <Ionicons 
+          name="send" 
+          size={20} 
+          color={message.trim() ? 'white' : colors.textSecondary} 
+        />
+      </Pressable>
+    </View>
   );
 }
 

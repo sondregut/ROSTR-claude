@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { RosterService, RosterEntry as DbRosterEntry } from '@/services/supabase/roster';
+import { DateService } from '@/services/supabase/dates';
 import { useAuth } from '@/contexts/SimpleAuthContext';
+import { useDates } from '@/contexts/DateContext';
 
 // UI-friendly roster entry type
 export interface RosterEntry {
@@ -101,6 +103,7 @@ const transformRosterEntry = (dbEntry: DbRosterEntry): RosterEntry => {
 
 export function RosterProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const { addRosterAddition, refreshDates } = useDates();
   const [entries, setEntries] = useState<RosterEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -163,6 +166,15 @@ export function RosterProvider({ children }: { children: React.ReactNode }) {
         : { name, ...personData };
         
       await RosterService.addRosterEntry(user.id, entry);
+      
+      // Create a feed entry for the roster addition
+      try {
+        await addRosterAddition(name, entry, entry.circles || [], entry.isPrivate || false);
+      } catch (feedError) {
+        console.error('Failed to create feed entry:', feedError);
+        // Don't throw here - we still want the roster addition to succeed
+      }
+      
       // Refresh roster after adding
       await loadRoster();
     } catch (err) {
@@ -173,16 +185,48 @@ export function RosterProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateEntry = async (id: string, updates: Partial<RosterEntry>) => {
+    if (!user) throw new Error('No user logged in');
+    
     try {
+      // Find the current entry to get the person's name before updates
+      const currentEntry = entries.find(e => e.id === id);
+      if (!currentEntry) throw new Error('Entry not found');
+      
       // Transform UI updates to database format
       const dbUpdates: any = {};
       if (updates.status !== undefined) dbUpdates.status = updates.status;
       if (updates.rating !== undefined) dbUpdates.rating = updates.rating;
+      if (updates.name !== undefined) dbUpdates.name = updates.name;
+      if (updates.age !== undefined) dbUpdates.age = updates.age;
+      if (updates.occupation !== undefined) dbUpdates.occupation = updates.occupation;
+      if (updates.location !== undefined) dbUpdates.location = updates.location;
+      if (updates.how_we_met !== undefined) dbUpdates.how_we_met = updates.how_we_met;
+      if (updates.interests !== undefined) dbUpdates.interests = updates.interests;
+      if (updates.instagram !== undefined) dbUpdates.instagram = updates.instagram;
+      if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+      if (updates.photos !== undefined) dbUpdates.photos = updates.photos;
       // Note: lastDate and nextDate would need special handling to convert back to ISO format
       
+      // Update the roster entry
       await RosterService.updateRosterEntry(id, dbUpdates);
+      
+      // Sync changes to any corresponding feed entries
+      try {
+        await DateService.syncRosterToFeedEntries(user.id, currentEntry.name, dbUpdates);
+      } catch (syncError) {
+        console.error('Failed to sync roster changes to feed:', syncError);
+        // Don't throw here - we still want the roster update to succeed
+      }
+      
       // Refresh roster after updating
       await loadRoster();
+      
+      // Also refresh the dates/feed to show updated info
+      try {
+        await refreshDates();
+      } catch (refreshError) {
+        console.error('Failed to refresh dates after roster update:', refreshError);
+      }
     } catch (err) {
       console.error('Error updating entry:', err);
       setError('Failed to update entry');
@@ -190,9 +234,21 @@ export function RosterProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const deleteEntry = async (id: string) => {
+  const deleteEntry = async (id: string, options?: { deleteAllDates?: boolean }) => {
     try {
+      // Find the entry to get the person's name
+      const entry = [...entries].find(e => e.id === id);
+      if (!entry) throw new Error('Entry not found');
+      
+      // Delete the roster entry (trigger will handle feed cleanup)
       await RosterService.deleteRosterEntry(id);
+      
+      // Optionally delete all date entries if requested
+      if (options?.deleteAllDates) {
+        // This would require a separate service method to delete all dates
+        console.log('Option to delete all dates not yet implemented');
+      }
+      
       // Refresh roster after deleting
       await loadRoster();
     } catch (err) {

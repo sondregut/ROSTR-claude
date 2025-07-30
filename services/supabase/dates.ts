@@ -229,7 +229,63 @@ export const DateService = {
 
       if (error) throw error;
 
-      return plans || [];
+      // Get likes for these plans
+      const planIds = plans?.map(p => p.id) || [];
+      const { data: likes } = await supabase
+        .from('plan_likes')
+        .select('date_plan_id')
+        .in('date_plan_id', planIds)
+        .eq('user_id', userId);
+
+      const likedPlanIds = new Set(likes?.map(l => l.date_plan_id) || []);
+
+      // Get comments for these plans
+      const { data: comments } = await supabase
+        .from('plan_comments')
+        .select(`
+          *,
+          user:users (
+            name,
+            username,
+            image_uri
+          )
+        `)
+        .in('date_plan_id', planIds)
+        .order('created_at', { ascending: true });
+
+      // Group comments by plan
+      const commentsByPlan = comments?.reduce((acc, comment) => {
+        if (!acc[comment.date_plan_id]) {
+          acc[comment.date_plan_id] = [];
+        }
+        acc[comment.date_plan_id].push({
+          name: comment.user?.name || 'Unknown',
+          content: comment.content,
+        });
+        return acc;
+      }, {} as Record<string, Array<{ name: string; content: string }>>) || {};
+
+      // Get like counts for plans
+      const { data: likeCounts } = await supabase
+        .from('plan_likes')
+        .select('date_plan_id')
+        .in('date_plan_id', planIds);
+
+      const likeCountsByPlan = likeCounts?.reduce((acc, like) => {
+        acc[like.date_plan_id] = (acc[like.date_plan_id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>) || {};
+
+      // Transform plans with likes and comments
+      const transformedPlans = plans?.map(plan => ({
+        ...plan,
+        isLiked: likedPlanIds.has(plan.id),
+        likeCount: likeCountsByPlan[plan.id] || 0,
+        commentCount: commentsByPlan[plan.id]?.length || 0,
+        comments: commentsByPlan[plan.id] || [],
+      })) || [];
+
+      return transformedPlans;
     } catch (error) {
       console.error('Error getting plans:', error);
       throw error;
@@ -387,6 +443,27 @@ export const DateService = {
     }
   },
 
+  // Update a planned date
+  async updatePlan(id: string, updates: Partial<DatabasePlanEntry>) {
+    try {
+      const { data, error } = await supabase
+        .from('date_plans')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating plan:', error);
+      throw error;
+    }
+  },
+
   // Update a date entry
   async updateDate(id: string, updates: Partial<DatabaseDateEntry>) {
     try {
@@ -511,20 +588,72 @@ export const DateService = {
   // Add a comment to a date entry
   async addComment(id: string, comment: { name: string; content: string }, userId: string) {
     try {
-      const { error } = await supabase
+      console.log('🔍 Adding comment:', { id, comment, userId });
+      
+      // Verify user is authenticated
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        console.error('❌ User not authenticated:', authError);
+        throw new Error('User not authenticated');
+      }
+      
+      if (user.id !== userId) {
+        console.error('❌ User ID mismatch:', { authUserId: user.id, providedUserId: userId });
+        throw new Error('User ID mismatch');
+      }
+
+      // Verify the date entry exists
+      const { data: dateEntry, error: dateError } = await supabase
+        .from('date_entries')
+        .select('id, user_id, person_name')
+        .eq('id', id)
+        .single();
+
+      if (dateError || !dateEntry) {
+        console.error('❌ Date entry not found:', dateError);
+        throw new Error('Date entry not found');
+      }
+
+      console.log('✅ Date entry found:', dateEntry);
+
+      const { data: insertedComment, error: insertError } = await supabase
         .from('date_comments')
         .insert({
           date_entry_id: id,
           user_id: userId,
           content: comment.content,
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('❌ Failed to insert comment:', insertError);
+        throw insertError;
+      }
+
+      console.log('✅ Comment inserted successfully:', insertedComment);
+
+      // Try to increment comment count
+      try {
+        const { error: countError } = await supabase.rpc('increment_date_comment_count', {
+          date_id: id
         });
+        
+        if (countError) {
+          console.warn('⚠️ Failed to increment comment count:', countError);
+          // Don't throw here, comment was still added successfully
+        } else {
+          console.log('✅ Comment count incremented');
+        }
+      } catch (countErr) {
+        console.warn('⚠️ Comment count increment failed:', countErr);
+        // Don't throw here, comment was still added successfully
+      }
 
-      if (error) throw error;
-
-      // Increment comment count
-      await supabase.rpc('increment_date_comment_count', { date_id: id });
+      return insertedComment;
+      
     } catch (error) {
-      console.error('Error adding comment:', error);
+      console.error('❌ Error adding comment:', error);
       throw error;
     }
   },

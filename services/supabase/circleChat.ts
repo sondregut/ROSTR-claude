@@ -47,25 +47,53 @@ export class CircleChatService {
     mediaUrl?: string
   ): Promise<CircleMessage> {
     try {
-      const { data: message, error } = await supabase
-        .from('messages')
-        .insert({
-          circle_id: circleId,
-          sender_id: senderId,
-          sender_name: senderName,
-          sender_avatar: senderAvatar,
-          content,
-          message_type: messageType,
-          media_url: mediaUrl,
-        })
+      // Try circle_chat_messages table first, then fallback to messages table
+      let tableName = 'circle_chat_messages';
+      let insertData: any = {
+        circle_id: circleId,
+        sender_id: senderId,
+        content,
+        message_type: messageType,
+        media_url: mediaUrl,
+      };
+
+      let { data: message, error } = await supabase
+        .from(tableName)
+        .insert(insertData)
         .select()
         .single();
 
+      // If circle_chat_messages doesn't exist, try messages table with circle_id
+      if (error && error.code === '42P01') { // Table doesn't exist
+        console.log('💡 circle_chat_messages table not found, trying messages table');
+        tableName = 'messages';
+        insertData = {
+          ...insertData,
+          sender_name: senderName,
+          sender_avatar: senderAvatar,
+        };
+
+        const result = await supabase
+          .from(tableName)
+          .insert(insertData)
+          .select()
+          .single();
+          
+        message = result.data;
+        error = result.error;
+      }
+
       if (error) {
+        console.error('❌ Failed to send message to both tables:', error);
         throw error;
       }
 
-      return message;
+      // Ensure we return the expected format
+      return {
+        ...message,
+        sender_name: message.sender_name || senderName,
+        sender_avatar: message.sender_avatar || senderAvatar,
+      };
     } catch (error) {
       console.error('Send circle message error:', error);
       throw error;
@@ -83,11 +111,12 @@ export class CircleChatService {
     try {
       console.log(`📨 Fetching messages for circle ${circleId}`);
       
-      const { data: messages, error } = await supabase
-        .from('messages')
+      // Try circle_chat_messages table first
+      let { data: messages, error } = await supabase
+        .from('circle_chat_messages')
         .select(`
           *,
-          sender:users!messages_sender_id_fkey (
+          sender:users!circle_chat_messages_sender_id_fkey (
             id,
             name,
             username,
@@ -95,8 +124,30 @@ export class CircleChatService {
           )
         `)
         .eq('circle_id', circleId)
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: true })
         .range(offset, offset + limit - 1);
+
+      // If circle_chat_messages doesn't exist, try messages table
+      if (error && error.code === '42P01') {
+        console.log('💡 circle_chat_messages table not found, trying messages table');
+        const result = await supabase
+          .from('messages')
+          .select(`
+            *,
+            sender:users!messages_sender_id_fkey (
+              id,
+              name,
+              username,
+              image_uri
+            )
+          `)
+          .eq('circle_id', circleId)
+          .order('created_at', { ascending: true })
+          .range(offset, offset + limit - 1);
+          
+        messages = result.data;
+        error = result.error;
+      }
 
       if (error) {
         console.error('❌ Error fetching circle messages:', error);

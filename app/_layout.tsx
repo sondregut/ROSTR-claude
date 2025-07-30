@@ -27,6 +27,7 @@ import { AuthenticatedApp } from '@/components/AuthenticatedApp';
 import { useDeepLinks } from '@/hooks/useDeepLinks';
 import { verifyEnvironmentVariables } from '@/utils/verifyEnv';
 
+
 function RootLayoutNav() {
   const { colorScheme } = useTheme();
   
@@ -96,6 +97,7 @@ export default function RootLayout() {
     } catch (error) {
       console.error('❌ Environment verification failed:', error);
     }
+
   }, []);
 
   if (!loaded) {

@@ -9,6 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,7 +26,7 @@ interface Comment {
 interface CommentModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmitComment: (text: string) => void;
+  onSubmitComment: (text: string) => Promise<void>;
   dateId: string;
   personName: string;
   existingComments?: Comment[];
@@ -41,12 +43,40 @@ export function CommentModal({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [comment, setComment] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Log when modal is rendered
+  console.log('🔍 CommentModal rendered with:', { 
+    visible, 
+    dateId, 
+    personName,
+    commentCount: existingComments.length 
+  });
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
     if (comment.trim()) {
-      onSubmitComment(comment.trim());
-      setComment('');
-      // Don't close modal after submission so user can see their comment
+      setIsSubmitting(true);
+      
+      try {
+        await onSubmitComment(comment.trim());
+        setComment('');
+        
+      } catch (error) {
+        console.error('Comment submission failed:', error);
+        Alert.alert(
+          'Comment Failed', 
+          'Failed to add comment. Please check your connection and try again.',
+          [{ text: 'OK', style: 'default' }]
+        );
+      } finally {
+        setIsSubmitting(false);
+      }
+    } else {
+      Alert.alert('Empty Comment', 'Please enter a comment before submitting.');
     }
   };
 
@@ -111,12 +141,16 @@ export function CommentModal({
                 <Pressable
                   style={[
                     styles.submitButton,
-                    { backgroundColor: comment.trim() ? colors.primary : colors.buttonDisabled }
+                    { backgroundColor: (comment.trim() && !isSubmitting) ? colors.primary : colors.buttonDisabled }
                   ]}
                   onPress={handleSubmit}
-                  disabled={!comment.trim()}
+                  disabled={!comment.trim() || isSubmitting}
                 >
-                  <Ionicons name="send" size={20} color="white" />
+                  {isSubmitting ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <Ionicons name="send" size={20} color="white" />
+                  )}
                 </Pressable>
               </View>
             </SafeAreaView>
@@ -130,7 +164,7 @@ export function CommentModal({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   keyboardAvoid: {
@@ -140,7 +174,8 @@ const styles = StyleSheet.create({
   modalContent: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '80%',
+    height: '80%',
+    minHeight: 400,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.25,

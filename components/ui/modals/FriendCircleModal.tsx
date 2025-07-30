@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
+import { pickImageWithCrop } from '@/lib/photoUpload';
 import { Button } from '../buttons/Button';
 import { Colors } from '../../../constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -71,22 +71,21 @@ export function FriendCircleModal({
   };
   
   const handleImagePick = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (!permissionResult.granted) {
-      alert('Permission to access camera roll is required!');
-      return;
-    }
-    
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    
-    if (!result.canceled) {
-      setGroupPhotoUri(result.assets[0].uri);
+    try {
+      const result = await pickImageWithCrop('library', {
+        aspect: [1, 1], // Square aspect ratio for group photos
+        quality: 0.8,
+        allowsEditing: true,
+      });
+      
+      if (result.success && result.uri) {
+        setGroupPhotoUri(result.uri);
+      } else if (result.error && result.error !== 'Selection cancelled') {
+        alert(`Failed to pick image: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      alert('Failed to pick image. Please try again.');
     }
   };
 

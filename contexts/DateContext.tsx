@@ -37,6 +37,16 @@ export interface DateEntry {
   createdAt: string; // ISO timestamp for sorting
   updatedAt: string;
   isOwnPost?: boolean; // Whether this post belongs to the current user
+  entryType?: 'date' | 'roster_addition'; // Type of feed entry
+  rosterInfo?: {
+    age?: number;
+    occupation?: string;
+    howWeMet?: string;
+    interests?: string;
+    instagram?: string;
+    phone?: string;
+    photos?: string[];
+  };
 }
 
 // Interface for planned dates
@@ -66,6 +76,9 @@ interface DateContextType {
   dates: DateEntry[];
   plans: PlanEntry[];
   addDate: (formData: DateEntryFormData) => Promise<void>;
+  addRosterAddition: (personName: string, rosterInfo: any, circles: string[], isPrivate: boolean) => Promise<void>;
+  updateRosterAddition: (id: string, updates: any) => Promise<void>;
+  deleteRosterAddition: (id: string) => Promise<void>;
   addPlan: (formData: PlanFormData, personName: string) => Promise<void>;
   completePlan: (planId: string, dateData: DateEntryFormData) => Promise<void>;
   updateDate: (id: string, updates: Partial<DateEntry>) => Promise<void>;
@@ -165,22 +178,34 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       id: dbDate.id,
       personName: dbDate.person_name,
       date: relativeTime,
-      location: dbDate.location,
-      rating: dbDate.rating,
-      notes: dbDate.notes,
-      tags: dbDate.tags,
-      circles: dbDate.shared_circles,
-      isPrivate: dbDate.is_private,
+      location: dbDate.location || '',
+      rating: dbDate.rating || 0,
+      notes: dbDate.notes || '',
+      tags: dbDate.tags || [],
+      circles: dbDate.shared_circles || [],
+      isPrivate: dbDate.is_private || false,
       imageUri: dbDate.image_uri,
+      poll: dbDate.poll,
+      userPollVote: dbDate.userPollVote,
       comments: dbDate.comments || [],
-      likeCount: dbDate.like_count,
-      commentCount: dbDate.comment_count,
+      likeCount: dbDate.like_count || 0,
+      commentCount: dbDate.comment_count || 0,
       isLiked: dbDate.isLiked || false,
-      authorName: dbDate.authorName,
+      authorName: dbDate.authorName || 'Unknown',
       authorAvatar: dbDate.authorAvatar,
       createdAt: dbDate.created_at,
       updatedAt: dbDate.updated_at,
       isOwnPost: dbDate.user_id === user?.id,
+      entryType: dbDate.entry_type || 'date',
+      rosterInfo: dbDate.roster_info ? {
+        age: dbDate.roster_info.age,
+        occupation: dbDate.roster_info.occupation,
+        howWeMet: dbDate.roster_info.how_we_met,
+        interests: dbDate.roster_info.interests,
+        instagram: dbDate.roster_info.instagram,
+        phone: dbDate.roster_info.phone,
+        photos: dbDate.roster_info.photos,
+      } : undefined,
     };
   };
 
@@ -225,11 +250,46 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
         DateService.getPlans(user.id),
       ]);
       
-      // Transform and set dates
+      // Transform dates and plans
       const transformedDates = dbDates.map(transformDate);
       const transformedPlans = dbPlans.map(transformPlan);
       
-      setDates(transformedDates);
+      // Convert plans to DateEntry format for the feed
+      const planFeedEntries = transformedPlans.map(plan => ({
+        id: plan.id,
+        personName: plan.personName,
+        date: plan.date,
+        location: plan.location,
+        rating: 0,
+        notes: plan.content || '',
+        tags: plan.tags,
+        circles: [],
+        isPrivate: false,
+        imageUri: '',
+        poll: undefined,
+        userPollVote: null,
+        comments: plan.comments,
+        likeCount: plan.likeCount,
+        commentCount: plan.commentCount,
+        isLiked: plan.isLiked,
+        authorName: plan.authorName,
+        authorAvatar: plan.authorAvatar,
+        createdAt: plan.createdAt,
+        updatedAt: plan.createdAt,
+        isOwnPost: true,
+        entryType: 'plan' as const,
+        // Plan-specific fields
+        time: plan.time,
+        content: plan.content,
+        rawDate: plan.rawDate,
+        isCompleted: plan.isCompleted,
+      }));
+      
+      // Combine dates and plans for the feed, sorted by creation time
+      const combinedFeedEntries = [...transformedDates, ...planFeedEntries]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      setDates(combinedFeedEntries);
       setPlans(transformedPlans);
     } catch (err) {
       console.error('Error loading dates:', err);
@@ -274,6 +334,20 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const addRosterAddition = async (personName: string, rosterInfo: any, circles: string[] = [], isPrivate: boolean = false) => {
+    if (!user) throw new Error('No user logged in');
+    
+    try {
+      await DateService.createRosterAddition(personName, rosterInfo, user.id, circles, isPrivate);
+      // Refresh dates after adding
+      await loadDates();
+    } catch (err) {
+      console.error('Error adding roster addition:', err);
+      setError('Failed to add roster addition');
+      throw err;
+    }
+  };
+
   const addPlan = async (formData: PlanFormData, personName: string) => {
     if (!user) throw new Error('No user logged in');
     
@@ -298,6 +372,28 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error('Error completing plan:', err);
       setError('Failed to complete plan');
+      throw err;
+    }
+  };
+
+  const updatePlan = async (id: string, updates: Partial<PlanEntry>) => {
+    try {
+      // Transform PlanEntry updates to database format
+      const dbUpdates: any = {};
+      if (updates.personName !== undefined) dbUpdates.person_name = updates.personName;
+      if (updates.location !== undefined) dbUpdates.location = updates.location;
+      if (updates.content !== undefined) dbUpdates.notes = updates.content;
+      if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
+      if (updates.isCompleted !== undefined) dbUpdates.is_completed = updates.isCompleted;
+      if (updates.rawDate !== undefined) dbUpdates.date = updates.rawDate;
+      if (updates.time !== undefined) dbUpdates.time = updates.time;
+      
+      await DateService.updatePlan(id, dbUpdates);
+      // Refresh dates after updating
+      await loadDates();
+    } catch (err) {
+      console.error('Error updating plan:', err);
+      setError('Failed to update plan');
       throw err;
     }
   };
@@ -353,11 +449,38 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     
     try {
+      // Optimistically update UI
+      setDates(prevDates => 
+        prevDates.map(date => 
+          date.id === id 
+            ? {
+                ...date,
+                isLiked: !date.isLiked,
+                likeCount: date.isLiked ? date.likeCount - 1 : date.likeCount + 1,
+              }
+            : date
+        )
+      );
+      
+      // Send like to server
       await DateService.likeDate(id, user.id);
-      // Refresh dates after liking
-      await loadDates();
+      
     } catch (err) {
       console.error('Error liking date:', err);
+      
+      // Revert optimistic update on failure
+      setDates(prevDates => 
+        prevDates.map(date => 
+          date.id === id 
+            ? {
+                ...date,
+                isLiked: !date.isLiked,
+                likeCount: date.isLiked ? date.likeCount - 1 : date.likeCount + 1,
+              }
+            : date
+        )
+      );
+      
       setError('Failed to like date');
     }
   };
@@ -366,38 +489,175 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     
     try {
+      // Optimistically update UI
+      setPlans(prevPlans => 
+        prevPlans.map(plan => 
+          plan.id === id 
+            ? {
+                ...plan,
+                isLiked: !plan.isLiked,
+                likeCount: plan.isLiked ? plan.likeCount - 1 : plan.likeCount + 1,
+              }
+            : plan
+        )
+      );
+      
+      // Send like to server
       await DateService.likePlan(id, user.id);
-      // Refresh dates after liking
-      await loadDates();
+      
     } catch (err) {
       console.error('Error liking plan:', err);
+      
+      // Revert optimistic update on failure
+      setPlans(prevPlans => 
+        prevPlans.map(plan => 
+          plan.id === id 
+            ? {
+                ...plan,
+                isLiked: !plan.isLiked,
+                likeCount: plan.isLiked ? plan.likeCount - 1 : plan.likeCount + 1,
+              }
+            : plan
+        )
+      );
+      
       setError('Failed to like plan');
     }
   };
 
   const addComment = async (id: string, comment: { name: string; content: string }) => {
-    if (!user) return;
+    if (!user) {
+      setError('User not authenticated');
+      return;
+    }
     
+    // Create optimistic comment with temporary ID
+    const optimisticComment = {
+      id: `temp-${Date.now()}`,
+      name: comment.name,
+      content: comment.content,
+      isOptimistic: true,
+    };
+
     try {
+      // Optimistically update UI immediately
+      setDates(prevDates => 
+        prevDates.map(date => 
+          date.id === id 
+            ? {
+                ...date,
+                comments: [...(date.comments || []), optimisticComment],
+                commentCount: date.commentCount + 1,
+              }
+            : date
+        )
+      );
+
+      // Send comment to server
       await DateService.addComment(id, comment, user.id);
-      // Refresh dates after commenting
-      await loadDates();
+
+      // Replace optimistic comment with confirmed state
+      setDates(prevDates => 
+        prevDates.map(date => 
+          date.id === id 
+            ? {
+                ...date,
+                comments: date.comments.map(c => 
+                  c.id === optimisticComment.id 
+                    ? { ...c, isOptimistic: false, id: `confirmed-${Date.now()}` }
+                    : c
+                ),
+              }
+            : date
+        )
+      );
+      
     } catch (err) {
       console.error('Error adding comment:', err);
+      
+      // Remove optimistic comment on failure
+      setDates(prevDates => 
+        prevDates.map(date => 
+          date.id === id 
+            ? {
+                ...date,
+                comments: date.comments.filter(c => c.id !== optimisticComment.id),
+                commentCount: Math.max(0, date.commentCount - 1),
+              }
+            : date
+        )
+      );
+      
       setError('Failed to add comment');
+      throw err;
     }
   };
 
   const addPlanComment = async (id: string, comment: { name: string; content: string }) => {
-    if (!user) return;
+    if (!user) {
+      setError('User not authenticated');
+      return;
+    }
     
+    // Create optimistic comment with temporary ID
+    const optimisticComment = {
+      id: `temp-${Date.now()}`,
+      name: comment.name,
+      content: comment.content,
+      isOptimistic: true,
+    };
+
     try {
+      // Optimistically update UI immediately
+      setPlans(prevPlans => 
+        prevPlans.map(plan => 
+          plan.id === id 
+            ? {
+                ...plan,
+                comments: [...(plan.comments || []), optimisticComment],
+                commentCount: plan.commentCount + 1,
+              }
+            : plan
+        )
+      );
+
+      // Send comment to server
       await DateService.addPlanComment(id, comment, user.id);
-      // Refresh dates after commenting
-      await loadDates();
+
+      // Replace optimistic comment with confirmed state
+      setPlans(prevPlans => 
+        prevPlans.map(plan => 
+          plan.id === id 
+            ? {
+                ...plan,
+                comments: plan.comments.map(c => 
+                  c.id === optimisticComment.id 
+                    ? { ...c, isOptimistic: false, id: `confirmed-${Date.now()}` }
+                    : c
+                ),
+              }
+            : plan
+        )
+      );
+      
     } catch (err) {
       console.error('Error adding plan comment:', err);
+      
+      // Remove optimistic comment on failure
+      setPlans(prevPlans => 
+        prevPlans.map(plan => 
+          plan.id === id 
+            ? {
+                ...plan,
+                comments: plan.comments.filter(c => c.id !== optimisticComment.id),
+                commentCount: Math.max(0, plan.commentCount - 1),
+              }
+            : plan
+        )
+      );
+      
       setError('Failed to add comment');
+      throw err;
     }
   };
 
@@ -414,6 +674,32 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateRosterAddition = async (id: string, updates: any) => {
+    if (!user) throw new Error('No user logged in');
+    
+    try {
+      await DateService.updateRosterAddition(id, updates);
+      // Refresh dates after updating
+      await loadDates();
+    } catch (err) {
+      console.error('Error updating roster addition:', err);
+      setError('Failed to update roster addition');
+      throw err;
+    }
+  };
+
+  const deleteRosterAddition = async (id: string) => {
+    try {
+      await DateService.deleteRosterAddition(id);
+      // Refresh dates after deleting
+      await loadDates();
+    } catch (err) {
+      console.error('Error deleting roster addition:', err);
+      setError('Failed to delete roster addition');
+      throw err;
+    }
+  };
+
   const refreshDates = async () => {
     await loadDates();
   };
@@ -422,6 +708,9 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
     dates,
     plans,
     addDate,
+    addRosterAddition,
+    updateRosterAddition,
+    deleteRosterAddition,
     addPlan,
     completePlan,
     updateDate,
