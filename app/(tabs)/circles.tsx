@@ -253,46 +253,6 @@ export default function CirclesScreen() {
     );
   }
 
-  const renderFriendsOverview = () => (
-    <View style={[styles.overviewCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <View style={styles.overviewHeader}>
-        <Text style={[styles.overviewTitle, { color: colors.text }]}>Your Network</Text>
-        <Text style={[styles.overviewStats, { color: colors.textSecondary }]}>
-          {getTotalFriendCount()} friends • {getOnlineFriendCount()} online
-        </Text>
-      </View>
-      
-      <View style={styles.avatarPreview}>
-        {allFriends.slice(0, 5).map((friend, index) => (
-          <View
-            key={friend.id}
-            style={[styles.previewAvatar, { marginLeft: index > 0 ? -8 : 0, zIndex: 5 - index }]}
-          >
-            {friend.image_uri ? (
-              <Image source={{ uri: friend.image_uri }} style={styles.previewAvatarImage} />
-            ) : (
-              <View style={[styles.previewAvatarPlaceholder, { backgroundColor: colors.primary }]}>
-                <Text style={styles.previewAvatarText}>
-                  {friend.name.charAt(0).toUpperCase()}
-                </Text>
-              </View>
-            )}
-          </View>
-        ))}
-        {allFriends.length > 5 && (
-          <View style={[styles.previewAvatar, styles.remainingCount, { backgroundColor: colors.border, marginLeft: -8 }]}>
-            <Text style={[styles.remainingText, { color: colors.text }]}>
-              +{allFriends.length - 5}
-            </Text>
-          </View>
-        )}
-      </View>
-      
-      <Text style={[styles.overviewDescription, { color: colors.textSecondary }]}>
-        Estimated reach: ~{estimateTotalReach()} people across all circles
-      </Text>
-    </View>
-  );
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
@@ -377,9 +337,6 @@ export default function CirclesScreen() {
         ) : (
           /* All Friends Tab Content */
           <View style={styles.section}>
-            {/* Friends Overview */}
-            {renderFriendsOverview()}
-            
             {/* Friends List */}
             <View style={styles.friendsSection}>
               <View style={styles.sectionHeader}>
@@ -598,62 +555,6 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 16,
     fontWeight: '500',
-  },
-  overviewCard: {
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-  },
-  overviewHeader: {
-    marginBottom: 16,
-  },
-  overviewTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  overviewStats: {
-    fontSize: 14,
-  },
-  avatarPreview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  previewAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: 'white',
-    overflow: 'hidden',
-  },
-  previewAvatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  previewAvatarPlaceholder: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewAvatarText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'white',
-  },
-  remainingCount: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  remainingText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  overviewDescription: {
-    fontSize: 14,
   },
   friendsSection: {
     marginTop: 8,

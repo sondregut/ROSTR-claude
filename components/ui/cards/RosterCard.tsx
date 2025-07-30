@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
+import { InlineComments } from '../feed/InlineComments';
 
 interface RosterCardProps {
   id: string;
@@ -26,7 +27,7 @@ interface RosterCardProps {
   onPersonPress?: () => void;
   onAuthorPress?: () => void;
   onLike?: () => void;
-  onComment?: () => void;
+  onSubmitComment?: (text: string) => Promise<void>;
   onEdit?: () => void;
   likeCount: number;
   commentCount: number;
@@ -50,7 +51,7 @@ export function RosterCard({
   onPersonPress,
   onAuthorPress,
   onLike,
-  onComment,
+  onSubmitComment,
   onEdit,
   likeCount,
   commentCount,
@@ -59,6 +60,7 @@ export function RosterCard({
 }: RosterCardProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const [showComments, setShowComments] = useState(comments && comments.length > 0);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -197,29 +199,25 @@ export function RosterCard({
         
         <Pressable 
           style={styles.actionButton} 
-          onPress={onComment}
+          onPress={() => {
+            console.log(' RosterCard: Comment button pressed for:', personName, 'ID:', id);
+            setShowComments(!showComments);
+          }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="chatbubble-outline" size={20} color={colors.textSecondary} />
-          <Text style={[styles.actionButtonText, { color: colors.textSecondary }]}>
+          <Ionicons name={showComments ? "chatbubble" : "chatbubble-outline"} size={20} color={showComments ? colors.primary : colors.textSecondary} />
+          <Text style={[styles.actionButtonText, { color: showComments ? colors.primary : colors.textSecondary }]}>
             {commentCount > 0 ? `${commentCount} Comment${commentCount > 1 ? 's' : ''}` : 'Comment'}
           </Text>
         </Pressable>
       </View>
 
-      {/* Comments */}
-      {comments.length > 0 && (
-        <View style={styles.commentsContainer}>
-          {comments.map((comment, index) => (
-            <View key={index} style={styles.commentRow}>
-              <View style={[styles.commentBubble, { backgroundColor: colors.background }]}>
-                <Text style={[styles.commentName, { color: colors.text }]}>{comment.name}</Text>
-                <Text style={[styles.commentContent, { color: colors.text }]}>{comment.content}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
+      {/* Inline Comments Section */}
+      <InlineComments
+        comments={comments || []}
+        isExpanded={showComments}
+        onSubmitComment={onSubmitComment || (async () => {})}
+      />
     </View>
   );
 }

@@ -75,7 +75,8 @@ interface DateFeedProps {
   onEdit?: (dateId: string) => void;
   onEditRoster?: (dateId: string) => void;
   onLikePlan?: (planId: string) => void;
-  onCommentPlan?: (planId: string) => void;
+  onSubmitPlanComment?: (planId: string, text: string) => Promise<void>;
+  onEditPlan?: (planId: string) => void;
   onPollVote?: (dateId: string, optionIndex: number) => void;
   ListEmptyComponent?: React.ReactElement;
   ListHeaderComponent?: React.ReactElement;
@@ -96,7 +97,8 @@ export function DateFeed({
   onEdit,
   onEditRoster,
   onLikePlan,
-  onCommentPlan,  
+  onSubmitPlanComment,
+  onEditPlan,
   onPollVote,
   ListEmptyComponent,
   ListHeaderComponent,
@@ -124,6 +126,7 @@ export function DateFeed({
             console.log('🔍 DateFeed: onLike called for item:', item.id, item.personName);
             onLike?.(item.id);
           }}
+          onSubmitComment={onSubmitComment ? (text) => onSubmitComment(item.id, text) : undefined}
           onEdit={item.isOwnPost && onEditRoster ? () => onEditRoster(item.id) : undefined}
           likeCount={item.likeCount}
           commentCount={item.commentCount}
@@ -157,8 +160,10 @@ export function DateFeed({
         <PlanCard
           plan={planData}
           onLike={() => onLikePlan?.(item.id)}
-          onComment={() => onCommentPlan?.(item.id)}
+          onSubmitComment={onSubmitPlanComment ? (text) => onSubmitPlanComment(item.id, text) : undefined}
           onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
+          onEdit={item.isOwnPost && onEditPlan ? () => onEditPlan(item.id) : undefined}
+          showEditOptions={item.isOwnPost}
         />
       );
     }

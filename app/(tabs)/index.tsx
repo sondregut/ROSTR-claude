@@ -5,10 +5,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DateFeed } from '@/components/ui/feed/DateFeed';
 import { EditDateModal } from '@/components/ui/modals/EditDateModal';
+import { EditPlanModal } from '@/components/ui/modals/EditPlanModal';
 import { EditRosterModal, RosterUpdateData } from '@/components/ui/modals/EditRosterModal';
 import { Colors } from '@/constants/Colors';
 import { useDates } from '@/contexts/DateContext';
 import { useAuth } from '@/contexts/SimpleAuthContext';
+import { useUser } from '@/contexts/UserContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
@@ -18,6 +20,7 @@ export default function FeedScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
   const { signOut } = useAuth();
+  const { userProfile } = useUser();
   
   const {
     dates,
@@ -28,7 +31,9 @@ export default function FeedScreen() {
     voteOnPoll,
     refreshDates,
     updateDate,
+    updatePlan,
     deleteDate,
+    deletePlan,
     updateRosterAddition,
     deleteRosterAddition,
     isLoading
@@ -37,6 +42,8 @@ export default function FeedScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedDateForEdit, setSelectedDateForEdit] = useState<any>(null);
+  const [editPlanModalVisible, setEditPlanModalVisible] = useState(false);
+  const [selectedPlanForEdit, setSelectedPlanForEdit] = useState<any>(null);
   const [editRosterModalVisible, setEditRosterModalVisible] = useState(false);
   const [selectedRosterForEdit, setSelectedRosterForEdit] = useState<any>(null);
   
@@ -65,7 +72,7 @@ export default function FeedScreen() {
   const handleSubmitComment = async (dateId: string, text: string) => {
     try {
       await addComment(dateId, {
-        name: 'You',
+        name: userProfile?.name || 'You',
         content: text
       });
     } catch (error) {
@@ -77,7 +84,7 @@ export default function FeedScreen() {
   const handleSubmitPlanComment = async (planId: string, text: string) => {
     try {
       await addPlanComment(planId, {
-        name: 'You',
+        name: userProfile?.name || 'You',
         content: text
       });
     } catch (error) {
@@ -103,6 +110,14 @@ export default function FeedScreen() {
     }
   };
 
+  const handleEditPlan = (planId: string) => {
+    const plan = dates.find(d => d.id === planId && d.entryType === 'plan');
+    if (plan) {
+      setSelectedPlanForEdit(plan);
+      setEditPlanModalVisible(true);
+    }
+  };
+
   const handleEditRoster = (dateId: string) => {
     const rosterEntry = dates.find(d => d.id === dateId && d.entryType === 'roster_addition');
     if (rosterEntry) {
@@ -121,6 +136,17 @@ export default function FeedScreen() {
       Alert.alert('Error', 'Failed to update date');
     }
   };
+
+  const handleSavePlanEdit = async (id: string, updates: Partial<any>) => {
+    try {
+      await updatePlan(id, updates);
+      setEditPlanModalVisible(false);
+      setSelectedPlanForEdit(null);
+    } catch (error) {
+      console.error('Error updating plan:', error);
+      Alert.alert('Error', 'Failed to update plan');
+    }
+  };
   
   const handleDeleteDate = async (id: string) => {
     try {
@@ -130,6 +156,17 @@ export default function FeedScreen() {
     } catch (error) {
       console.error('Error deleting date:', error);
       Alert.alert('Error', 'Failed to delete date');
+    }
+  };
+
+  const handleDeletePlan = async (id: string) => {
+    try {
+      await deletePlan(id);
+      setEditPlanModalVisible(false);
+      setSelectedPlanForEdit(null);
+    } catch (error) {
+      console.error('Error deleting plan:', error);
+      Alert.alert('Error', 'Failed to delete plan');
     }
   };
 
@@ -175,7 +212,6 @@ export default function FeedScreen() {
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading your feed...</Text>
         </View>
       </SafeAreaView>
     );
@@ -230,6 +266,8 @@ export default function FeedScreen() {
         onEdit={handleEdit}
         onEditRoster={handleEditRoster}
         onLikePlan={handleLikePlan}
+        onSubmitPlanComment={handleSubmitPlanComment}
+        onEditPlan={handleEditPlan}
         onPollVote={handlePollVote}
         ListEmptyComponent={renderEmptyComponent()}
       />
@@ -243,6 +281,17 @@ export default function FeedScreen() {
         }}
         onSave={handleSaveEdit}
         onDelete={handleDeleteDate}
+      />
+
+      <EditPlanModal
+        visible={editPlanModalVisible}
+        plan={selectedPlanForEdit}
+        onClose={() => {
+          setEditPlanModalVisible(false);
+          setSelectedPlanForEdit(null);
+        }}
+        onSave={handleSavePlanEdit}
+        onDelete={handleDeletePlan}
       />
 
       <EditRosterModal

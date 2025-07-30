@@ -171,9 +171,10 @@ export const DateService = {
         acc[comment.date_entry_id].push({
           name: comment.user?.name || 'Unknown',
           content: comment.content,
+          imageUri: comment.user?.image_uri || '',
         });
         return acc;
-      }, {} as Record<string, Array<{ name: string; content: string }>>) || {};
+      }, {} as Record<string, Array<{ name: string; content: string; imageUri: string }>>) || {};
 
       // Transform dates with likes, comments, and polls
       const transformedDates = dates?.map(date => {

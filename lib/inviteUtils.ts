@@ -1,5 +1,4 @@
-import * as Sharing from 'expo-sharing';
-import { Platform } from 'react-native';
+import { Share, Platform } from 'react-native';
 
 export interface Circle {
   id: string;
@@ -68,16 +67,15 @@ export const shareCircleInvite = async (
     const inviterName = inviter?.name || 'Someone';
     const message = generateCircleInviteMessage(circle.name, inviterName, circle.id);
     
-    const isAvailable = await Sharing.isAvailableAsync();
+    const result = await Share.share({
+      message: message,
+      title: `Invite friends to ${circle.name}`,
+    });
     
-    if (isAvailable) {
-      await Sharing.shareAsync(message, {
-        mimeType: 'text/plain',
-        dialogTitle: `Invite friends to ${circle.name}`,
-        UTI: 'public.text',
-      });
-    } else {
-      console.warn('Sharing is not available on this device');
+    if (result.action === Share.sharedAction) {
+      console.log('Circle invite shared successfully');
+    } else if (result.action === Share.dismissedAction) {
+      console.log('Share dismissed');
     }
   } catch (error) {
     console.error('Error sharing circle invite:', error);
@@ -100,16 +98,15 @@ Or visit: ${webLink}
 
 Track your dating journey and share experiences with friends!`;
     
-    const isAvailable = await Sharing.isAvailableAsync();
+    const result = await Share.share({
+      message: message,
+      title: 'Share RostrDating',
+    });
     
-    if (isAvailable) {
-      await Sharing.shareAsync(message, {
-        mimeType: 'text/plain',
-        dialogTitle: 'Share RostrDating',
-        UTI: 'public.text',
-      });
-    } else {
-      console.warn('Sharing is not available on this device');
+    if (result.action === Share.sharedAction) {
+      console.log('App shared successfully');
+    } else if (result.action === Share.dismissedAction) {
+      console.log('Share dismissed');
     }
   } catch (error) {
     console.error('Error sharing app:', error);

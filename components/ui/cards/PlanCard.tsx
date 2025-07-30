@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,24 +10,30 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { PlanEntry } from '@/contexts/DateContext';
+import { InlineComments } from '../feed/InlineComments';
 
 interface PlanCardProps {
   plan: PlanEntry;
   onLike: () => void;
-  onComment: () => void;
+  onSubmitComment?: (text: string) => Promise<void>;
   onAddDetails?: () => void;
   onPersonPress?: () => void;
+  onEdit?: () => void;
+  showEditOptions?: boolean;
 }
 
 export default function PlanCard({ 
   plan, 
   onLike, 
-  onComment, 
+  onSubmitComment, 
   onAddDetails,
-  onPersonPress 
+  onPersonPress,
+  onEdit,
+  showEditOptions = true
 }: PlanCardProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const [showComments, setShowComments] = useState(plan.comments && plan.comments.length > 0);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -49,9 +55,19 @@ export default function PlanCard({
               </Text>
             </View>
           </View>
-          <Text style={[styles.timeAgo, { color: colors.textSecondary }]}>
-            Just now
-          </Text>
+          <View style={styles.headerRight}>
+            <Text style={[styles.timeAgo, { color: colors.textSecondary }]}>
+              Just now
+            </Text>
+            {showEditOptions && onEdit && (
+              <Pressable 
+                style={styles.menuButton}
+                onPress={onEdit}
+              >
+                <Ionicons name="ellipsis-horizontal" size={20} color={colors.textSecondary} />
+              </Pressable>
+            )}
+          </View>
         </View>
       </View>
 
@@ -121,10 +137,10 @@ export default function PlanCard({
           </Text>
         </Pressable>
 
-        <Pressable style={styles.actionButton} onPress={onComment}>
-          <Ionicons name="chatbubble-outline" size={20} color={colors.textSecondary} />
-          <Text style={[styles.actionText, { color: colors.textSecondary }]}>
-            {plan.commentCount > 0 && plan.commentCount}
+        <Pressable style={styles.actionButton} onPress={() => setShowComments(!showComments)}>
+          <Ionicons name={showComments ? "chatbubble" : "chatbubble-outline"} size={20} color={showComments ? colors.primary : colors.textSecondary} />
+          <Text style={[styles.actionText, { color: showComments ? colors.primary : colors.textSecondary }]}>
+            {plan.commentCount > 0 ? `${plan.commentCount} Comment${plan.commentCount > 1 ? 's' : ''}` : 'Comment'}
           </Text>
         </Pressable>
 
@@ -138,6 +154,13 @@ export default function PlanCard({
           </Pressable>
         )}
       </View>
+
+      {/* Inline Comments Section */}
+      <InlineComments
+        comments={plan.comments || []}
+        isExpanded={showComments}
+        onSubmitComment={onSubmitComment || (async () => {})}
+      />
     </View>
   );
 }
@@ -170,6 +193,10 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
   },
+  headerRight: {
+    alignItems: 'flex-end',
+    gap: 8,
+  },
   authorName: {
     fontSize: 16,
     fontWeight: '600',
@@ -186,6 +213,10 @@ const styles = StyleSheet.create({
   },
   timeAgo: {
     fontSize: 14,
+  },
+  menuButton: {
+    padding: 4,
+    borderRadius: 4,
   },
   content: {
     paddingHorizontal: 16,

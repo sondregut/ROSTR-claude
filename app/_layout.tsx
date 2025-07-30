@@ -55,6 +55,14 @@ function RootLayoutNav() {
             }} 
           />
           <Stack.Screen 
+            name="circles/[id]/settings" 
+            options={{ 
+              headerShown: false,
+              gestureEnabled: true,
+              gestureDirection: 'horizontal',
+            }} 
+          />
+          <Stack.Screen 
             name="profile/[username]" 
             options={{ 
               headerShown: false,

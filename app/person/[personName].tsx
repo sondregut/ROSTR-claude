@@ -19,10 +19,12 @@ import PlanCard from '@/components/ui/cards/PlanCard';
 import { CommentModal } from '@/components/ui/modals/CommentModal';
 import { AddPlanModal, PlanFormData } from '@/components/ui/modals/AddPlanModal';
 import { EditDateModal } from '@/components/ui/modals/EditDateModal';
+import { EditPlanModal } from '@/components/ui/modals/EditPlanModal';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useDates } from '@/contexts/DateContext';
 import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
 import { useRoster } from '@/contexts/RosterContext';
+import { useUser } from '@/contexts/UserContext';
 
 type TabType = 'overview' | 'plans';
 
@@ -33,6 +35,7 @@ export default function UnifiedPersonDetailScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const { dates, plans, addPlan, updatePlan, updateDate, deleteDate, likeDate, likePlan, addComment, addPlanComment } = useDates();
   const { activeRoster, pastConnections } = useRoster();
+  const { userProfile } = useUser();
 
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showCommentModal, setShowCommentModal] = useState(false);
@@ -40,7 +43,9 @@ export default function UnifiedPersonDetailScreen() {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [showAddPlanModal, setShowAddPlanModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showEditPlanModal, setShowEditPlanModal] = useState(false);
   const [selectedDateForEdit, setSelectedDateForEdit] = useState<any>(null);
+  const [selectedPlanForEdit, setSelectedPlanForEdit] = useState<any>(null);
 
   // Determine if viewing own roster or friend's date
   const viewingFriendDate = !!friendUsername;
@@ -277,7 +282,7 @@ export default function UnifiedPersonDetailScreen() {
     if (selectedDateId) {
       try {
         await addComment(selectedDateId, {
-          name: 'You',
+          name: userProfile?.name || 'You',
           content: text
         });
         
@@ -292,7 +297,7 @@ export default function UnifiedPersonDetailScreen() {
     } else if (selectedPlanId) {
       try {
         await addPlanComment(selectedPlanId, {
-          name: 'You',
+          name: userProfile?.name || 'You',
           content: text
         });
         
@@ -333,6 +338,14 @@ export default function UnifiedPersonDetailScreen() {
     router.push(`/plans/${planId}`);
   };
 
+  const handleEditPlan = (planId: string) => {
+    const plan = plans.find(p => p.id === planId);
+    if (plan) {
+      setSelectedPlanForEdit(plan);
+      setShowEditPlanModal(true);
+    }
+  };
+
   const handleLikePlan = (planId: string) => {
     likePlan(planId);
   };
@@ -363,6 +376,16 @@ export default function UnifiedPersonDetailScreen() {
       console.error('Error updating date:', error);
     }
   };
+
+  const handleSavePlanEdit = async (id: string, updates: Partial<any>) => {
+    try {
+      await updatePlan(id, updates);
+      setShowEditPlanModal(false);
+      setSelectedPlanForEdit(null);
+    } catch (error) {
+      console.error('Error updating plan:', error);
+    }
+  };
   
   const handleDeleteDate = async (id: string) => {
     try {
@@ -371,6 +394,16 @@ export default function UnifiedPersonDetailScreen() {
       setSelectedDateForEdit(null);
     } catch (error) {
       console.error('Error deleting date:', error);
+    }
+  };
+
+  const handleDeletePlan = async (id: string) => {
+    try {
+      await deletePlan(id);
+      setShowEditPlanModal(false);
+      setSelectedPlanForEdit(null);
+    } catch (error) {
+      console.error('Error deleting plan:', error);
     }
   };
 
@@ -626,6 +659,8 @@ export default function UnifiedPersonDetailScreen() {
                       onComment={() => handleCommentPlan(plan.id)}
                       onAddDetails={() => handleCompletePlan(plan.id)}
                       onPersonPress={() => handlePlanPersonPress(plan.personName)}
+                      onEdit={() => handleEditPlan(plan.id)}
+                      showEditOptions={!viewingFriendDate}
                     />
                   ))
               ) : (
@@ -701,6 +736,17 @@ export default function UnifiedPersonDetailScreen() {
         onClose={() => setShowAddPlanModal(false)}
         onSubmit={handleAddPlan}
         personName={personData.name}
+      />
+
+      <EditPlanModal
+        visible={showEditPlanModal}
+        plan={selectedPlanForEdit}
+        onClose={() => {
+          setShowEditPlanModal(false);
+          setSelectedPlanForEdit(null);
+        }}
+        onSave={handleSavePlanEdit}
+        onDelete={handleDeletePlan}
       />
       
       <EditDateModal

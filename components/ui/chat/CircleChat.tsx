@@ -328,32 +328,54 @@ export function CircleChat({
       console.log(`📨 Loaded ${fetchedMessages.length} messages`);
       setMessages(fetchedMessages);
       
-      // Mark last message as read
+      // Mark last message as read (with error handling)
       if (fetchedMessages.length > 0 && !useMockService) {
-        const lastMessage = fetchedMessages[fetchedMessages.length - 1];
-        await service.markCircleMessagesAsRead(
-          circleId,
-          currentUserId,
-          lastMessage.id
-        );
+        try {
+          const lastMessage = fetchedMessages[fetchedMessages.length - 1];
+          if (lastMessage && lastMessage.id) {
+            await service.markCircleMessagesAsRead(
+              circleId,
+              currentUserId,
+              lastMessage.id
+            );
+          } else {
+            console.warn('⚠️ Last message has no valid ID, skipping mark as read');
+          }
+        } catch (markError) {
+          console.error('❌ Error marking messages as read:', markError);
+          console.log('💡 Chat will continue to function without read tracking');
+          // Don't switch to mock service for read tracking errors
+        }
       }
     } catch (error: any) {
       console.error('❌ Error loading messages:', error);
       
-      // If real service fails, try mock
-      if (!useMockService) {
-        console.log('🔄 Switching to mock service for messages');
+      // Check if this is a critical error or just a read tracking issue
+      const isCriticalError = error?.code !== '23503' && 
+                             !error?.message?.includes('circle_message_reads') &&
+                             !error?.message?.includes('foreign key constraint');
+      
+      if (isCriticalError && !useMockService) {
+        console.log('🔄 Switching to mock service for messages due to critical error');
         setUseMockService(true);
+        setConnectionStatus('mock');
+        
         // Retry with mock service
         try {
           const mockMessages = await CircleChatMockService.getCircleMessages(circleId);
           setMessages(mockMessages);
         } catch (mockError) {
+          console.error('❌ Mock service also failed:', mockError);
+          setConnectionStatus('error');
           Alert.alert(
             'Error', 
             'Unable to load messages. Please check your connection.'
           );
         }
+      } else if (!isCriticalError) {
+        console.log('💡 Non-critical error (likely read tracking), continuing with real service');
+        setConnectionStatus('connected');
+        // Don't switch to mock for read tracking errors
       }
     } finally {
       setIsLoading(false);

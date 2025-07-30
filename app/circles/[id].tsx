@@ -25,6 +25,8 @@ import { getCurrentUser } from '@/lib/supabase';
 import { useCirclePermissions } from '@/hooks/useCirclePermissions';
 import { useAuth } from '@/contexts/SimpleAuthContext';
 import { useCircles } from '@/contexts/CircleContext';
+import { shareCircleInvite } from '@/lib/inviteUtils';
+import { useUser } from '@/contexts/UserContext';
 
 
 export default function CircleDetailScreen() {
@@ -33,6 +35,7 @@ export default function CircleDetailScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { user } = useAuth();
+  const { userProfile } = useUser();
   const permissions = useCirclePermissions(id as string);
   const { currentCircle, loadCircle, isLoading, error } = useCircles();
   
@@ -117,7 +120,7 @@ export default function CircleDetailScreen() {
             ...update,
             comments: [
               ...(update.comments || []),
-              { name: 'You', content: text }
+              { name: userProfile?.name || 'You', content: text }
             ],
             commentCount: update.commentCount + 1
           }
@@ -233,7 +236,19 @@ export default function CircleDetailScreen() {
             </View>
             
             <View style={styles.navActions}>
-              <Pressable style={[styles.navButtonOutline, { borderColor: colors.border }]}>
+              <Pressable 
+                style={[styles.navButtonOutline, { borderColor: colors.border }]}
+                onPress={async () => {
+                  try {
+                    await shareCircleInvite(
+                      { id: currentCircle.id, name: currentCircle.name, description: currentCircle.description },
+                      { id: user?.id || '', name: user?.user_metadata?.full_name || user?.email || 'Someone' }
+                    );
+                  } catch (error) {
+                    console.error('Failed to share invite:', error);
+                  }
+                }}
+              >
                 <Ionicons name="person-add-outline" size={18} color={colors.text} />
                 <Text style={[styles.navButtonText, { color: colors.text }]}>Invite</Text>
               </Pressable>
@@ -354,7 +369,19 @@ export default function CircleDetailScreen() {
             </View>
             
             <View style={styles.navActions}>
-              <Pressable style={[styles.navButtonOutline, { borderColor: colors.border }]}>
+              <Pressable 
+                style={[styles.navButtonOutline, { borderColor: colors.border }]}
+                onPress={async () => {
+                  try {
+                    await shareCircleInvite(
+                      { id: currentCircle.id, name: currentCircle.name, description: currentCircle.description },
+                      { id: user?.id || '', name: user?.user_metadata?.full_name || user?.email || 'Someone' }
+                    );
+                  } catch (error) {
+                    console.error('Failed to share invite:', error);
+                  }
+                }}
+              >
                 <Ionicons name="person-add-outline" size={18} color={colors.text} />
                 <Text style={[styles.navButtonText, { color: colors.text }]}>Invite</Text>
               </Pressable>

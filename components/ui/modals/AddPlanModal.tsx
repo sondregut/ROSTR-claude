@@ -145,7 +145,7 @@ export function AddPlanModal({ visible, onClose, onSubmit, personName }: AddPlan
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
       >
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
           {/* Header */}
@@ -176,7 +176,12 @@ export function AddPlanModal({ visible, onClose, onSubmit, personName }: AddPlan
             </Pressable>
           </View>
 
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView 
+            style={styles.content} 
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 100 }}
+          >
           {/* Date Section */}
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>When</Text>
@@ -316,6 +321,9 @@ export function AddPlanModal({ visible, onClose, onSubmit, personName }: AddPlan
                 numberOfLines={4}
                 maxLength={300}
                 textAlignVertical="top"
+                returnKeyType="default"
+                blurOnSubmit={false}
+                scrollEnabled={true}
               />
               <Text style={[styles.charCounter, { color: remainingChars < 50 ? colors.error : colors.textSecondary }]}>
                 {remainingChars} characters remaining

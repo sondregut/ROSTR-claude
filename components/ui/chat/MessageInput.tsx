@@ -70,16 +70,6 @@ export function MessageInput({
           minHeight: inputHeight + 20,
         }
       ]}>
-        {/* Attachment button */}
-        <Pressable 
-          style={styles.iconButton}
-          onPress={() => {
-            // TODO: Implement image picker
-            console.log('Add attachment');
-          }}
-        >
-          <Ionicons name="image-outline" size={24} color={colors.textSecondary} />
-        </Pressable>
 
         {/* Text input */}
         <TextInput
@@ -118,16 +108,6 @@ export function MessageInput({
           </Text>
         )}
 
-        {/* Emoji button */}
-        <Pressable 
-          style={styles.iconButton}
-          onPress={() => {
-            // TODO: Implement emoji picker
-            console.log('Add emoji');
-          }}
-        >
-          <Ionicons name="happy-outline" size={24} color={colors.textSecondary} />
-        </Pressable>
       </View>
 
       {/* Send button */}

@@ -31,6 +31,7 @@ interface DateCardProps {
   comments?: {
     name: string;
     content: string;
+    imageUri?: string;
   }[];
   onPress?: () => void;
   onPersonPress?: () => void;
@@ -78,7 +79,7 @@ export function DateCard({
   const [showComments, setShowComments] = useState(comments && comments.length > 0);
 
   const formatRating = (rating: number) => {
-    return rating.toFixed(1) + '/5';
+    return Math.round(rating) + '/5';
   };
 
   return (

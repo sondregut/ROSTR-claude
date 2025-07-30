@@ -8,15 +8,18 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useUser } from '@/contexts/UserContext';
 
 interface Comment {
   id?: string;
   name: string;
   content: string;
+  imageUri?: string;
   isOptimistic?: boolean;
 }
 
@@ -37,6 +40,7 @@ export function InlineComments({
   const colors = Colors[colorScheme ?? 'light'];
   const [commentText, setCommentText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { userProfile } = useUser();
 
   const handleSubmit = async () => {
     if (!commentText.trim() || isSubmitting) return;
@@ -61,11 +65,15 @@ export function InlineComments({
         <View style={styles.commentsList}>
           {comments.map((comment, index) => (
             <View key={comment.id || index} style={styles.commentItem}>
-              <View style={[styles.avatarPlaceholder, { backgroundColor: colors.border }]}>
-                <Text style={[styles.avatarInitial, { color: colors.text }]}>
-                  {comment.name.charAt(0).toUpperCase()}
-                </Text>
-              </View>
+              {comment.imageUri ? (
+                <Image source={{ uri: comment.imageUri }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatarPlaceholder, { backgroundColor: colors.border }]}>
+                  <Text style={[styles.avatarInitial, { color: colors.text }]}>
+                    {comment.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
               <View style={styles.commentContent}>
                 <Text style={[styles.commentName, { color: colors.text }]}>
                   {comment.name}
@@ -81,9 +89,15 @@ export function InlineComments({
 
       {/* Comment Input */}
       <View style={styles.inputContainer}>
-        <View style={[styles.avatarPlaceholder, { backgroundColor: colors.border }]}>
-          <Text style={[styles.avatarInitial, { color: colors.text }]}>Y</Text>
-        </View>
+        {userProfile?.imageUri ? (
+          <Image source={{ uri: userProfile.imageUri }} style={styles.avatar} />
+        ) : (
+          <View style={[styles.avatarPlaceholder, { backgroundColor: colors.border }]}>
+            <Text style={[styles.avatarInitial, { color: colors.text }]}>
+              {userProfile?.name?.charAt(0).toUpperCase() || 'Y'}
+            </Text>
+          </View>
+        )}
         <TextInput
           style={[styles.input, { 
             backgroundColor: colors.inputBackground || colors.border, 
@@ -138,6 +152,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 8,
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     marginRight: 8,
   },
   avatarInitial: {

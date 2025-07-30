@@ -303,23 +303,88 @@ export class CircleChatService {
     lastMessageId: string
   ): Promise<void> {
     try {
-      const { error } = await supabase
-        .from('circle_message_reads')
-        .upsert({
-          circle_id: circleId,
-          user_id: userId,
-          last_read_message_id: lastMessageId,
-          last_read_at: new Date().toISOString(),
-        }, {
-          onConflict: 'circle_id,user_id'
-        });
+      console.log('🔍 Marking messages as read:', { circleId, userId, lastMessageId });
+      
+      // Safety check: Verify the message exists before trying to reference it
+      if (!lastMessageId || lastMessageId.trim() === '') {
+        console.warn('⚠️ No lastMessageId provided, skipping mark as read');
+        return;
+      }
+
+      // Verify message exists in either table
+      let messageExists = false;
+      
+      // Check circle_chat_messages table first
+      const { data: circleChatMessage, error: circleChatError } = await supabase
+        .from('circle_chat_messages')
+        .select('id')
+        .eq('id', lastMessageId)
+        .single();
+
+      if (circleChatMessage && !circleChatError) {
+        messageExists = true;
+        console.log('✅ Message found in circle_chat_messages table');
+      } else if (circleChatError && circleChatError.code !== '42P01') {
+        // Check messages table (fallback)
+        const { data: message, error: messageError } = await supabase
+          .from('messages')
+          .select('id')
+          .eq('id', lastMessageId)
+          .single();
+
+        if (message && !messageError) {
+          messageExists = true;
+          console.log('✅ Message found in messages table');
+        } else {
+          console.error('❌ Message not found in either table:', { lastMessageId, messageError });
+        }
+      }
+
+      // Only proceed if message exists
+      if (!messageExists) {
+        console.warn('⚠️ Message does not exist, cannot mark as read:', lastMessageId);
+        return;
+      }
+
+      // Use the safe function to mark messages as read
+      const { data: success, error } = await supabase.rpc('safe_mark_circle_messages_read', {
+        p_circle_id: circleId,
+        p_user_id: userId,
+        p_last_message_id: messageExists ? lastMessageId : null
+      });
 
       if (error) {
-        throw error;
+        console.error('❌ Failed to call safe mark function:', error);
+        
+        // Fallback to direct table operations
+        console.log('💡 Attempting direct fallback');
+        const { error: fallbackError } = await supabase
+          .from('circle_message_reads')
+          .upsert({
+            circle_id: circleId,
+            user_id: userId,
+            last_read_message_id: null, // Set to null to avoid constraint
+            last_read_at: new Date().toISOString(),
+          }, {
+            onConflict: 'circle_id,user_id'
+          });
+
+        if (fallbackError) {
+          console.error('❌ Fallback also failed:', fallbackError);
+          // Don't throw - let chat continue to function
+        } else {
+          console.log('✅ Direct fallback succeeded');
+        }
+      } else if (success) {
+        console.log('✅ Successfully marked messages as read using safe function');
+      } else {
+        console.warn('⚠️ Safe function returned false - continuing without read tracking');
       }
     } catch (error) {
       console.error('Mark circle messages as read error:', error);
-      throw error;
+      // Don't throw the error - this is a non-critical operation
+      // The chat should still function even if read tracking fails
+      console.log('💡 Continuing without read tracking to maintain chat functionality');
     }
   }
 
