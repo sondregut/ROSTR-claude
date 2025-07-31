@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { useUser } from '@/contexts/UserContext';
+import { useSafeUser } from '@/hooks/useSafeUser';
 
 interface Comment {
   id?: string;
@@ -40,7 +40,8 @@ export function InlineComments({
   const colors = Colors[colorScheme ?? 'light'];
   const [commentText, setCommentText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { userProfile } = useUser();
+  const user = useSafeUser();
+  const userProfile = user?.userProfile;
 
   const handleSubmit = async () => {
     if (!commentText.trim() || isSubmitting) return;

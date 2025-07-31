@@ -3,7 +3,8 @@ import { DateService } from '@/services/supabase/dates';
 import { StorageService } from '@/services/supabase/storage';
 import { DateEntryFormData } from '@/components/ui/forms/DateEntryForm';
 import { PlanFormData } from '@/components/ui/modals/AddPlanModal';
-import { useAuth } from '@/contexts/SimpleAuthContext';
+import { useSafeAuth } from '@/hooks/useSafeAuth';
+import { ReactionType } from '@/components/ui/feed/ReactionPicker';
 
 // Extended interface for date entries in the feed
 export interface DateEntry {
@@ -33,12 +34,20 @@ export interface DateEntry {
   likeCount: number;
   commentCount: number;
   isLiked: boolean;
+  reactions?: {
+    [key in ReactionType]?: {
+      count: number;
+      users: string[];
+    };
+  };
+  userReaction?: ReactionType | null;
   authorName: string; // The user who created this entry
+  authorUsername?: string; // Username for navigation
   authorAvatar?: string;
   createdAt: string; // ISO timestamp for sorting
   updatedAt: string;
   isOwnPost?: boolean; // Whether this post belongs to the current user
-  entryType?: 'date' | 'roster_addition'; // Type of feed entry
+  entryType?: 'date' | 'roster_addition' | 'plan'; // Type of feed entry
   rosterInfo?: {
     age?: number;
     occupation?: string;
@@ -67,6 +76,13 @@ export interface PlanEntry {
   likeCount: number;
   commentCount: number;
   isLiked: boolean;
+  reactions?: {
+    [key in ReactionType]?: {
+      count: number;
+      users: string[];
+    };
+  };
+  userReaction?: ReactionType | null;
   comments: Array<{
     name: string;
     content: string;
@@ -83,11 +99,14 @@ interface DateContextType {
   deleteRosterAddition: (id: string) => Promise<void>;
   addPlan: (formData: PlanFormData, personName: string) => Promise<void>;
   completePlan: (planId: string, dateData: DateEntryFormData) => Promise<void>;
+  updatePlan: (id: string, updates: Partial<PlanEntry>) => Promise<void>;
   updateDate: (id: string, updates: Partial<DateEntry>) => Promise<void>;
   deleteDate: (id: string) => Promise<void>;
   deletePlan: (id: string) => Promise<void>;
   likeDate: (id: string) => Promise<void>;
   likePlan: (id: string) => Promise<void>;
+  reactToDate: (id: string, reaction: ReactionType | null) => Promise<void>;
+  reactToPlan: (id: string, reaction: ReactionType | null) => Promise<void>;
   addComment: (id: string, comment: { name: string; content: string }) => Promise<void>;
   addPlanComment: (id: string, comment: { name: string; content: string }) => Promise<void>;
   voteOnPoll: (id: string, optionIndex: number) => Promise<void>;
@@ -149,7 +168,8 @@ const getActualTimestamp = (relativeTime: string): string => {
 };
 
 export function DateProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const auth = useSafeAuth();
+  const user = auth?.user;
   const [dates, setDates] = useState<DateEntry[]>([]);
   const [plans, setPlans] = useState<PlanEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -193,7 +213,10 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       likeCount: dbDate.like_count || 0,
       commentCount: dbDate.comment_count || 0,
       isLiked: dbDate.isLiked || false,
+      reactions: dbDate.reactions || {},
+      userReaction: dbDate.userReaction || null,
       authorName: dbDate.authorName || 'Unknown',
+      authorUsername: dbDate.authorUsername,
       authorAvatar: dbDate.authorAvatar,
       createdAt: dbDate.created_at,
       updatedAt: dbDate.updated_at,
@@ -212,7 +235,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Transform database plans to PlanEntry format
-  const transformPlan = (dbPlan: any): PlanEntry & { user_id?: string } => {
+  const transformPlan = (dbPlan: any): PlanEntry & { user_id?: string; authorUsername?: string } => {
     return {
       id: dbPlan.id,
       personName: dbPlan.person_name,
@@ -223,19 +246,22 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       content: dbPlan.notes,
       tags: dbPlan.tags,
       authorName: dbPlan.user?.name || 'Unknown',
+      authorUsername: dbPlan.user?.username,
       authorAvatar: dbPlan.user?.image_uri,
       createdAt: dbPlan.created_at,
       isCompleted: dbPlan.is_completed,
       likeCount: dbPlan.likeCount || 0,
       commentCount: dbPlan.commentCount || 0,
       isLiked: dbPlan.isLiked || false,
+      reactions: dbPlan.reactions || {},
+      userReaction: dbPlan.userReaction || null,
       comments: dbPlan.comments || [],
       user_id: dbPlan.user_id, // Pass through user_id for ownership check
     };
   };
 
   // Load dates from Supabase
-  const loadDates = async () => {
+  const loadDates = async (isRefresh = false) => {
     if (!user) {
       setDates([]);
       setPlans([]);
@@ -244,7 +270,10 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      setIsLoading(true);
+      // Only show loading state if not refreshing or if there's no existing data
+      if (!isRefresh || dates.length === 0) {
+        setIsLoading(true);
+      }
       setError(null);
       
       // Get dates and plans
@@ -276,6 +305,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
         commentCount: plan.commentCount,
         isLiked: plan.isLiked,
         authorName: plan.authorName,
+        authorUsername: plan.authorUsername,
         authorAvatar: plan.authorAvatar,
         createdAt: plan.createdAt,
         updatedAt: plan.createdAt,
@@ -451,6 +481,23 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
   const likeDate = async (id: string) => {
     if (!user) return;
     
+    console.log('🔍 DateContext: likeDate called with id:', id);
+    
+    // Find the entry to check its type
+    const entry = dates.find(d => d.id === id);
+    if (!entry) {
+      console.error('❌ DateContext: Entry not found with id:', id);
+      return;
+    }
+    
+    console.log('🔍 DateContext: Found entry:', { 
+      id: entry.id, 
+      personName: entry.personName, 
+      entryType: entry.entryType,
+      isLiked: entry.isLiked,
+      likeCount: entry.likeCount
+    });
+    
     try {
       // Optimistically update UI
       setDates(prevDates => 
@@ -465,11 +512,12 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
         )
       );
       
-      // Send like to server
+      // Send like to server - this works for all entry types since they all use date_entries table
       await DateService.likeDate(id, user.id);
+      console.log('✅ DateContext: Like successfully sent to server');
       
     } catch (err) {
-      console.error('Error liking date:', err);
+      console.error('❌ DateContext: Error liking date:', err);
       
       // Revert optimistic update on failure
       setDates(prevDates => 
@@ -525,6 +573,158 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       );
       
       setError('Failed to like plan');
+    }
+  };
+
+  const reactToDate = async (id: string, reaction: ReactionType | null) => {
+    if (!user) return;
+    
+    console.log('🔍 DateContext: reactToDate called with:', { id, reaction });
+    
+    // Find the entry to get current reaction state
+    const entry = dates.find(d => d.id === id);
+    if (!entry) {
+      console.error('❌ DateContext: Entry not found with id:', id);
+      return;
+    }
+    
+    const oldReaction = entry.userReaction;
+    
+    try {
+      // Optimistically update UI
+      setDates(prevDates => 
+        prevDates.map(date => {
+          if (date.id !== id) return date;
+          
+          const newReactions = { ...date.reactions };
+          const totalReactionCount = Object.values(newReactions || {})
+            .reduce((sum, r) => sum + (r?.count || 0), 0);
+          
+          // Remove old reaction
+          if (oldReaction && newReactions[oldReaction]) {
+            newReactions[oldReaction] = {
+              ...newReactions[oldReaction],
+              count: Math.max(0, newReactions[oldReaction].count - 1),
+              users: newReactions[oldReaction].users.filter(u => u !== user.id)
+            };
+            if (newReactions[oldReaction].count === 0) {
+              delete newReactions[oldReaction];
+            }
+          }
+          
+          // Add new reaction
+          if (reaction) {
+            if (!newReactions[reaction]) {
+              newReactions[reaction] = { count: 0, users: [] };
+            }
+            newReactions[reaction] = {
+              count: newReactions[reaction].count + 1,
+              users: [...newReactions[reaction].users, user.id]
+            };
+          }
+          
+          const newTotalCount = Object.values(newReactions)
+            .reduce((sum, r) => sum + (r?.count || 0), 0);
+          
+          return {
+            ...date,
+            userReaction: reaction,
+            reactions: newReactions,
+            // Update legacy like fields for backward compatibility
+            isLiked: reaction === 'love',
+            likeCount: newTotalCount,
+          };
+        })
+      );
+      
+      // Send reaction to server
+      await DateService.reactToDate(id, reaction, user.id);
+      console.log('✅ DateContext: Reaction successfully sent to server');
+      
+    } catch (err) {
+      console.error('❌ DateContext: Error reacting to date:', err);
+      
+      // Revert optimistic update on failure
+      setDates(prevDates => 
+        prevDates.map(date => 
+          date.id === id 
+            ? { ...date, userReaction: oldReaction }
+            : date
+        )
+      );
+      
+      setError('Failed to react to date');
+    }
+  };
+
+  const reactToPlan = async (id: string, reaction: ReactionType | null) => {
+    if (!user) return;
+    
+    const plan = plans.find(p => p.id === id);
+    if (!plan) return;
+    
+    const oldReaction = plan.userReaction;
+    
+    try {
+      // Optimistically update UI
+      setPlans(prevPlans => 
+        prevPlans.map(plan => {
+          if (plan.id !== id) return plan;
+          
+          const newReactions = { ...plan.reactions };
+          
+          // Remove old reaction
+          if (oldReaction && newReactions[oldReaction]) {
+            newReactions[oldReaction] = {
+              ...newReactions[oldReaction],
+              count: Math.max(0, newReactions[oldReaction].count - 1),
+              users: newReactions[oldReaction].users.filter(u => u !== user.id)
+            };
+            if (newReactions[oldReaction].count === 0) {
+              delete newReactions[oldReaction];
+            }
+          }
+          
+          // Add new reaction
+          if (reaction) {
+            if (!newReactions[reaction]) {
+              newReactions[reaction] = { count: 0, users: [] };
+            }
+            newReactions[reaction] = {
+              count: newReactions[reaction].count + 1,
+              users: [...newReactions[reaction].users, user.id]
+            };
+          }
+          
+          const newTotalCount = Object.values(newReactions)
+            .reduce((sum, r) => sum + (r?.count || 0), 0);
+          
+          return {
+            ...plan,
+            userReaction: reaction,
+            reactions: newReactions,
+            isLiked: reaction === 'love',
+            likeCount: newTotalCount,
+          };
+        })
+      );
+      
+      // Send reaction to server
+      await DateService.reactToPlan(id, reaction, user.id);
+      
+    } catch (err) {
+      console.error('Error reacting to plan:', err);
+      
+      // Revert optimistic update on failure
+      setPlans(prevPlans => 
+        prevPlans.map(plan => 
+          plan.id === id 
+            ? { ...plan, userReaction: oldReaction }
+            : plan
+        )
+      );
+      
+      setError('Failed to react to plan');
     }
   };
 
@@ -704,7 +904,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshDates = async () => {
-    await loadDates();
+    await loadDates(true);
   };
 
   const value = {
@@ -716,11 +916,14 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
     deleteRosterAddition,
     addPlan,
     completePlan,
+    updatePlan,
     updateDate,
     deleteDate,
     deletePlan,
     likeDate,
     likePlan,
+    reactToDate,
+    reactToPlan,
     addComment,
     addPlanComment,
     voteOnPoll,

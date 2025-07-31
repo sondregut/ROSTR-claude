@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { RosterService, RosterEntry as DbRosterEntry } from '@/services/supabase/roster';
 import { DateService } from '@/services/supabase/dates';
-import { useAuth } from '@/contexts/SimpleAuthContext';
+import { useSafeAuth } from '@/hooks/useSafeAuth';
 import { useDates } from '@/contexts/DateContext';
 
 // UI-friendly roster entry type
@@ -102,7 +102,8 @@ const transformRosterEntry = (dbEntry: DbRosterEntry): RosterEntry => {
 };
 
 export function RosterProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const auth = useSafeAuth();
+  const user = auth?.user;
   const { addRosterAddition, refreshDates } = useDates();
   const [entries, setEntries] = useState<RosterEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -122,7 +123,7 @@ export function RosterProvider({ children }: { children: React.ReactNode }) {
   );
 
   // Load roster entries
-  const loadRoster = async () => {
+  const loadRoster = async (isRefresh = false) => {
     if (!user) {
       setEntries([]);
       setIsLoading(false);
@@ -130,7 +131,10 @@ export function RosterProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      setIsLoading(true);
+      // Only show loading state if not refreshing or if there's no existing data
+      if (!isRefresh || entries.length === 0) {
+        setIsLoading(true);
+      }
       setError(null);
       
       // Load entries and stats in parallel
@@ -259,7 +263,7 @@ export function RosterProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshRoster = async () => {
-    await loadRoster();
+    await loadRoster(true);
   };
 
   const value = {

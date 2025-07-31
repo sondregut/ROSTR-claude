@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,10 +16,19 @@ import { Ionicons } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { simpleAuth } from '@/services/supabase/simpleAuth';
 import { debugAppleAuth } from '@/utils/debugAppleAuth';
+import { useOnboardingState } from '@/hooks/useOnboardingState';
 
 export default function WelcomeScreen() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const { hasSeenWelcome, isLoading: onboardingLoading } = useOnboardingState();
+
+  // Check if user needs to see onboarding
+  useEffect(() => {
+    if (!onboardingLoading && !hasSeenWelcome) {
+      router.replace('/(auth)/onboarding-welcome');
+    }
+  }, [hasSeenWelcome, onboardingLoading]);
 
   const handleAppleSignIn = async () => {
     try {
@@ -163,12 +172,24 @@ export default function WelcomeScreen() {
               
               {/* Debug button - REMOVE BEFORE PRODUCTION */}
               {__DEV__ && (
-                <Pressable
-                  onPress={debugAppleAuth}
-                  style={{ marginTop: 20, padding: 10 }}
-                >
-                  <Text style={{ color: 'white', textAlign: 'center' }}>Debug Apple Auth</Text>
-                </Pressable>
+                <>
+                  <Pressable
+                    onPress={debugAppleAuth}
+                    style={{ marginTop: 20, padding: 10 }}
+                  >
+                    <Text style={{ color: 'white', textAlign: 'center' }}>Debug Apple Auth</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={async () => {
+                      const { resetOnboardingForTesting } = await import('@/utils/resetOnboarding');
+                      await resetOnboardingForTesting();
+                      router.replace('/(auth)/onboarding-welcome');
+                    }}
+                    style={{ marginTop: 10, padding: 15, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10 }}
+                  >
+                    <Text style={{ color: 'white', textAlign: 'center', fontWeight: '600' }}>🎯 Show Onboarding (Dev)</Text>
+                  </Pressable>
+                </>
               )}
             </View>
           </View>

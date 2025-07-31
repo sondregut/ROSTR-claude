@@ -6,10 +6,13 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../../../constants/Colors';
 import { PollVoting } from '../feed/PollVoting';
 import { InlineComments } from '../feed/InlineComments';
+import { ReactionPicker, ReactionType } from '../feed/ReactionPicker';
+import { ReactionSummary } from '../feed/ReactionSummary';
 
 interface DateCardProps {
   id: string;
   personName: string;
+  personPhoto?: string;
   date: string;
   location: string;
   rating?: number;
@@ -44,11 +47,20 @@ interface DateCardProps {
   likeCount: number;
   commentCount: number;
   isLiked?: boolean;
+  reactions?: {
+    [key in ReactionType]?: {
+      count: number;
+      users: string[];
+    };
+  };
+  userReaction?: ReactionType | null;
+  onReact?: (reaction: ReactionType | null) => void;
 }
 
 export function DateCard({
   id,
   personName,
+  personPhoto,
   date,
   location,
   rating = 0,
@@ -73,10 +85,14 @@ export function DateCard({
   likeCount,
   commentCount,
   isLiked = false,
+  reactions = {},
+  userReaction = null,
+  onReact,
 }: DateCardProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [showComments, setShowComments] = useState(comments && comments.length > 0);
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
 
   const formatRating = (rating: number) => {
     return Math.round(rating) + '/5';
@@ -133,6 +149,14 @@ export function DateCard({
             </Text>
             <Text style={[styles.dateSeparator, { color: colors.textSecondary }]}>•</Text>
             <Text style={[styles.dateWithText, { color: colors.textSecondary }]}>Date with</Text>
+            
+            {/* Person photo */}
+            {personPhoto && (
+              <Pressable onPress={onPersonHistoryPress} style={styles.personPhotoContainer}>
+                <Image source={{ uri: personPhoto }} style={styles.personPhoto} />
+              </Pressable>
+            )}
+            
             <Pressable onPress={() => {
               // If this is a friend's date (has authorName), we need to navigate differently
               if (onPersonHistoryPress) {
@@ -225,30 +249,74 @@ export function DateCard({
       )}
 
       <View style={[styles.actionsContainer, { borderTopColor: colors.border }]}>
-        <Pressable 
-          style={styles.actionButton} 
-          onPress={() => {
-            console.log(' DateCard: Like button pressed for:', personName, 'ID:', id);
-            onLike?.();
-          }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          accessibilityRole="button"
-          accessibilityLabel={isLiked ? "Unlike" : "Like"}
-        >
-          <Ionicons 
-            name={isLiked ? "heart" : "heart-outline"} 
-            size={20} 
-            color={isLiked ? colors.primary : colors.textSecondary} 
-          />
-          <Text 
-            style={[
-              styles.actionText, 
-              { color: isLiked ? colors.primary : colors.textSecondary }
-            ]}
+        <View style={styles.reactionButtonContainer}>
+          <Pressable 
+            style={styles.actionButton} 
+            onPress={() => {
+              // Quick tap - toggle love reaction
+              if (onReact) {
+                onReact(userReaction === 'love' ? null : 'love');
+              } else if (onLike) {
+                // Fallback to old like system
+                onLike();
+              }
+            }}
+            onLongPress={() => {
+              setShowReactionPicker(!showReactionPicker);
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel={userReaction ? "Change reaction" : "React"}
           >
-            {likeCount > 0 ? likeCount : 'Like'}
-          </Text>
-        </Pressable>
+            {userReaction ? (
+              <Text style={styles.reactionEmoji}>
+                {userReaction === 'love' ? '❤️' : 
+                 userReaction === 'funny' ? '😂' :
+                 userReaction === 'exciting' ? '😍' :
+                 userReaction === 'hot' ? '🔥' :
+                 userReaction === 'awkward' ? '😳' :
+                 userReaction === 'fail' ? '💔' :
+                 userReaction === 'celebrate' ? '🎉' : '❤️'}
+              </Text>
+            ) : (
+              <Ionicons 
+                name="heart-outline" 
+                size={20} 
+                color={colors.textSecondary} 
+              />
+            )}
+            {reactions && Object.keys(reactions).length > 0 ? (
+              <ReactionSummary 
+                reactions={Object.entries(reactions).map(([type, data]) => ({
+                  type: type as ReactionType,
+                  count: data.count,
+                  users: data.users,
+                }))}
+                maxDisplay={2}
+              />
+            ) : (
+              <Text 
+                style={[
+                  styles.actionText, 
+                  { color: userReaction ? colors.primary : colors.textSecondary }
+                ]}
+              >
+                {likeCount > 0 ? likeCount : 'React'}
+              </Text>
+            )}
+          </Pressable>
+          
+          <ReactionPicker
+            visible={showReactionPicker}
+            onSelectReaction={(reaction) => {
+              if (onReact) {
+                onReact(reaction);
+              }
+              setShowReactionPicker(false);
+            }}
+            selectedReaction={userReaction}
+          />
+        </View>
         
         <Pressable 
           style={styles.actionButton} 
@@ -489,5 +557,22 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 200,
     borderRadius: 12,
+  },
+  personPhotoContainer: {
+    marginLeft: 4,
+    marginRight: 4,
+  },
+  personPhoto: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  reactionButtonContainer: {
+    position: 'relative',
+  },
+  reactionEmoji: {
+    fontSize: 20,
   },
 });

@@ -14,20 +14,24 @@ import { InlineComments } from '../feed/InlineComments';
 
 interface PlanCardProps {
   plan: PlanEntry;
+  personPhoto?: string;
   onLike: () => void;
   onSubmitComment?: (text: string) => Promise<void>;
   onAddDetails?: () => void;
   onPersonPress?: () => void;
+  onAuthorPress?: () => void;
   onEdit?: () => void;
   showEditOptions?: boolean;
 }
 
 export default function PlanCard({ 
-  plan, 
+  plan,
+  personPhoto, 
   onLike, 
   onSubmitComment, 
   onAddDetails,
   onPersonPress,
+  onAuthorPress,
   onEdit,
   showEditOptions = true
 }: PlanCardProps) {
@@ -39,15 +43,19 @@ export default function PlanCard({
     <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Image 
-          source={{ uri: plan.authorAvatar || '/placeholder.svg?height=40&width=40' }} 
-          style={styles.avatar} 
-        />
+        <Pressable onPress={onAuthorPress}>
+          <Image 
+            source={{ uri: plan.authorAvatar || '/placeholder.svg?height=40&width=40' }} 
+            style={styles.avatar} 
+          />
+        </Pressable>
         <View style={styles.headerInfo}>
           <View style={styles.headerText}>
-            <Text style={[styles.authorName, { color: colors.text }]}>
-              {plan.authorName}
-            </Text>
+            <Pressable onPress={onAuthorPress}>
+              <Text style={[styles.authorName, { color: colors.text }]}>
+                {plan.authorName}
+              </Text>
+            </Pressable>
             <View style={styles.planIndicator}>
               <Ionicons name="calendar" size={16} color={colors.primary} />
               <Text style={[styles.planType, { color: colors.primary }]}>
@@ -74,15 +82,19 @@ export default function PlanCard({
       {/* Plan Content */}
       <View style={styles.content}>
         <View style={styles.planHeader}>
-          <Text style={[styles.planTitle, { color: colors.text }]}>
-            Date with{' '}
-            <Text 
-              style={[styles.personName, { color: colors.primary }]}
-              onPress={onPersonPress}
-            >
-              {plan.personName}
-            </Text>
-          </Text>
+          <View style={styles.planTitleRow}>
+            <Text style={[styles.planTitle, { color: colors.text }]}>Date with</Text>
+            {personPhoto && (
+              <Pressable onPress={onPersonPress} style={styles.personPhotoContainer}>
+                <Image source={{ uri: personPhoto }} style={styles.personPhoto} />
+              </Pressable>
+            )}
+            <Pressable onPress={onPersonPress}>
+              <Text style={[styles.personName, { color: colors.primary }]}>
+                {plan.personName}
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* Date, Time, Location */}
@@ -225,6 +237,11 @@ const styles = StyleSheet.create({
   planHeader: {
     marginBottom: 12,
   },
+  planTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   planTitle: {
     fontSize: 16,
     fontWeight: '500',
@@ -293,5 +310,16 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontWeight: '600',
+  },
+  personPhotoContainer: {
+    marginLeft: 4,
+    marginRight: 4,
+  },
+  personPhoto: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
   },
 });

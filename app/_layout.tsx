@@ -26,6 +26,8 @@ import { CircleProvider } from '@/contexts/CircleContext';
 import { AuthenticatedApp } from '@/components/AuthenticatedApp';
 import { useDeepLinks } from '@/hooks/useDeepLinks';
 import { verifyEnvironmentVariables } from '@/utils/verifyEnv';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { initSentry } from '@/services/sentry';
 
 
 function RootLayoutNav() {
@@ -98,14 +100,21 @@ export default function RootLayout() {
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
-  // Verify environment variables on app start
+  // Initialize services on app start
   React.useEffect(() => {
     try {
+      // Verify environment variables
       verifyEnvironmentVariables();
+      
+      // Initialize Sentry for error tracking (only if configured)
+      try {
+        initSentry();
+      } catch (sentryError) {
+        console.log('Sentry initialization skipped:', sentryError.message);
+      }
     } catch (error) {
-      console.error('❌ Environment verification failed:', error);
+      console.error('❌ App initialization failed:', error);
     }
-
   }, []);
 
   if (!loaded) {
@@ -115,19 +124,21 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <AppThemeProvider>
-        <SimpleAuthProvider>
-          <UserProvider>
-            <DateProvider>
-              <RosterProvider>
-                <CircleProvider>
-                  <RootLayoutNav />
-                </CircleProvider>
-              </RosterProvider>
-            </DateProvider>
-          </UserProvider>
-        </SimpleAuthProvider>
-      </AppThemeProvider>
+      <ErrorBoundary>
+        <AppThemeProvider>
+          <SimpleAuthProvider>
+            <UserProvider>
+              <DateProvider>
+                <RosterProvider>
+                  <CircleProvider>
+                    <RootLayoutNav />
+                  </CircleProvider>
+                </RosterProvider>
+              </DateProvider>
+            </UserProvider>
+          </SimpleAuthProvider>
+        </AppThemeProvider>
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }

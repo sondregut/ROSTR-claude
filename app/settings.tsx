@@ -7,14 +7,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { useAuth } from '@/contexts/SimpleAuthContext';
+import { useSafeAuth } from '@/hooks/useSafeAuth';
+import { useSafeUser } from '@/hooks/useSafeUser';
+import { openFeatureRequest } from '@/lib/featurebase';
 
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { themeMode, setThemeMode } = useTheme();
-  const { signOut } = useAuth();
+  const auth = useSafeAuth();
+  const signOut = auth?.signOut;
   const router = useRouter();
+  const user = useSafeUser();
+  const userProfile = user?.userProfile;
 
   const themeOptions = [
     { value: 'system' as const, label: 'System', icon: 'phone-portrait-outline' as const },
@@ -106,6 +111,36 @@ export default function SettingsScreen() {
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Feedback & Support</Text>
+          
+          <Pressable
+            style={[styles.feedbackButton, { borderColor: colors.border }]}
+            onPress={() => openFeatureRequest({
+              name: userProfile?.name,
+              email: userProfile?.instagramUsername ? `${userProfile.instagramUsername}@instagram.com` : undefined,
+              id: userProfile?.id
+            })}
+          >
+            <Ionicons name="bulb-outline" size={20} color={colors.text} />
+            <Text style={[styles.feedbackButtonText, { color: colors.text }]}>Request a Feature</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          </Pressable>
+
+          <Pressable
+            style={[styles.feedbackButton, { borderColor: colors.border }]}
+            onPress={() => openFeatureRequest({
+              name: userProfile?.name,
+              email: userProfile?.instagramUsername ? `${userProfile.instagramUsername}@instagram.com` : undefined,
+              id: userProfile?.id
+            })}
+          >
+            <Ionicons name="bug-outline" size={20} color={colors.text} />
+            <Text style={[styles.feedbackButtonText, { color: colors.text }]}>Report a Bug</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          </Pressable>
+        </View>
+
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
           <Pressable
             style={[styles.signOutButton, { backgroundColor: colors.error }]}
             onPress={handleSignOut}
@@ -184,5 +219,20 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  feedbackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+    gap: 12,
+  },
+  feedbackButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
   },
 });

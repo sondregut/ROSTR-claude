@@ -9,8 +9,8 @@ import { EditPlanModal } from '@/components/ui/modals/EditPlanModal';
 import { EditRosterModal, RosterUpdateData } from '@/components/ui/modals/EditRosterModal';
 import { Colors } from '@/constants/Colors';
 import { useDates } from '@/contexts/DateContext';
-import { useAuth } from '@/contexts/SimpleAuthContext';
-import { useUser } from '@/contexts/UserContext';
+import { useSafeAuth } from '@/hooks/useSafeAuth';
+import { useSafeUser } from '@/hooks/useSafeUser';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
@@ -19,13 +19,17 @@ export default function FeedScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
-  const { signOut } = useAuth();
-  const { userProfile } = useUser();
+  const auth = useSafeAuth();
+  const user = useSafeUser();
+  const signOut = auth?.signOut;
+  const userProfile = user?.userProfile;
   
   const {
     dates,
     likeDate,
     likePlan,
+    reactToDate,
+    reactToPlan,
     addComment,
     addPlanComment,
     voteOnPoll,
@@ -61,12 +65,34 @@ export default function FeedScreen() {
   
   const handleLike = (dateId: string) => {
     console.log('🔍 Feed: handleLike called with dateId:', dateId);
+    if (!likeDate) {
+      console.error('❌ Feed: likeDate function not available from context');
+      return;
+    }
     likeDate(dateId);
   };
 
   const handleLikePlan = (planId: string) => {
     console.log('🔍 Feed: handleLikePlan called with planId:', planId);
     likePlan(planId);
+  };
+
+  const handleReact = (dateId: string, reaction: any) => {
+    console.log('🔍 Feed: handleReact called with:', { dateId, reaction });
+    if (!reactToDate) {
+      console.error('❌ Feed: reactToDate function not available from context');
+      return;
+    }
+    reactToDate(dateId, reaction);
+  };
+
+  const handleReactPlan = (planId: string, reaction: any) => {
+    console.log('🔍 Feed: handleReactPlan called with:', { planId, reaction });
+    if (!reactToPlan) {
+      console.error('❌ Feed: reactToPlan function not available from context');
+      return;
+    }
+    reactToPlan(planId, reaction);
   };
   
   const handleSubmitComment = async (dateId: string, text: string) => {
@@ -241,7 +267,7 @@ export default function FeedScreen() {
       
       <DateFeed
         data={dates}
-        isRefreshing={isRefreshing || isLoading}
+        isRefreshing={isRefreshing}
         onRefresh={handleRefresh}
         onDatePress={(dateId) => console.log(`Navigate to date detail ${dateId}`)}
         onPersonPress={(personName, authorName) => {
@@ -264,10 +290,12 @@ export default function FeedScreen() {
         }}
         onAuthorPress={handleAuthorPress}
         onLike={handleLike}
+        onReact={handleReact}
         onSubmitComment={handleSubmitComment}
         onEdit={handleEdit}
         onEditRoster={handleEditRoster}
         onLikePlan={handleLikePlan}
+        onReactPlan={handleReactPlan}
         onSubmitPlanComment={handleSubmitPlanComment}
         onEditPlan={handleEditPlan}
         onPollVote={handlePollVote}

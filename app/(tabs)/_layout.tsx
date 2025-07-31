@@ -1,16 +1,26 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform, View, StyleSheet } from 'react-native';
+import { Platform, View, StyleSheet, useColorScheme as useNativeColorScheme } from 'react-native';
 
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  // Try to use theme context, fall back to native color scheme
+  let colorScheme: 'light' | 'dark' = 'light';
+  try {
+    const theme = useTheme();
+    colorScheme = theme.colorScheme;
+  } catch {
+    // Theme context not available, use native
+    const nativeScheme = useNativeColorScheme();
+    colorScheme = nativeScheme ?? 'light';
+  }
+  
+  const colors = Colors[colorScheme];
 
   return (
     <Tabs

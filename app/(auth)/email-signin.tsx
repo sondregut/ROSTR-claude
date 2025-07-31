@@ -9,11 +9,13 @@ import {
   Platform,
   ScrollView,
   Alert,
+  StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { simpleAuth } from '@/services/supabase/simpleAuth';
+import { validateEmail, validatePassword } from '@/utils/validation';
 
 export default function EmailSignInScreen() {
   const router = useRouter();
@@ -21,24 +23,34 @@ export default function EmailSignInScreen() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState<{
+    email?: string;
+    password?: string;
+  }>({});
 
   const handleBack = () => {
     router.back();
   };
 
   const validateForm = () => {
-    if (!email.trim() || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return false;
+    const newErrors: typeof errors = {};
+    let isValid = true;
+
+    // Validate email
+    const emailResult = validateEmail(email);
+    if (!emailResult.isValid) {
+      newErrors.email = emailResult.error;
+      isValid = false;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      return false;
+    // Validate password - just check if it's provided for sign in
+    if (!password) {
+      newErrors.password = 'Password is required';
+      isValid = false;
     }
 
-    return true;
+    setErrors(newErrors);
+    return isValid;
   };
 
   const handleSignIn = async () => {
@@ -46,7 +58,12 @@ export default function EmailSignInScreen() {
 
     setIsLoading(true);
     try {
-      const result = await simpleAuth.signInWithEmail(email, password);
+      // Use sanitized email
+      const emailResult = validateEmail(email);
+      const result = await simpleAuth.signInWithEmail(
+        emailResult.sanitized || email, 
+        password
+      );
 
       if (result.error) {
         throw result.error;
@@ -105,18 +122,21 @@ export default function EmailSignInScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView 
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Header */}
-          <View style={styles.header}>
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="white" />
+      <View style={styles.container}>
+        <SafeAreaView style={styles.safeArea} edges={['top']}>
+          <KeyboardAvoidingView 
+            style={styles.keyboardView}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <ScrollView 
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Header */}
+              <View style={styles.header}>
             <Pressable
               onPress={handleBack}
               style={styles.backButton}
@@ -137,9 +157,12 @@ export default function EmailSignInScreen() {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, errors.email && styles.inputError]}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (errors.email) setErrors({ ...errors, email: undefined });
+                }}
                 placeholder="Enter your email"
                 placeholderTextColor="#999"
                 keyboardType="email-address"
@@ -147,15 +170,21 @@ export default function EmailSignInScreen() {
                 autoCorrect={false}
                 editable={!isLoading}
               />
+              {errors.email && (
+                <Text style={styles.errorText}>{errors.email}</Text>
+              )}
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Password</Text>
               <View style={styles.passwordInputWrapper}>
                 <TextInput
-                  style={[styles.input, styles.passwordInput]}
+                  style={[styles.input, styles.passwordInput, errors.password && styles.inputError]}
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (errors.password) setErrors({ ...errors, password: undefined });
+                  }}
                   placeholder="Enter your password"
                   placeholderTextColor="#999"
                   secureTextEntry={!showPassword}
@@ -173,6 +202,9 @@ export default function EmailSignInScreen() {
                   />
                 </Pressable>
               </View>
+              {errors.password && (
+                <Text style={styles.errorText}>{errors.password}</Text>
+              )}
             </View>
 
             <Pressable
@@ -205,9 +237,11 @@ export default function EmailSignInScreen() {
               </Text>
             </View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </View>
+    </>
   );
 }
 
@@ -215,6 +249,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'white',
+  },
+  safeArea: {
+    flex: 1,
   },
   keyboardView: {
     flex: 1,
@@ -316,5 +353,14 @@ const styles = StyleSheet.create({
   signUpLink: {
     color: '#FE5268',
     fontWeight: '600',
+  },
+  inputError: {
+    borderColor: '#FF3B30',
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
   },
 });

@@ -10,13 +10,14 @@ import { SimpleCircleCard } from '@/components/ui/cards/SimpleCircleCard';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { CircleService } from '@/services/supabase/circles';
-import { useAuth } from '@/contexts/SimpleAuthContext';
+import { useSafeAuth } from '@/hooks/useSafeAuth';
 
 export default function CirclesScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
-  const { user } = useAuth();
+  const auth = useSafeAuth();
+  const user = auth?.user;
   
   const [circles, setCircles] = useState<any[]>([]);
   const [friends, setFriends] = useState<any[]>([]);

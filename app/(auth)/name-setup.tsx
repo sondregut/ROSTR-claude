@@ -15,32 +15,42 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
+import { validateName } from '@/utils/validation';
 
 export default function NameSetupScreen() {
   const router = useRouter();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<{
+    firstName?: string;
+    lastName?: string;
+  }>({});
 
   const handleBack = () => {
     router.back();
   };
 
   const handleContinue = async () => {
-    if (!firstName.trim()) {
-      Alert.alert('Error', 'Please enter your first name');
-      return;
+    const newErrors: typeof errors = {};
+    let isValid = true;
+
+    // Validate first name
+    const firstNameResult = validateName(firstName);
+    if (!firstNameResult.isValid) {
+      newErrors.firstName = firstNameResult.error;
+      isValid = false;
     }
 
-    if (!lastName.trim()) {
-      Alert.alert('Error', 'Please enter your last name');
-      return;
+    // Validate last name
+    const lastNameResult = validateName(lastName);
+    if (!lastNameResult.isValid) {
+      newErrors.lastName = lastNameResult.error;
+      isValid = false;
     }
 
-    if (firstName.trim().length < 2 || lastName.trim().length < 2) {
-      Alert.alert('Error', 'Names must be at least 2 characters');
-      return;
-    }
+    setErrors(newErrors);
+    if (!isValid) return;
 
     try {
       setIsLoading(true);
@@ -54,12 +64,16 @@ export default function NameSetupScreen() {
       
       console.log('📝 Saving name for user:', user.id);
       
+      // Use sanitized values
+      const sanitizedFirstName = firstNameResult.sanitized || firstName.trim();
+      const sanitizedLastName = lastNameResult.sanitized || lastName.trim();
+      const fullName = `${sanitizedFirstName} ${sanitizedLastName}`;
+      
       // Update user's name in Supabase auth metadata
-      const fullName = `${firstName.trim()} ${lastName.trim()}`;
       const { error: authError } = await supabase.auth.updateUser({
         data: {
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
+          first_name: sanitizedFirstName,
+          last_name: sanitizedLastName,
           name: fullName, // Full display name
         },
       });
@@ -95,13 +109,14 @@ export default function NameSetupScreen() {
 
   return (
     <>
-      <StatusBar barStyle="dark-content" />
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <KeyboardAvoidingView 
-          style={styles.keyboardView}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <View style={styles.content}>
+      <StatusBar barStyle="dark-content" backgroundColor="white" />
+      <View style={styles.container}>
+        <SafeAreaView style={styles.safeArea} edges={['top']}>
+          <KeyboardAvoidingView 
+            style={styles.keyboardView}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <View style={styles.content}>
             {/* Progress Bar */}
             <View style={styles.progressContainer}>
               <View style={styles.progressBar}>
@@ -128,9 +143,12 @@ export default function NameSetupScreen() {
             {/* Name Input Section */}
             <View style={styles.inputSection}>
               <TextInput
-                style={styles.nameInput}
+                style={[styles.nameInput, errors.firstName && styles.inputError]}
                 value={firstName}
-                onChangeText={setFirstName}
+                onChangeText={(text) => {
+                  setFirstName(text);
+                  if (errors.firstName) setErrors({ ...errors, firstName: undefined });
+                }}
                 placeholder="First name"
                 placeholderTextColor="#999"
                 autoCapitalize="words"
@@ -138,11 +156,17 @@ export default function NameSetupScreen() {
                 maxLength={50}
                 editable={!isLoading}
               />
+              {errors.firstName && (
+                <Text style={styles.errorText}>{errors.firstName}</Text>
+              )}
               
               <TextInput
-                style={styles.nameInput}
+                style={[styles.nameInput, errors.lastName && styles.inputError]}
                 value={lastName}
-                onChangeText={setLastName}
+                onChangeText={(text) => {
+                  setLastName(text);
+                  if (errors.lastName) setErrors({ ...errors, lastName: undefined });
+                }}
                 placeholder="Last name"
                 placeholderTextColor="#999"
                 autoCapitalize="words"
@@ -150,6 +174,9 @@ export default function NameSetupScreen() {
                 maxLength={50}
                 editable={!isLoading}
               />
+              {errors.lastName && (
+                <Text style={styles.errorText}>{errors.lastName}</Text>
+              )}
               
               <Text style={styles.helperText}>
                 This is how it will appear in Rostr, and you will not be able to change it
@@ -174,9 +201,10 @@ export default function NameSetupScreen() {
                 </Text>
               </Pressable>
             </View>
-          </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </View>
     </>
   );
 }
@@ -185,6 +213,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'white',
+  },
+  safeArea: {
+    flex: 1,
   },
   keyboardView: {
     flex: 1,
@@ -261,5 +292,14 @@ const styles = StyleSheet.create({
   },
   continueButtonTextDisabled: {
     color: '#999',
+  },
+  inputError: {
+    borderBottomColor: '#FF3B30',
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 12,
+    marginTop: -12,
+    marginBottom: 16,
   },
 });

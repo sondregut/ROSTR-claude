@@ -168,15 +168,199 @@ export class UserService {
         return null;
       }
 
+      // Get circles count
+      const circlesCount = await this.getUserCirclesCount(userId);
+
       return {
         totalDates: profile.total_dates,
         activeConnections: profile.active_connections,
         avgRating: profile.avg_rating,
-        circles: 0, // This would come from a circles count query
+        circles: circlesCount,
       };
     } catch (error) {
       console.error('Get user stats error:', error);
       return null;
+    }
+  }
+
+  /**
+   * Get user's circles count
+   */
+  static async getUserCirclesCount(userId: string): Promise<number> {
+    try {
+      const { data, error } = await supabase.rpc('get_user_circles_count', {
+        user_id_param: userId
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return data || 0;
+    } catch (error) {
+      console.error('Get user circles count error:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Get comprehensive user stats including advanced metrics
+   */
+  static async getComprehensiveStats(userId: string) {
+    try {
+      const { data, error } = await supabase.rpc('get_comprehensive_user_stats', {
+        user_id_param: userId
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return data?.[0] || null;
+    } catch (error) {
+      console.error('Get comprehensive stats error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get second date rate
+   */
+  static async getSecondDateRate(userId: string): Promise<number> {
+    try {
+      const { data, error } = await supabase.rpc('calculate_second_date_rate', {
+        user_id_param: userId
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return data || 0;
+    } catch (error) {
+      console.error('Get second date rate error:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Get most used tags
+   */
+  static async getMostUsedTags(userId: string, limit = 5) {
+    try {
+      const { data, error } = await supabase.rpc('get_most_used_tags', {
+        user_id_param: userId,
+        limit_count: limit
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Get most used tags error:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get longest connections
+   */
+  static async getLongestConnections(userId: string, limit = 5) {
+    try {
+      const { data, error } = await supabase.rpc('get_longest_connections', {
+        user_id_param: userId,
+        limit_count: limit
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Get longest connections error:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get dating trends
+   */
+  static async getDatingTrends(userId: string) {
+    try {
+      const { data, error } = await supabase.rpc('get_dating_trends', {
+        user_id_param: userId
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Get dating trends error:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get activity metrics
+   */
+  static async getActivityMetrics(userId: string) {
+    try {
+      const { data, error } = await supabase.rpc('get_activity_metrics', {
+        user_id_param: userId
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return data?.[0] || null;
+    } catch (error) {
+      console.error('Get activity metrics error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get rating breakdown
+   */
+  static async getRatingBreakdown(userId: string) {
+    try {
+      const { data, error } = await supabase.rpc('get_rating_breakdown', {
+        user_id_param: userId
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return data?.[0] || null;
+    } catch (error) {
+      console.error('Get rating breakdown error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Recalculate user stats (total dates, avg rating, etc.)
+   */
+  static async recalculateUserStats(userId: string): Promise<void> {
+    try {
+      // Call the database function to update user stats
+      const { error } = await supabase.rpc('update_user_stats', {
+        user_id_param: userId
+      });
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      console.error('Recalculate user stats error:', error);
+      throw error;
     }
   }
 

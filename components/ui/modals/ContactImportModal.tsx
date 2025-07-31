@@ -18,7 +18,7 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Button } from '@/components/ui/buttons/Button';
 import { ContactService, PhoneContact } from '@/services/contacts/ContactService';
-import { useAuth } from '@/contexts/SimpleAuthContext';
+import { useSafeAuth } from '@/hooks/useSafeAuth';
 
 interface ContactImportModalProps {
   visible: boolean;
@@ -35,7 +35,8 @@ interface ContactSection {
 export function ContactImportModal({ visible, onClose, onInvitesSent, joinCode }: ContactImportModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { user } = useAuth();
+  const auth = useSafeAuth();
+  const user = auth?.user;
 
   const [isLoading, setIsLoading] = useState(true);
   const [contacts, setContacts] = useState<PhoneContact[]>([]);

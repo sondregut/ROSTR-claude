@@ -149,6 +149,15 @@ export default function RosterScreen() {
     },
   ].filter(section => section.data.length > 0); // Only show sections with data
 
+  const handleStatusChange = async (itemId: string, newStatus: 'active' | 'new' | 'fading' | 'ended' | 'ghosted') => {
+    try {
+      await updateEntry(itemId, { status: newStatus });
+    } catch (error) {
+      console.error('Error updating status:', error);
+      Alert.alert('Error', 'Failed to update status');
+    }
+  };
+
   const renderItem = ({ item }: { item: typeof activeRoster[0] }) => (
     <ProfileCard
       id={item.id}
@@ -163,6 +172,7 @@ export default function RosterScreen() {
         router.push(`/person/${encodeURIComponent(item.name)}?rosterId=${item.id}&isOwnRoster=true`);
       }}
       onOptionsPress={() => handleOptionsPress(item)}
+      onStatusPress={(newStatus) => handleStatusChange(item.id, newStatus)}
     />
   );
 

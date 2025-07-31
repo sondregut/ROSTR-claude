@@ -17,11 +17,14 @@ import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { Button } from '@/components/ui/buttons/Button';
 import { ShareAppModal } from '@/components/ui/modals/ShareAppModal';
-import { useUser } from '@/contexts/UserContext';
+import { useSafeUser } from '@/hooks/useSafeUser';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { uploadProfilePhoto } from '@/lib/photoUpload';
 import { supabase } from '@/lib/supabase';
 import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
+import { useEffect } from 'react';
+import { MiniBarChart } from '@/components/ui/charts/MiniBarChart';
+import { ProgressRing } from '@/components/ui/charts/ProgressRing';
 
 
 
@@ -29,11 +32,24 @@ export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
-  const { userProfile, updateProfile, isLoading } = useUser();
+  const user = useSafeUser();
+  const userProfile = user?.userProfile;
+  const updateProfile = user?.updateProfile;
+  const detailedStats = user?.detailedStats;
+  const loadDetailedStats = user?.loadDetailedStats;
+  const isLoading = user?.isLoading || false;
+  const isLoadingStats = user?.isLoadingStats || false;
   
   const [activeTab, setActiveTab] = useState<'about' | 'stats' | 'preferences'>('about');
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  // Load detailed stats when stats tab is selected
+  useEffect(() => {
+    if (activeTab === 'stats' && !detailedStats && !isLoadingStats && loadDetailedStats) {
+      loadDetailedStats();
+    }
+  }, [activeTab, detailedStats, isLoadingStats, loadDetailedStats]);
 
   const handlePhotoUpload = async () => {
     if (!userProfile?.id) {
@@ -318,80 +334,149 @@ export default function ProfileScreen() {
     </View>
   );
 
-  const renderStatsTab = () => (
-    <View style={styles.tabContent}>
-      {/* Average Rating Card */}
-      <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-        <View style={styles.statCardHeader}>
-          <Text style={styles.statEmoji}>📊</Text>
-          <Text style={[styles.statCardTitle, { color: colors.text }]}>Average Rating</Text>
+  const renderStatsTab = () => {
+    if (isLoadingStats) {
+      return (
+        <View style={[styles.tabContent, styles.loadingContainer]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading stats...</Text>
         </View>
-        <Text style={[styles.largeStatValue, { color: colors.primary }]}>{userProfile.stats.avgRating}</Text>
-        <Text style={[styles.statSubtext, { color: colors.textSecondary }]}>out of 5</Text>
-        <View style={styles.statBreakdown}>
-          <Text style={[styles.breakdownText, { color: colors.textSecondary }]}>
-            First dates: -
-          </Text>
-          <Text style={[styles.breakdownText, { color: colors.textSecondary }]}>
-            Second dates: -
-          </Text>
-        </View>
-      </View>
+      );
+    }
 
-      {/* Dating Activity Card */}
-      <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-        <View style={styles.statCardHeader}>
-          <Text style={styles.statEmoji}>📅</Text>
-          <Text style={[styles.statCardTitle, { color: colors.text }]}>Dating Activity</Text>
-        </View>
-        <Text style={[styles.largeStatValue, { color: colors.primary }]}>{userProfile.stats.totalDates}</Text>
-        <Text style={[styles.statSubtext, { color: colors.textSecondary }]}>dates this month</Text>
-        <Text style={[styles.trendText, { color: colors.statusActive }]}>
-          View trends
-        </Text>
-      </View>
-
-      {/* Success Rate Card */}
-      <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-        <View style={styles.statCardHeader}>
-          <Text style={styles.statEmoji}>👥</Text>
-          <Text style={[styles.statCardTitle, { color: colors.text }]}>Success Rate</Text>
-        </View>
-        <Text style={[styles.largeStatValue, { color: colors.primary }]}>-</Text>
-        <Text style={[styles.statSubtext, { color: colors.textSecondary }]}>Second date rate</Text>
-        <Text style={[styles.successText, { color: colors.statusActive }]}>Above average</Text>
-      </View>
-
-      {/* Most-used Tags */}
-      <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-        <View style={styles.statCardHeader}>
-          <Text style={styles.statEmoji}>⭐</Text>
-          <Text style={[styles.statCardTitle, { color: colors.text }]}>Most-used Tags</Text>
-        </View>
-        {[].map((item, index) => (
-          <View key={index} style={styles.tagStatItem}>
-            <Text style={[styles.tagName, { color: colors.text }]}>{item.tag}</Text>
-            <Text style={[styles.tagCount, { color: colors.textSecondary }]}>{item.count}</Text>
+    return (
+      <View style={styles.tabContent}>
+        {/* Average Rating Card */}
+        <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+          <View style={styles.statCardHeader}>
+            <Text style={styles.statEmoji}>📊</Text>
+            <Text style={[styles.statCardTitle, { color: colors.text }]}>Average Rating</Text>
           </View>
-        ))}
-      </View>
-
-      {/* Longest Connections */}
-      <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-        <View style={styles.statCardHeader}>
-          <Text style={styles.statEmoji}>❤️</Text>
-          <Text style={[styles.statCardTitle, { color: colors.text }]}>Longest Connections</Text>
+          <Text style={[styles.largeStatValue, { color: colors.primary }]}>{userProfile.stats.avgRating}</Text>
+          <Text style={[styles.statSubtext, { color: colors.textSecondary }]}>out of 5</Text>
+          {detailedStats && (
+            <View style={styles.statBreakdown}>
+              <Text style={[styles.breakdownText, { color: colors.textSecondary }]}>
+                First dates: {detailedStats.firstDateAvgRating || 'N/A'}
+              </Text>
+              <Text style={[styles.breakdownText, { color: colors.textSecondary }]}>
+                Second dates: {detailedStats.secondDateAvgRating || 'N/A'}
+              </Text>
+            </View>
+          )}
         </View>
-        {[].map((connection) => (
-          <View key={connection.id} style={styles.connectionItem}>
-            <Image source={{ uri: connection.avatar }} style={styles.connectionAvatar} />
-            <Text style={[styles.connectionName, { color: colors.text }]}>{connection.name}</Text>
-            <Text style={[styles.connectionDates, { color: colors.textSecondary }]}>{connection.dates} dates</Text>
+
+        {/* Dating Activity Card */}
+        <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+          <View style={styles.statCardHeader}>
+            <Text style={styles.statEmoji}>📅</Text>
+            <Text style={[styles.statCardTitle, { color: colors.text }]}>Dating Activity</Text>
           </View>
-        ))}
+          <Text style={[styles.largeStatValue, { color: colors.primary }]}>
+            {detailedStats?.datesThisMonth || 0}
+          </Text>
+          <Text style={[styles.statSubtext, { color: colors.textSecondary }]}>dates this month</Text>
+          {detailedStats && detailedStats.datesLastMonth > 0 && (
+            <Text style={[styles.trendText, { 
+              color: detailedStats.datesThisMonth > detailedStats.datesLastMonth 
+                ? colors.statusActive 
+                : colors.textSecondary 
+            }]}>
+              {detailedStats.datesThisMonth > detailedStats.datesLastMonth ? '↑' : '↓'} 
+              {' '}{Math.abs(detailedStats.datesThisMonth - detailedStats.datesLastMonth)} from last month
+            </Text>
+          )}
+        </View>
+
+        {/* Success Rate Card */}
+        <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+          <View style={styles.statCardHeader}>
+            <Text style={styles.statEmoji}>👥</Text>
+            <Text style={[styles.statCardTitle, { color: colors.text }]}>Success Rate</Text>
+          </View>
+          <View style={styles.progressRingContainer}>
+            <ProgressRing 
+              percentage={detailedStats?.secondDateRate || 0} 
+              size={100}
+              strokeWidth={10}
+            />
+          </View>
+          <Text style={[styles.statSubtext, { color: colors.textSecondary }]}>Second date rate</Text>
+          {detailedStats && detailedStats.secondDateRate > 0 && (
+            <Text style={[styles.successText, { 
+              color: detailedStats.secondDateRate >= 30 ? colors.statusActive : colors.textSecondary 
+            }]}>
+              {detailedStats.secondDateRate >= 30 ? 'Above average' : 'Building connections'}
+            </Text>
+          )}
+        </View>
+
+        {/* Most-used Tags */}
+        {detailedStats && detailedStats.mostUsedTags.length > 0 && (
+          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <View style={styles.statCardHeader}>
+              <Text style={styles.statEmoji}>⭐</Text>
+              <Text style={[styles.statCardTitle, { color: colors.text }]}>Most-used Tags</Text>
+            </View>
+            {detailedStats.mostUsedTags.map((item, index) => (
+              <View key={index} style={styles.tagStatItem}>
+                <Text style={[styles.tagName, { color: colors.text }]}>{item.tag}</Text>
+                <Text style={[styles.tagCount, { color: colors.textSecondary }]}>{item.usage_count}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Longest Connections */}
+        {detailedStats && detailedStats.longestConnections.length > 0 && (
+          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <View style={styles.statCardHeader}>
+              <Text style={styles.statEmoji}>❤️</Text>
+              <Text style={[styles.statCardTitle, { color: colors.text }]}>Longest Connections</Text>
+            </View>
+            {detailedStats.longestConnections.map((connection, index) => (
+              <View key={index} style={styles.connectionItem}>
+                <View style={[styles.connectionAvatar, { backgroundColor: colors.border }]}>
+                  <Text style={[styles.connectionInitial, { color: colors.text }]}>
+                    {connection.person_name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <Text style={[styles.connectionName, { color: colors.text }]}>{connection.person_name}</Text>
+                <Text style={[styles.connectionDates, { color: colors.textSecondary }]}>
+                  {connection.date_count} dates
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Dating Trends */}
+        {detailedStats && detailedStats.datingTrends.length > 0 && (
+          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <View style={styles.statCardHeader}>
+              <Text style={styles.statEmoji}>📈</Text>
+              <Text style={[styles.statCardTitle, { color: colors.text }]}>Dating Trends</Text>
+            </View>
+            <MiniBarChart
+              data={detailedStats.datingTrends.slice(0, 6).reverse().map(trend => ({
+                label: trend.month_year.split(' ')[0].substring(0, 3),
+                value: trend.date_count
+              }))}
+              height={120}
+            />
+            <View style={styles.trendSummary}>
+              <Text style={[styles.trendSummaryText, { color: colors.textSecondary }]}>
+                Last 6 months • Avg {Math.round(
+                  detailedStats.datingTrends.slice(0, 6).reduce((sum, t) => sum + t.date_count, 0) / 
+                  Math.min(6, detailedStats.datingTrends.length)
+                )} dates/month
+              </Text>
+            </View>
+          </View>
+        )}
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderPreferencesTab = () => (
     <View style={styles.tabContent}>
@@ -716,6 +801,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  connectionInitial: {
+    fontSize: 18,
+    fontWeight: '600',
   },
   connectionName: {
     fontSize: 16,
@@ -723,6 +814,41 @@ const styles = StyleSheet.create({
   },
   connectionDates: {
     fontSize: 16,
+  },
+  trendItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  trendMonth: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  trendDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  trendCount: {
+    fontSize: 14,
+  },
+  trendRating: {
+    fontSize: 14,
+  },
+  progressRingContainer: {
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  trendSummary: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  trendSummaryText: {
+    fontSize: 14,
+    textAlign: 'center',
   },
   preferenceItem: {
     flexDirection: 'row',

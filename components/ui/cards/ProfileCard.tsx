@@ -11,9 +11,10 @@ interface ProfileCardProps {
   lastDate?: string;
   nextDate?: string;
   rating?: number;
-  status?: 'active' | 'new' | 'fading' | 'ended';
+  status?: 'active' | 'new' | 'fading' | 'ended' | 'ghosted';
   onPress?: () => void;
   onOptionsPress?: () => void;
+  onStatusPress?: (newStatus: 'active' | 'new' | 'fading' | 'ended' | 'ghosted') => void;
 }
 
 export function ProfileCard({
@@ -25,9 +26,25 @@ export function ProfileCard({
   status,
   onPress,
   onOptionsPress,
+  onStatusPress,
 }: ProfileCardProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+
+  // Define the status cycle order
+  const statusCycle: Array<'new' | 'active' | 'fading' | 'ended' | 'ghosted'> = ['new', 'active', 'fading', 'ended', 'ghosted'];
+  
+  const handleStatusPress = () => {
+    if (!onStatusPress || !status) return;
+    
+    // Find current status index
+    const currentIndex = statusCycle.indexOf(status);
+    // Get next status in cycle (wrap around to beginning)
+    const nextIndex = (currentIndex + 1) % statusCycle.length;
+    const nextStatus = statusCycle[nextIndex];
+    
+    onStatusPress(nextStatus);
+  };
 
   const getStatusColor = () => {
     switch(status) {
@@ -95,9 +112,15 @@ export function ProfileCard({
         </View>
         
         {status && (
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor() + '20' }]}>
+          <Pressable
+            style={[styles.statusBadge, { backgroundColor: getStatusColor() + '20' }]}
+            onPress={handleStatusPress}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel={`Change status from ${getStatusText()}`}
+          >
             <Text style={[styles.statusText, { color: getStatusColor() }]}>{getStatusText()}</Text>
-          </View>
+          </Pressable>
         )}
         
         <Pressable 

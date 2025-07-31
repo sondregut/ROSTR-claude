@@ -45,6 +45,8 @@ interface DateEntry {
   likeCount: number;
   commentCount: number;
   isLiked?: boolean;
+  reactions?: any;
+  userReaction?: any;
   entryType?: 'date' | 'roster_addition' | 'plan';
   rosterInfo?: {
     age?: number;
@@ -73,10 +75,12 @@ interface DateFeedProps {
   onPersonHistoryPress?: (personName: string, authorName?: string) => void;
   onAuthorPress?: (authorUsername: string) => void;
   onLike?: (dateId: string) => void;
+  onReact?: (dateId: string, reaction: any) => void;
   onSubmitComment?: (dateId: string, text: string) => Promise<void>;
   onEdit?: (dateId: string) => void;
   onEditRoster?: (dateId: string) => void;
   onLikePlan?: (planId: string) => void;
+  onReactPlan?: (planId: string, reaction: any) => void;
   onSubmitPlanComment?: (planId: string, text: string) => Promise<void>;
   onEditPlan?: (planId: string) => void;
   onPollVote?: (dateId: string, optionIndex: number) => void;
@@ -95,10 +99,12 @@ export function DateFeed({
   onPersonHistoryPress,
   onAuthorPress,
   onLike,
+  onReact,
   onSubmitComment,
   onEdit,
   onEditRoster,
   onLikePlan,
+  onReactPlan,
   onSubmitPlanComment,
   onEditPlan,
   onPollVote,
@@ -130,9 +136,12 @@ export function DateFeed({
           }}
           onSubmitComment={onSubmitComment ? (text) => onSubmitComment(item.id, text) : undefined}
           onEdit={item.isOwnPost && onEditRoster ? () => onEditRoster(item.id) : undefined}
+          onReact={onReact ? (reaction) => onReact(item.id, reaction) : undefined}
           likeCount={item.likeCount}
           commentCount={item.commentCount}
           isLiked={item.isLiked}
+          reactions={item.reactions}
+          userReaction={item.userReaction}
           comments={item.comments}
         />
       );
@@ -155,15 +164,20 @@ export function DateFeed({
         likeCount: item.likeCount,
         commentCount: item.commentCount,
         isLiked: item.isLiked || false,
+        reactions: item.reactions,
+        userReaction: item.userReaction,
         comments: item.comments || [],
       };
 
       return (
         <PlanCard
           plan={planData}
+          personPhoto={item.rosterInfo?.photos?.[0]}
           onLike={() => onLikePlan?.(item.id)}
+          onReact={onReactPlan ? (reaction) => onReactPlan(item.id, reaction) : undefined}
           onSubmitComment={onSubmitPlanComment ? (text) => onSubmitPlanComment(item.id, text) : undefined}
           onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
+          onAuthorPress={() => onAuthorPress?.(item.authorUsername || '')}
           onEdit={item.isOwnPost && onEditPlan ? () => onEditPlan(item.id) : undefined}
           showEditOptions={item.isOwnPost}
         />
@@ -174,6 +188,7 @@ export function DateFeed({
       <DateCard
         id={item.id}
         personName={item.personName}
+        personPhoto={item.rosterInfo?.photos?.[0]}
         date={item.date}
         location={item.location}
         rating={item.rating}
@@ -190,14 +205,22 @@ export function DateFeed({
         likeCount={item.likeCount}
         commentCount={item.commentCount}
         isLiked={item.isLiked}
+        reactions={item.reactions}
+        userReaction={item.userReaction}
         onPress={() => onDatePress?.(item.id)}
         onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
         onPersonHistoryPress={() => onPersonHistoryPress?.(item.personName, item.authorName)}
         onAuthorPress={() => onAuthorPress?.(item.authorUsername || '')}
         onLike={() => {
-          console.log('🔍 DateFeed: onLike called for item:', item.id, item.personName);
-          onLike?.(item.id);
+          console.log('🔍 DateFeed: RosterCard onLike called for item:', item.id, item.personName, 'entryType:', item.entryType);
+          if (onLike) {
+            console.log('🔍 DateFeed: Calling parent onLike function');
+            onLike(item.id);
+          } else {
+            console.log('❌ DateFeed: No onLike handler provided');
+          }
         }}
+        onReact={onReact ? (reaction) => onReact(item.id, reaction) : undefined}
         onSubmitComment={onSubmitComment ? (text) => onSubmitComment(item.id, text) : undefined}
         onEdit={item.isOwnPost && onEdit ? () => onEdit(item.id) : undefined}
         onPollVote={onPollVote}

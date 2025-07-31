@@ -32,10 +32,35 @@ export interface UserProfile {
   };
 }
 
+export interface DetailedStats {
+  secondDateRate: number;
+  datesThisMonth: number;
+  datesLastMonth: number;
+  avgRatingThisMonth: number;
+  firstDateAvgRating: number;
+  secondDateAvgRating: number;
+  mostUsedTags: Array<{ tag: string; usage_count: number }>;
+  longestConnections: Array<{
+    person_name: string;
+    date_count: number;
+    avg_rating: number;
+    first_date: string;
+    last_date: string;
+  }>;
+  datingTrends: Array<{
+    month_year: string;
+    date_count: number;
+    avg_rating: number;
+  }>;
+}
+
 interface UserContextType {
   userProfile: UserProfile | null;
+  detailedStats: DetailedStats | null;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
+  loadDetailedStats: () => Promise<void>;
   isLoading: boolean;
+  isLoadingStats: boolean;
   error: string | null;
 }
 
@@ -44,7 +69,9 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [detailedStats, setDetailedStats] = useState<DetailedStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Transform database profile to UserProfile interface
@@ -98,19 +125,34 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       const dbProfile = await UserService.getProfile(user.id);
       
       if (dbProfile) {
-        // Get user stats including circles count
-        const stats = await UserService.getUserStats(user.id);
-        
-        // Transform and set profile
-        const transformedProfile = transformProfile(dbProfile);
-        if (transformedProfile && stats) {
-          transformedProfile.stats = {
-            ...transformedProfile.stats,
-            ...stats,
-          };
+        // Recalculate stats to ensure they're accurate
+        try {
+          await UserService.recalculateUserStats(user.id);
+          // Reload profile with updated stats
+          const updatedProfile = await UserService.getProfile(user.id);
+          if (updatedProfile) {
+            // Get user stats including circles count
+            const stats = await UserService.getUserStats(user.id);
+            
+            // Transform and set profile
+            const transformedProfile = transformProfile(updatedProfile);
+            if (transformedProfile && stats) {
+              transformedProfile.stats = {
+                ...transformedProfile.stats,
+                ...stats,
+              };
+            }
+            
+            setUserProfile(transformedProfile);
+          } else {
+            setUserProfile(null);
+          }
+        } catch (statsError) {
+          console.error('Error recalculating stats:', statsError);
+          // If stats recalculation fails, still use the original profile
+          const transformedProfile = transformProfile(dbProfile);
+          setUserProfile(transformedProfile);
         }
-        
-        setUserProfile(transformedProfile);
       } else {
         setUserProfile(null);
       }
@@ -119,6 +161,66 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setError('Failed to load profile');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Load detailed statistics
+  const loadDetailedStats = async () => {
+    if (!user) {
+      setDetailedStats(null);
+      return;
+    }
+
+    try {
+      setIsLoadingStats(true);
+      
+      // Load all detailed stats in parallel
+      const [
+        secondDateRate,
+        activityMetrics,
+        ratingBreakdown,
+        mostUsedTags,
+        longestConnections,
+        datingTrends
+      ] = await Promise.all([
+        UserService.getSecondDateRate(user.id),
+        UserService.getActivityMetrics(user.id),
+        UserService.getRatingBreakdown(user.id),
+        UserService.getMostUsedTags(user.id, 5),
+        UserService.getLongestConnections(user.id, 3),
+        UserService.getDatingTrends(user.id)
+      ]);
+
+      const stats: DetailedStats = {
+        secondDateRate,
+        datesThisMonth: activityMetrics?.dates_this_month || 0,
+        datesLastMonth: activityMetrics?.dates_last_month || 0,
+        avgRatingThisMonth: activityMetrics?.avg_rating_this_month || 0,
+        firstDateAvgRating: ratingBreakdown?.first_date_avg_rating || 0,
+        secondDateAvgRating: ratingBreakdown?.second_date_avg_rating || 0,
+        mostUsedTags: mostUsedTags.map(tag => ({
+          tag: tag.tag,
+          usage_count: Number(tag.usage_count)
+        })),
+        longestConnections: longestConnections.map(conn => ({
+          person_name: conn.person_name,
+          date_count: Number(conn.date_count),
+          avg_rating: Number(conn.avg_rating),
+          first_date: conn.first_date,
+          last_date: conn.last_date
+        })),
+        datingTrends: datingTrends.map(trend => ({
+          month_year: trend.month_year,
+          date_count: Number(trend.date_count),
+          avg_rating: Number(trend.avg_rating)
+        }))
+      };
+
+      setDetailedStats(stats);
+    } catch (err) {
+      console.error('Error loading detailed stats:', err);
+    } finally {
+      setIsLoadingStats(false);
     }
   };
 
@@ -180,8 +282,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const value = {
     userProfile,
+    detailedStats,
     updateProfile,
+    loadDetailedStats,
     isLoading,
+    isLoadingStats,
     error,
   };
 

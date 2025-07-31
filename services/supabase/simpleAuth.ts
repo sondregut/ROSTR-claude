@@ -2,6 +2,8 @@ import { supabase } from '@/lib/supabase';
 import { AuthError, Session, User } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import rateLimiter from '@/services/rateLimiter';
+import { log } from '@/services/logger';
 
 export interface AuthResult {
   user: User | null;

@@ -176,7 +176,27 @@ export const DateService = {
         return acc;
       }, {} as Record<string, Array<{ name: string; content: string; imageUri: string }>>) || {};
 
-      // Transform dates with likes, comments, and polls
+      // Get roster photos for each person mentioned in dates
+      const personNames = [...new Set(dates?.map(d => d.person_name) || [])];
+      const userIds = [...new Set(dates?.map(d => d.user_id) || [])];
+      
+      let rosterPhotos: Record<string, string | undefined> = {};
+      if (personNames.length > 0 && userIds.length > 0) {
+        const { data: rosterEntries } = await supabase
+          .from('roster_entries')
+          .select('user_id, name, photos')
+          .in('name', personNames)
+          .in('user_id', userIds);
+        
+        // Create a map of user_id + name -> photo
+        rosterPhotos = rosterEntries?.reduce((acc, entry) => {
+          const key = `${entry.user_id}_${entry.name}`;
+          acc[key] = entry.photos?.[0];
+          return acc;
+        }, {} as Record<string, string | undefined>) || {};
+      }
+
+      // Transform dates with likes, comments, polls, and roster photos
       const transformedDates = dates?.map(date => {
         // Update poll options with actual vote counts
         let poll = undefined;
@@ -191,6 +211,14 @@ export const DateService = {
           };
         }
 
+        // Get roster photo for this person
+        const rosterKey = `${date.user_id}_${date.person_name}`;
+        const rosterPhoto = rosterPhotos[rosterKey];
+
+        // If this is a roster addition, use the photo from roster_info
+        // Otherwise, try to get it from the roster entries
+        let personPhoto = date.roster_info?.photos?.[0] || rosterPhoto;
+
         return {
           ...date,
           isLiked: likedDateIds.has(date.id),
@@ -200,6 +228,10 @@ export const DateService = {
           authorAvatar: date.user?.image_uri,
           poll,
           userPollVote: userVotesByDate[date.id] ?? null,
+          roster_info: {
+            ...date.roster_info,
+            photos: date.roster_info?.photos || (personPhoto ? [personPhoto] : []),
+          },
         };
       }) || [];
 
@@ -279,14 +311,42 @@ export const DateService = {
         return acc;
       }, {} as Record<string, number>) || {};
 
-      // Transform plans with likes and comments
-      const transformedPlans = plans?.map(plan => ({
-        ...plan,
-        isLiked: likedPlanIds.has(plan.id),
-        likeCount: likeCountsByPlan[plan.id] || 0,
-        commentCount: commentsByPlan[plan.id]?.length || 0,
-        comments: commentsByPlan[plan.id] || [],
-      })) || [];
+      // Get roster photos for people in plans
+      const planPersonNames = [...new Set(plans?.map(p => p.person_name) || [])];
+      const planUserIds = [...new Set(plans?.map(p => p.user_id) || [])];
+      
+      let planRosterPhotos: Record<string, string | undefined> = {};
+      if (planPersonNames.length > 0 && planUserIds.length > 0) {
+        const { data: rosterEntries } = await supabase
+          .from('roster_entries')
+          .select('user_id, name, photos')
+          .in('name', planPersonNames)
+          .in('user_id', planUserIds);
+        
+        // Create a map of user_id + name -> photo
+        planRosterPhotos = rosterEntries?.reduce((acc, entry) => {
+          const key = `${entry.user_id}_${entry.name}`;
+          acc[key] = entry.photos?.[0];
+          return acc;
+        }, {} as Record<string, string | undefined>) || {};
+      }
+
+      // Transform plans with likes, comments, and roster photos
+      const transformedPlans = plans?.map(plan => {
+        const rosterKey = `${plan.user_id}_${plan.person_name}`;
+        const rosterPhoto = planRosterPhotos[rosterKey];
+        
+        return {
+          ...plan,
+          isLiked: likedPlanIds.has(plan.id),
+          likeCount: likeCountsByPlan[plan.id] || 0,
+          commentCount: commentsByPlan[plan.id]?.length || 0,
+          comments: commentsByPlan[plan.id] || [],
+          roster_info: {
+            photos: rosterPhoto ? [rosterPhoto] : [],
+          },
+        };
+      }) || [];
 
       return transformedPlans;
     } catch (error) {
@@ -520,35 +580,63 @@ export const DateService = {
 
   // Like a date entry
   async likeDate(id: string, userId: string) {
+    console.log('🔍 DateService.likeDate called with:', { id, userId });
+    
     try {
       // Check if already liked
-      const { data: existing } = await supabase
+      const { data: existing, error: checkError } = await supabase
         .from('date_likes')
         .select('id')
         .eq('date_entry_id', id)
         .eq('user_id', userId)
         .single();
+      
+      console.log('🔍 DateService: Existing like check:', { existing, checkError });
 
       if (existing) {
+        console.log('🔍 DateService: Unliking date...');
         // Unlike
-        await supabase
+        const { error: deleteError } = await supabase
           .from('date_likes')
           .delete()
           .eq('id', existing.id);
+        
+        if (deleteError) {
+          console.error('❌ DateService: Error deleting like:', deleteError);
+          throw deleteError;
+        }
 
         // Decrement like count
-        await supabase.rpc('decrement_date_like_count', { date_id: id });
+        const { error: decrementError } = await supabase.rpc('decrement_date_like_count', { date_id: id });
+        if (decrementError) {
+          console.error('❌ DateService: Error decrementing like count:', decrementError);
+          throw decrementError;
+        }
+        
+        console.log('✅ DateService: Successfully unliked');
       } else {
+        console.log('🔍 DateService: Liking date...');
         // Like
-        await supabase
+        const { error: insertError } = await supabase
           .from('date_likes')
           .insert({
             date_entry_id: id,
             user_id: userId,
           });
+        
+        if (insertError) {
+          console.error('❌ DateService: Error inserting like:', insertError);
+          throw insertError;
+        }
 
         // Increment like count
-        await supabase.rpc('increment_date_like_count', { date_id: id });
+        const { error: incrementError } = await supabase.rpc('increment_date_like_count', { date_id: id });
+        if (incrementError) {
+          console.error('❌ DateService: Error incrementing like count:', incrementError);
+          throw incrementError;
+        }
+        
+        console.log('✅ DateService: Successfully liked');
       }
     } catch (error) {
       console.error('Error liking date:', error);
@@ -809,6 +897,150 @@ export const DateService = {
       }
     } catch (error) {
       console.error('Error voting on poll:', error);
+      throw error;
+    }
+  },
+
+  // React to a date entry
+  async reactToDate(id: string, reaction: string | null, userId: string) {
+    console.log('🔍 DateService.reactToDate called with:', { id, reaction, userId });
+    
+    try {
+      // Check if user has existing reaction
+      const { data: existing, error: checkError } = await supabase
+        .from('date_reactions')
+        .select('id, reaction_type')
+        .eq('date_entry_id', id)
+        .eq('user_id', userId)
+        .single();
+      
+      console.log('🔍 DateService: Existing reaction check:', { existing, checkError });
+
+      if (existing) {
+        if (reaction === null) {
+          console.log('🔍 DateService: Removing reaction...');
+          // Remove reaction
+          const { error: deleteError } = await supabase
+            .from('date_reactions')
+            .delete()
+            .eq('id', existing.id);
+          
+          if (deleteError) {
+            console.error('❌ DateService: Error deleting reaction:', deleteError);
+            throw deleteError;
+          }
+          
+          console.log('✅ DateService: Successfully removed reaction');
+        } else if (existing.reaction_type !== reaction) {
+          console.log('🔍 DateService: Updating reaction...');
+          // Update reaction
+          const { error: updateError } = await supabase
+            .from('date_reactions')
+            .update({
+              reaction_type: reaction,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existing.id);
+          
+          if (updateError) {
+            console.error('❌ DateService: Error updating reaction:', updateError);
+            throw updateError;
+          }
+          
+          console.log('✅ DateService: Successfully updated reaction');
+        }
+      } else if (reaction !== null) {
+        console.log('🔍 DateService: Adding new reaction...');
+        // Add new reaction
+        const { error: insertError } = await supabase
+          .from('date_reactions')
+          .insert({
+            date_entry_id: id,
+            user_id: userId,
+            reaction_type: reaction,
+          });
+        
+        if (insertError) {
+          console.error('❌ DateService: Error inserting reaction:', insertError);
+          throw insertError;
+        }
+        
+        console.log('✅ DateService: Successfully added reaction');
+      }
+    } catch (error) {
+      console.error('Error reacting to date:', error);
+      throw error;
+    }
+  },
+
+  // React to a planned date
+  async reactToPlan(id: string, reaction: string | null, userId: string) {
+    console.log('🔍 DateService.reactToPlan called with:', { id, reaction, userId });
+    
+    try {
+      // Check if user has existing reaction
+      const { data: existing, error: checkError } = await supabase
+        .from('plan_reactions')
+        .select('id, reaction_type')
+        .eq('plan_id', id)
+        .eq('user_id', userId)
+        .single();
+      
+      console.log('🔍 DateService: Existing plan reaction check:', { existing, checkError });
+
+      if (existing) {
+        if (reaction === null) {
+          console.log('🔍 DateService: Removing plan reaction...');
+          // Remove reaction
+          const { error: deleteError } = await supabase
+            .from('plan_reactions')
+            .delete()
+            .eq('id', existing.id);
+          
+          if (deleteError) {
+            console.error('❌ DateService: Error deleting plan reaction:', deleteError);
+            throw deleteError;
+          }
+          
+          console.log('✅ DateService: Successfully removed plan reaction');
+        } else if (existing.reaction_type !== reaction) {
+          console.log('🔍 DateService: Updating plan reaction...');
+          // Update reaction
+          const { error: updateError } = await supabase
+            .from('plan_reactions')
+            .update({
+              reaction_type: reaction,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existing.id);
+          
+          if (updateError) {
+            console.error('❌ DateService: Error updating plan reaction:', updateError);
+            throw updateError;
+          }
+          
+          console.log('✅ DateService: Successfully updated plan reaction');
+        }
+      } else if (reaction !== null) {
+        console.log('🔍 DateService: Adding new plan reaction...');
+        // Add new reaction
+        const { error: insertError } = await supabase
+          .from('plan_reactions')
+          .insert({
+            plan_id: id,
+            user_id: userId,
+            reaction_type: reaction,
+          });
+        
+        if (insertError) {
+          console.error('❌ DateService: Error inserting plan reaction:', insertError);
+          throw insertError;
+        }
+        
+        console.log('✅ DateService: Successfully added plan reaction');
+      }
+    } catch (error) {
+      console.error('Error reacting to plan:', error);
       throw error;
     }
   },

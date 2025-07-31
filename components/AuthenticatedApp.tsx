@@ -1,9 +1,11 @@
 import React from 'react';
 import { useRouter, useSegments } from 'expo-router';
-import { useAuth } from '@/contexts/SimpleAuthContext';
+import { useSafeAuth } from '@/hooks/useSafeAuth';
 
 export function AuthenticatedApp({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const auth = useSafeAuth();
+  const isAuthenticated = auth?.isAuthenticated || false;
+  const isLoading = auth?.isLoading || false;
   const segments = useSegments();
   const router = useRouter();
 
@@ -15,9 +17,9 @@ export function AuthenticatedApp({ children }: { children: React.ReactNode }) {
     const inAuthGroup = segments[0] === '(auth)';
 
     if (!isAuthenticated && !inAuthGroup) {
-      // User is not authenticated and not in auth screens, redirect to welcome
-      console.log('🔀 Redirecting to welcome (not authenticated)');
-      router.replace('/(auth)/welcome-new');
+      // User is not authenticated and not in auth screens, redirect to onboarding
+      console.log('🔀 Redirecting to onboarding (not authenticated)');
+      router.replace('/(auth)/onboarding-welcome');
     } else if (isAuthenticated && inAuthGroup) {
       // User is authenticated but still in auth screens, redirect to main app
       console.log('🔀 Redirecting to main app (authenticated)');

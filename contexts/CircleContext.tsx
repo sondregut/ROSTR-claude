@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CircleService, Circle, CircleMember } from '@/services/supabase/circles';
-import { useAuth } from '@/contexts/SimpleAuthContext';
+import { useSafeAuth } from '@/hooks/useSafeAuth';
 
 interface CircleWithDetails extends Circle {
   members: CircleMember[];
@@ -25,14 +25,15 @@ interface CircleContextType {
 const CircleContext = createContext<CircleContextType | undefined>(undefined);
 
 export function CircleProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const auth = useSafeAuth();
+  const user = auth?.user;
   const [circles, setCircles] = useState<Circle[]>([]);
   const [currentCircle, setCurrentCircle] = useState<CircleWithDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Load user's circles
-  const loadCircles = async () => {
+  const loadCircles = async (isRefresh = false) => {
     if (!user) {
       setCircles([]);
       setIsLoading(false);
@@ -40,7 +41,10 @@ export function CircleProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      setIsLoading(true);
+      // Only show loading state if not refreshing or if there's no existing data
+      if (!isRefresh || circles.length === 0) {
+        setIsLoading(true);
+      }
       setError(null);
       
       const userCircles = await CircleService.getUserCircles(user.id);
@@ -180,7 +184,7 @@ export function CircleProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshCircles = async () => {
-    await loadCircles();
+    await loadCircles(true);
   };
 
   const value = {

@@ -1,6 +1,5 @@
 import React from 'react';
 import { Stack } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Colors } from '@/constants/Colors';
 
@@ -9,9 +8,8 @@ export default function AuthLayout() {
   const colors = Colors.light;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-        <Stack
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
+      <Stack
         screenOptions={{
           headerShown: false,
           gestureEnabled: true,
@@ -19,6 +17,7 @@ export default function AuthLayout() {
           animation: 'slide_from_right',
         }}
       >
+        <Stack.Screen name="onboarding-welcome" />
         <Stack.Screen name="welcome-new" />
         <Stack.Screen name="email-signup" />
         <Stack.Screen name="email-signin" />
@@ -39,7 +38,6 @@ export default function AuthLayout() {
         <Stack.Screen name="verify-phone" />
         <Stack.Screen name="trouble-signin" />
       </Stack>
-      </SafeAreaView>
     </GestureHandlerRootView>
   );
 }

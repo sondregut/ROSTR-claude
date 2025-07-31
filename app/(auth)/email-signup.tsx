@@ -9,49 +9,68 @@ import {
   Platform,
   ScrollView,
   Alert,
+  StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '@/contexts/SimpleAuthContext';
+import { useSafeAuth } from '@/hooks/useSafeAuth';
+import { validateEmail, validatePassword, validateName } from '@/utils/validation';
 
 export default function EmailSignUpScreen() {
   const router = useRouter();
-  const { signUp } = useAuth();
+  const auth = useSafeAuth();
+  const signUp = auth?.signUp;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState<{
+    fullName?: string;
+    email?: string;
+    password?: string;
+    confirmPassword?: string;
+  }>({});
 
   const handleBack = () => {
     router.back();
   };
 
   const validateForm = () => {
-    if (!email.trim() || !password || !confirmPassword || !fullName.trim()) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return false;
+    const newErrors: typeof errors = {};
+    let isValid = true;
+
+    // Validate full name
+    const nameResult = validateName(fullName);
+    if (!nameResult.isValid) {
+      newErrors.fullName = nameResult.error;
+      isValid = false;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      return false;
+    // Validate email
+    const emailResult = validateEmail(email);
+    if (!emailResult.isValid) {
+      newErrors.email = emailResult.error;
+      isValid = false;
     }
 
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
-      return false;
+    // Validate password
+    const passwordResult = validatePassword(password);
+    if (!passwordResult.isValid) {
+      newErrors.password = passwordResult.error;
+      isValid = false;
     }
 
+    // Validate password confirmation
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
-      return false;
+      newErrors.confirmPassword = 'Passwords do not match';
+      isValid = false;
     }
 
-    return true;
+    setErrors(newErrors);
+    return isValid;
   };
 
   const handleSignUp = async () => {
@@ -59,7 +78,19 @@ export default function EmailSignUpScreen() {
 
     setIsLoading(true);
     try {
-      await signUp(email, password, fullName);
+      // Use sanitized values
+      const nameResult = validateName(fullName);
+      const emailResult = validateEmail(email);
+      
+      if (!signUp) {
+        throw new Error('Authentication not available');
+      }
+      
+      await signUp(
+        emailResult.sanitized || email, 
+        password, 
+        nameResult.sanitized || fullName
+      );
       // If signup succeeds, the AuthenticatedApp will handle navigation
     } catch (error: any) {
       console.error('Sign up error:', error);
@@ -85,17 +116,20 @@ export default function EmailSignUpScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView 
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Header */}
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="white" />
+      <View style={styles.container}>
+        <SafeAreaView style={styles.safeArea} edges={['top']}>
+          <KeyboardAvoidingView 
+            style={styles.keyboardView}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <ScrollView 
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Header */}
           <View style={styles.header}>
             <Pressable
               onPress={handleBack}
@@ -117,23 +151,32 @@ export default function EmailSignUpScreen() {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Full Name</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, errors.fullName && styles.inputError]}
                 value={fullName}
-                onChangeText={setFullName}
+                onChangeText={(text) => {
+                  setFullName(text);
+                  if (errors.fullName) setErrors({ ...errors, fullName: undefined });
+                }}
                 placeholder="Enter your full name"
                 placeholderTextColor="#999"
                 autoCapitalize="words"
                 autoCorrect={false}
                 editable={!isLoading}
               />
+              {errors.fullName && (
+                <Text style={styles.errorText}>{errors.fullName}</Text>
+              )}
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, errors.email && styles.inputError]}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (errors.email) setErrors({ ...errors, email: undefined });
+                }}
                 placeholder="Enter your email"
                 placeholderTextColor="#999"
                 keyboardType="email-address"
@@ -141,15 +184,21 @@ export default function EmailSignUpScreen() {
                 autoCorrect={false}
                 editable={!isLoading}
               />
+              {errors.email && (
+                <Text style={styles.errorText}>{errors.email}</Text>
+              )}
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Password</Text>
               <View style={styles.passwordInputWrapper}>
                 <TextInput
-                  style={[styles.input, styles.passwordInput]}
+                  style={[styles.input, styles.passwordInput, errors.password && styles.inputError]}
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (errors.password) setErrors({ ...errors, password: undefined });
+                  }}
                   placeholder="Create a password"
                   placeholderTextColor="#999"
                   secureTextEntry={!showPassword}
@@ -167,20 +216,29 @@ export default function EmailSignUpScreen() {
                   />
                 </Pressable>
               </View>
+              {errors.password && (
+                <Text style={styles.errorText}>{errors.password}</Text>
+              )}
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Confirm Password</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, errors.confirmPassword && styles.inputError]}
                 value={confirmPassword}
-                onChangeText={setConfirmPassword}
+                onChangeText={(text) => {
+                  setConfirmPassword(text);
+                  if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: undefined });
+                }}
                 placeholder="Confirm your password"
                 placeholderTextColor="#999"
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 editable={!isLoading}
               />
+              {errors.confirmPassword && (
+                <Text style={styles.errorText}>{errors.confirmPassword}</Text>
+              )}
             </View>
 
             <Pressable
@@ -205,9 +263,11 @@ export default function EmailSignUpScreen() {
               </Text>
             </View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </View>
+    </>
   );
 }
 
@@ -215,6 +275,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'white',
+  },
+  safeArea: {
+    flex: 1,
   },
   keyboardView: {
     flex: 1,
@@ -308,5 +371,14 @@ const styles = StyleSheet.create({
   signInLink: {
     color: '#FE5268',
     fontWeight: '600',
+  },
+  inputError: {
+    borderColor: '#FF3B30',
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
   },
 });

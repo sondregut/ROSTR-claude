@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { simpleAuth } from '@/services/supabase/simpleAuth';
+import authService from '@/services/supabase/authWithRateLimit';
 import { router } from 'expo-router';
+import { setSentryUser } from '@/services/sentry';
+import { onboardingService } from '@/services/onboardingService';
 
 interface SimpleAuthContextType {
   user: User | null;
@@ -32,16 +34,19 @@ export function SimpleAuthProvider({ children }: { children: React.ReactNode }) 
     checkAuth();
 
     // Listen to auth changes
-    const { data: { subscription } } = simpleAuth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = authService.onAuthStateChange((event, session) => {
       console.log('🔄 Auth state changed:', event);
       setSession(session);
       setUser(session?.user ?? null);
+      
+      // Update Sentry user context
+      setSentryUser(session?.user ?? null);
       
       // Handle navigation based on auth state
       if (event === 'SIGNED_IN') {
         router.replace('/(tabs)');
       } else if (event === 'SIGNED_OUT') {
-        router.replace('/(auth)/welcome-new');
+        router.replace('/(auth)/onboarding-welcome');
       }
     });
 
@@ -52,7 +57,7 @@ export function SimpleAuthProvider({ children }: { children: React.ReactNode }) 
 
   const checkAuth = async () => {
     try {
-      const session = await simpleAuth.getSession();
+      const session = await authService.getSession();
       setSession(session);
       setUser(session?.user ?? null);
     } catch (error) {
@@ -67,7 +72,7 @@ export function SimpleAuthProvider({ children }: { children: React.ReactNode }) 
     setIsLoading(true);
     
     try {
-      const result = await simpleAuth.signInWithEmail(email, password);
+      const result = await authService.signInWithEmail(email, password);
       
       if (result.error) {
         throw result.error;
@@ -88,7 +93,7 @@ export function SimpleAuthProvider({ children }: { children: React.ReactNode }) 
     setIsLoading(true);
     
     try {
-      const result = await simpleAuth.signUpWithEmail(email, password, fullName);
+      const result = await authService.signUpWithEmail(email, password, fullName);
       
       if (result.error) {
         throw result.error;
@@ -110,7 +115,7 @@ export function SimpleAuthProvider({ children }: { children: React.ReactNode }) 
     setIsLoading(true);
     
     try {
-      const result = await simpleAuth.signInWithApple(authData);
+      const result = await authService.signInWithApple(authData);
       
       if (result.error) {
         throw result.error;
@@ -131,7 +136,10 @@ export function SimpleAuthProvider({ children }: { children: React.ReactNode }) 
     setIsLoading(true);
     
     try {
-      const { error } = await simpleAuth.signOut();
+      // Reset onboarding state so user sees it again
+      await onboardingService.resetOnboarding();
+      
+      const { error } = await authService.signOut();
       
       if (error) {
         throw error;
@@ -152,7 +160,7 @@ export function SimpleAuthProvider({ children }: { children: React.ReactNode }) 
     setIsLoading(true);
     
     try {
-      const { error } = await simpleAuth.resetPassword(email);
+      const { error } = await authService.resetPassword(email);
       
       if (error) {
         throw error;

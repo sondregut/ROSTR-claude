@@ -22,6 +22,7 @@ import { Colors } from '../../../constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useRoster } from '@/contexts/RosterContext';
 import { useRouter } from 'expo-router';
+import { validateTextLength, validateRating, sanitizeInput } from '@/utils/validation';
 
 const PREDEFINED_TAGS = [
   { id: 'first-date', label: 'First Date', color: '#9B59B6' },
@@ -166,7 +167,29 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
       newErrors.personId = 'Please select a person';
     }
     
-    // Rating and notes are now optional - no validation needed
+    // Validate location if provided
+    if (formData.location) {
+      const locationResult = validateTextLength(formData.location, 0, 100, 'Location');
+      if (!locationResult.isValid) {
+        newErrors.location = locationResult.error;
+      }
+    }
+    
+    // Validate notes if provided
+    if (formData.notes) {
+      const notesResult = validateTextLength(formData.notes, 0, 500, 'Notes');
+      if (!notesResult.isValid) {
+        newErrors.notes = notesResult.error;
+      }
+    }
+    
+    // Validate rating
+    if (formData.rating) {
+      const ratingResult = validateRating(formData.rating);
+      if (!ratingResult.isValid) {
+        newErrors.rating = ratingResult.error;
+      }
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -174,7 +197,13 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
 
   const handleSubmit = () => {
     if (validateForm()) {
-      onSubmit(formData);
+      // Sanitize text fields before submitting
+      const sanitizedData = {
+        ...formData,
+        location: formData.location ? sanitizeInput(formData.location) : formData.location,
+        notes: formData.notes ? sanitizeInput(formData.notes) : formData.notes,
+      };
+      onSubmit(sanitizedData);
     }
   };
 
@@ -242,15 +271,19 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
                 {
                   color: colors.text,
                   backgroundColor: colors.card,
-                  borderColor: colors.border
+                  borderColor: errors.location ? colors.error : colors.border
                 }
               ]}
               placeholder="Restaurant, park, coffee shop..."
               placeholderTextColor={colors.textSecondary}
               value={formData.location}
               onChangeText={(text) => handleChange('location', text)}
+              maxLength={100}
             />
           </View>
+          {errors.location && (
+            <Text style={[styles.errorText, { color: colors.error }]}>{errors.location}</Text>
+          )}
         </View>
 
         <View style={styles.formGroup}>
@@ -277,7 +310,7 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
               { 
                 color: colors.text,
                 backgroundColor: colors.card,
-                borderColor: colors.border 
+                borderColor: errors.notes ? colors.error : colors.border 
               }
             ]}
             placeholder="How was your date? Share the highlights, lowlights, and everything in between..."
@@ -287,7 +320,11 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
             multiline
             numberOfLines={6}
             textAlignVertical="top"
+            maxLength={500}
           />
+          {errors.notes && (
+            <Text style={[styles.errorText, { color: colors.error }]}>{errors.notes}</Text>
+          )}
         </View>
 
 
@@ -541,5 +578,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 40,
     fontSize: 16,
+  },
+  errorText: {
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
   },
 });

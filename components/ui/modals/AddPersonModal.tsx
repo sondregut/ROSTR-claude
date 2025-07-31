@@ -18,6 +18,7 @@ import { Button } from '../buttons/Button';
 import { CircleSelector } from '../forms/CircleSelector';
 import { Colors } from '../../../constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { validateName, validateAge, validateTextLength, validateInstagram, sanitizeInput } from '@/utils/validation';
 
 interface AddPersonModalProps {
   visible: boolean;
@@ -67,8 +68,8 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
     circles: [],
     isPrivate: false,
   });
-
-  // Removed errors state as validation is no longer required
+  
+  const [errors, setErrors] = useState<Partial<Record<keyof PersonData, string>>>({});
   const [showHowWeMetOptions, setShowHowWeMetOptions] = useState(false);
 
   // Initialize form data when initialData is provided (for editing)
@@ -87,7 +88,13 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
       [field]: value
     }));
     
-    // No error clearing needed as validation is removed
+    // Clear error when user types
+    if (errors[field]) {
+      setErrors(prev => ({
+        ...prev,
+        [field]: undefined
+      }));
+    }
   };
 
   const handleImagePick = async () => {
@@ -115,13 +122,91 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
   };
 
   const validateForm = (): boolean => {
-    // No validation required - users can save with any amount of info
-    return true;
+    const newErrors: typeof errors = {};
+    let isValid = true;
+    
+    // Name is required
+    if (!formData.name) {
+      newErrors.name = 'Name is required';
+      isValid = false;
+    } else {
+      const nameResult = validateName(formData.name);
+      if (!nameResult.isValid) {
+        newErrors.name = nameResult.error;
+        isValid = false;
+      }
+    }
+    
+    // Validate age if provided
+    if (formData.age) {
+      const ageResult = validateAge(formData.age);
+      if (!ageResult.isValid) {
+        newErrors.age = ageResult.error;
+        isValid = false;
+      }
+    }
+    
+    // Validate Instagram username if provided
+    if (formData.instagram) {
+      const instagramResult = validateInstagram(formData.instagram);
+      if (!instagramResult.isValid) {
+        newErrors.instagram = instagramResult.error;
+        isValid = false;
+      }
+    }
+    
+    // Validate other text fields for length
+    if (formData.occupation) {
+      const occupationResult = validateTextLength(formData.occupation, 0, 50, 'Occupation');
+      if (!occupationResult.isValid) {
+        newErrors.occupation = occupationResult.error;
+        isValid = false;
+      }
+    }
+    
+    if (formData.location) {
+      const locationResult = validateTextLength(formData.location, 0, 50, 'Location');
+      if (!locationResult.isValid) {
+        newErrors.location = locationResult.error;
+        isValid = false;
+      }
+    }
+    
+    if (formData.interests) {
+      const interestsResult = validateTextLength(formData.interests, 0, 200, 'Interests');
+      if (!interestsResult.isValid) {
+        newErrors.interests = interestsResult.error;
+        isValid = false;
+      }
+    }
+    
+    if (formData.notes) {
+      const notesResult = validateTextLength(formData.notes, 0, 500, 'Notes');
+      if (!notesResult.isValid) {
+        newErrors.notes = notesResult.error;
+        isValid = false;
+      }
+    }
+    
+    setErrors(newErrors);
+    return isValid;
   };
 
   const handleSave = () => {
     if (validateForm()) {
-      onSave(formData);
+      // Sanitize text fields before saving
+      const sanitizedData: PersonData = {
+        ...formData,
+        name: sanitizeInput(formData.name),
+        occupation: formData.occupation ? sanitizeInput(formData.occupation) : formData.occupation,
+        location: formData.location ? sanitizeInput(formData.location) : formData.location,
+        howWeMet: formData.howWeMet ? sanitizeInput(formData.howWeMet) : formData.howWeMet,
+        interests: formData.interests ? sanitizeInput(formData.interests) : formData.interests,
+        notes: formData.notes ? sanitizeInput(formData.notes) : formData.notes,
+        instagram: formData.instagram ? validateInstagram(formData.instagram).sanitized || formData.instagram : formData.instagram,
+      };
+      
+      onSave(sanitizedData);
       resetForm();
       onClose();
     }
