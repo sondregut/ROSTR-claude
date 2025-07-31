@@ -15,6 +15,7 @@
         "NSPhotoLibraryUsageDescription": "Allow RostrDating to access your photos to add profile pictures for people you're dating.",
         "NSCameraUsageDescription": "Allow RostrDating to access your camera to take profile pictures.",
         "NSContactsUsageDescription": "Allow RostrDating to access your contacts to find friends and send invites.",
+        "NSUserNotificationUsageDescription": "Allow RostrDating to send you notifications about new dates, comments, and activity from your friends.",
         "NSAllowsArbitraryLoads": false,
         "NSAllowsLocalNetworking": true,
         "NSAppTransportSecurity": {
@@ -51,7 +52,9 @@
       "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.READ_CONTACTS",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.VIBRATE",
+        "android.permission.SCHEDULE_EXACT_ALARM"
       ]
     },
     "web": {
@@ -78,6 +81,19 @@
         {
           "photosPermission": "Allow RostrDating to access your photos to add profile pictures for people you're dating.",
           "cameraPermission": "Allow RostrDating to access your camera to take profile pictures."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "useLegacyPackaging": false
+          },
+          "ios": {
+            "useFrameworks": "static"
+          }
         }
       ],
       "./expo.plugins.js"

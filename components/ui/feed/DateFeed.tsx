@@ -1,5 +1,5 @@
 import { useColorScheme } from '@/hooks/useColorScheme';
-import React from 'react';
+import React, { useRef, useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
@@ -8,7 +8,10 @@ import {
     StyleSheet,
     Text,
     useWindowDimensions,
-    View
+    View,
+    Keyboard,
+    Dimensions,
+    KeyboardEvent
 } from 'react-native';
 import { Colors } from '../../../constants/Colors';
 import { DateCard } from '../cards/DateCard';
@@ -114,36 +117,109 @@ export function DateFeed({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { width } = useWindowDimensions();
+  const flatListRef = useRef<FlatList>(null);
+  const itemRefs = useRef<Map<string, View>>(new Map());
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // Listen for keyboard events to get exact height
+  useEffect(() => {
+    const keyboardWillShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (event: KeyboardEvent) => {
+        setKeyboardHeight(event.endCoordinates.height);
+      }
+    );
+
+    const keyboardWillHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      keyboardWillShowListener.remove();
+      keyboardWillHideListener.remove();
+    };
+  }, []);
+
+  // Handle scrolling to a specific item when comment input is focused
+  const handleCommentFocus = useCallback((itemId: string) => {
+    const itemIndex = data.findIndex(item => item.id === itemId);
+    
+    if (itemIndex !== -1 && flatListRef.current) {
+      const item = itemRefs.current.get(itemId);
+      if (item) {
+        // Wait a bit for keyboard to start showing
+        setTimeout(() => {
+          item.measureInWindow((x, y, width, height) => {
+            const screenHeight = Dimensions.get('window').height;
+            const currentKeyboardHeight = keyboardHeight || (Platform.OS === 'ios' ? 336 : 280);
+            
+            // Calculate the visible area when keyboard is shown
+            const visibleAreaHeight = screenHeight - currentKeyboardHeight;
+            
+            // We want the comment input (at bottom of card) to be just above the keyboard
+            // with some of the card content visible above
+            const commentInputOffset = 60; // Approximate height of comment input area
+            const desiredCardBottom = visibleAreaHeight - 10; // 10px padding above keyboard
+            const desiredCardTop = desiredCardBottom - height;
+            
+            // Only scroll if the card would be obscured
+            if (y + height > desiredCardBottom || y < 50) {
+              // Calculate the new scroll position
+              // We want the bottom of the card to be at desiredCardBottom
+              const currentOffset = flatListRef.current._listRef?._scrollMetrics?.offset || 0;
+              const scrollDelta = (y + height) - desiredCardBottom;
+              const newOffset = Math.max(0, currentOffset + scrollDelta);
+              
+              flatListRef.current.scrollToOffset({
+                offset: newOffset,
+                animated: true,
+              });
+            }
+          });
+        }, 100);
+      }
+    }
+  }, [data, keyboardHeight]);
 
   const renderItem = ({ item }: { item: DateEntry }) => {
     if (item.entryType === 'roster_addition') {
       return (
-        <RosterCard
-          id={item.id}
-          personName={item.personName}
-          date={item.date}
-          authorName={item.authorName || 'Unknown'}
-          authorAvatar={item.authorAvatar}
-          isOwnPost={item.isOwnPost}
-          imageUri={item.imageUri}
-          rosterInfo={item.rosterInfo}
-          onPress={() => onDatePress?.(item.id)}
-          onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
-          onAuthorPress={() => onAuthorPress?.(item.authorUsername || '')}
-          onLike={() => {
-            console.log('🔍 DateFeed: onLike called for item:', item.id, item.personName);
-            onLike?.(item.id);
+        <View
+          ref={(ref) => {
+            if (ref) itemRefs.current.set(item.id, ref);
           }}
-          onSubmitComment={onSubmitComment ? (text) => onSubmitComment(item.id, text) : undefined}
-          onEdit={item.isOwnPost && onEditRoster ? () => onEditRoster(item.id) : undefined}
-          onReact={onReact ? (reaction) => onReact(item.id, reaction) : undefined}
-          likeCount={item.likeCount}
-          commentCount={item.commentCount}
-          isLiked={item.isLiked}
-          reactions={item.reactions}
-          userReaction={item.userReaction}
-          comments={item.comments}
-        />
+        >
+          <RosterCard
+            id={item.id}
+            personName={item.personName}
+            date={item.date}
+            authorName={item.authorName || 'Unknown'}
+            authorAvatar={item.authorAvatar}
+            isOwnPost={item.isOwnPost}
+            imageUri={item.imageUri}
+            rosterInfo={item.rosterInfo}
+            onPress={() => onDatePress?.(item.id)}
+            onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
+            onAuthorPress={() => onAuthorPress?.(item.authorUsername || '')}
+            onLike={() => {
+              console.log('🔍 DateFeed: onLike called for item:', item.id, item.personName);
+              onLike?.(item.id);
+            }}
+            onSubmitComment={onSubmitComment ? (text) => onSubmitComment(item.id, text) : undefined}
+            onEdit={item.isOwnPost && onEditRoster ? () => onEditRoster(item.id) : undefined}
+            onReact={onReact ? (reaction) => onReact(item.id, reaction) : undefined}
+            likeCount={item.likeCount}
+            commentCount={item.commentCount}
+            isLiked={item.isLiked}
+            reactions={item.reactions}
+            userReaction={item.userReaction}
+            comments={item.comments}
+            onCommentFocus={() => handleCommentFocus(item.id)}
+          />
+        </View>
       );
     }
 
@@ -170,61 +246,75 @@ export function DateFeed({
       };
 
       return (
-        <PlanCard
-          plan={planData}
-          personPhoto={item.rosterInfo?.photos?.[0]}
-          onLike={() => onLikePlan?.(item.id)}
-          onReact={onReactPlan ? (reaction) => onReactPlan(item.id, reaction) : undefined}
-          onSubmitComment={onSubmitPlanComment ? (text) => onSubmitPlanComment(item.id, text) : undefined}
-          onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
-          onAuthorPress={() => onAuthorPress?.(item.authorUsername || '')}
-          onEdit={item.isOwnPost && onEditPlan ? () => onEditPlan(item.id) : undefined}
-          showEditOptions={item.isOwnPost}
-        />
+        <View
+          ref={(ref) => {
+            if (ref) itemRefs.current.set(item.id, ref);
+          }}
+        >
+          <PlanCard
+            plan={planData}
+            personPhoto={item.rosterInfo?.photos?.[0]}
+            onLike={() => onLikePlan?.(item.id)}
+            onReact={onReactPlan ? (reaction) => onReactPlan(item.id, reaction) : undefined}
+            onSubmitComment={onSubmitPlanComment ? (text) => onSubmitPlanComment(item.id, text) : undefined}
+            onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
+            onAuthorPress={() => onAuthorPress?.(item.authorUsername || '')}
+            onEdit={item.isOwnPost && onEditPlan ? () => onEditPlan(item.id) : undefined}
+            showEditOptions={item.isOwnPost}
+            onCommentFocus={() => handleCommentFocus(item.id)}
+          />
+        </View>
       );
     }
 
     return (
-      <DateCard
-        id={item.id}
-        personName={item.personName}
-        personPhoto={item.rosterInfo?.photos?.[0]}
-        date={item.date}
-        location={item.location}
-        rating={item.rating}
-        notes={item.notes}
-        imageUri={item.imageUri}
-        tags={item.tags}
-        instagramUsername={item.instagramUsername}
-        authorName={item.authorName}
-        authorAvatar={item.authorAvatar}
-        isOwnPost={item.isOwnPost}
-        poll={item.poll}
-        userPollVote={item.userPollVote}
-        comments={item.comments}
-        likeCount={item.likeCount}
-        commentCount={item.commentCount}
-        isLiked={item.isLiked}
-        reactions={item.reactions}
-        userReaction={item.userReaction}
-        onPress={() => onDatePress?.(item.id)}
-        onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
-        onPersonHistoryPress={() => onPersonHistoryPress?.(item.personName, item.authorName)}
-        onAuthorPress={() => onAuthorPress?.(item.authorUsername || '')}
-        onLike={() => {
-          console.log('🔍 DateFeed: RosterCard onLike called for item:', item.id, item.personName, 'entryType:', item.entryType);
-          if (onLike) {
-            console.log('🔍 DateFeed: Calling parent onLike function');
-            onLike(item.id);
-          } else {
-            console.log('❌ DateFeed: No onLike handler provided');
-          }
+      <View
+        ref={(ref) => {
+          if (ref) itemRefs.current.set(item.id, ref);
         }}
-        onReact={onReact ? (reaction) => onReact(item.id, reaction) : undefined}
-        onSubmitComment={onSubmitComment ? (text) => onSubmitComment(item.id, text) : undefined}
-        onEdit={item.isOwnPost && onEdit ? () => onEdit(item.id) : undefined}
-        onPollVote={onPollVote}
-      />
+      >
+        <DateCard
+          id={item.id}
+          personName={item.personName}
+          personPhoto={item.rosterInfo?.photos?.[0]}
+          date={item.date}
+          location={item.location}
+          rating={item.rating}
+          notes={item.notes}
+          imageUri={item.imageUri}
+          tags={item.tags}
+          instagramUsername={item.instagramUsername}
+          authorName={item.authorName}
+          authorAvatar={item.authorAvatar}
+          isOwnPost={item.isOwnPost}
+          poll={item.poll}
+          userPollVote={item.userPollVote}
+          comments={item.comments}
+          likeCount={item.likeCount}
+          commentCount={item.commentCount}
+          isLiked={item.isLiked}
+          reactions={item.reactions}
+          userReaction={item.userReaction}
+          onPress={() => onDatePress?.(item.id)}
+          onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
+          onPersonHistoryPress={() => onPersonHistoryPress?.(item.personName, item.authorName)}
+          onAuthorPress={() => onAuthorPress?.(item.authorUsername || '')}
+          onLike={() => {
+            console.log('🔍 DateFeed: RosterCard onLike called for item:', item.id, item.personName, 'entryType:', item.entryType);
+            if (onLike) {
+              console.log('🔍 DateFeed: Calling parent onLike function');
+              onLike(item.id);
+            } else {
+              console.log('❌ DateFeed: No onLike handler provided');
+            }
+          }}
+          onReact={onReact ? (reaction) => onReact(item.id, reaction) : undefined}
+          onSubmitComment={onSubmitComment ? (text) => onSubmitComment(item.id, text) : undefined}
+          onEdit={item.isOwnPost && onEdit ? () => onEdit(item.id) : undefined}
+          onPollVote={onPollVote}
+          onCommentFocus={() => handleCommentFocus(item.id)}
+        />
+      </View>
     );
   };
 
@@ -257,6 +347,7 @@ export function DateFeed({
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
+          ref={flatListRef}
           data={data}
           renderItem={renderItem}
           keyExtractor={(item) => item.id}
@@ -267,12 +358,32 @@ export function DateFeed({
           ListEmptyComponent={renderEmpty()}
           ListFooterComponent={renderFooter()}
           onEndReached={onEndReached}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          onScrollBeginDrag={() => {
+            // Dismiss keyboard when user starts scrolling on iOS
+            // Android handles this via keyboardDismissMode
+            if (Platform.OS === 'ios') {
+              Keyboard.dismiss();
+            }
+          }}
+          onScrollToIndexFailed={(info) => {
+            // Handle scroll failure gracefully
+            const wait = new Promise(resolve => setTimeout(resolve, 500));
+            wait.then(() => {
+              flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
+            });
+          }}
           onEndReachedThreshold={0.5}
-          initialNumToRender={5}
-          maxToRenderPerBatch={10}
-          windowSize={10}
-          removeClippedSubviews={Platform.OS === 'android'}
+          initialNumToRender={3}
+          maxToRenderPerBatch={5}
+          windowSize={21}
+          removeClippedSubviews={true}
           showsVerticalScrollIndicator={true}
+          updateCellsBatchingPeriod={50}
+          maintainVisibleContentPosition={{
+            minIndexForVisible: 0,
+          }}
           bounces={true}
           scrollEventThrottle={16}
           contentInsetAdjustmentBehavior="automatic"

@@ -182,8 +182,8 @@ export default function CirclesScreen() {
     <Pressable
       style={[styles.friendCard, { backgroundColor: colors.card, borderColor: colors.border }]}
       onPress={() => {
-        // Navigate to friend profile or start chat
-        console.log('Friend pressed:', item.name);
+        // Navigate to friend's profile
+        router.push(`/profile/${item.username}`);
       }}
     >
       <View style={styles.friendInfo}>

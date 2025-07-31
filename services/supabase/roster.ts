@@ -163,4 +163,41 @@ export class RosterService {
       throw error;
     }
   }
+
+  /**
+   * Get a specific person's roster entry from a friend's roster by username
+   */
+  static async getFriendRosterEntry(friendUsername: string, personName: string): Promise<RosterEntry | null> {
+    try {
+      // First get the friend's user ID
+      const { data: userData, error: userError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', friendUsername)
+        .single();
+
+      if (userError || !userData) {
+        console.error('Error fetching friend user:', userError);
+        return null;
+      }
+
+      // Then get the roster entry for this person
+      const { data, error } = await supabase
+        .from('roster_entries')
+        .select('*')
+        .eq('user_id', userData.id)
+        .ilike('name', personName)
+        .single();
+
+      if (error) {
+        console.error('Error fetching friend roster entry:', error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error in getFriendRosterEntry:', error);
+      return null;
+    }
+  }
 }

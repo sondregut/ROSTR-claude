@@ -11,13 +11,30 @@ config.resolver = {
   nodeModulesPaths: ['./node_modules'],
 };
 
-// Add transformer options for better compatibility
+// Add transformer options for production optimization
 config.transformer = {
   ...config.transformer,
   minifierConfig: {
-    keep_fnames: true,
+    keep_fnames: false, // Changed to false for smaller bundle
     mangle: {
-      keep_fnames: true,
+      keep_fnames: false, // Changed to false for smaller bundle
+    },
+    output: {
+      ascii_only: true,
+      quote_style: 3,
+      wrap_iife: true,
+    },
+    sourceMap: {
+      includeSources: false,
+    },
+    toplevel: false,
+    compress: {
+      reduce_funcs: true,
+      reduce_vars: true,
+      keep_classnames: false,
+      keep_fnames: false,
+      keep_infinity: false,
+      passes: 2,
     },
   },
 };

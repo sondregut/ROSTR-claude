@@ -474,6 +474,180 @@ export default function ProfileScreen() {
             </View>
           </View>
         )}
+
+        {/* Dating Personality Card */}
+        {detailedStats && (
+          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <View style={styles.statCardHeader}>
+              <Text style={styles.statEmoji}>🎭</Text>
+              <Text style={[styles.statCardTitle, { color: colors.text }]}>Your Dating Personality</Text>
+            </View>
+            <Text style={[styles.personalityType, { color: colors.primary }]}>
+              {detailedStats.personality.type}
+            </Text>
+            <Text style={[styles.personalityDescription, { color: colors.text }]}>
+              {detailedStats.personality.description}
+            </Text>
+            <View style={styles.personalityTraits}>
+              <View style={[styles.trait, { backgroundColor: colors.primary + '20' }]}>
+                <Text style={[styles.traitText, { color: colors.primary }]}>
+                  {detailedStats.personality.primaryTrait}
+                </Text>
+              </View>
+              <View style={[styles.trait, { backgroundColor: colors.primary + '20' }]}>
+                <Text style={[styles.traitText, { color: colors.primary }]}>
+                  {detailedStats.personality.secondaryTrait}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Dating Streaks */}
+        {detailedStats && (
+          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <View style={styles.statCardHeader}>
+              <Text style={styles.statEmoji}>🔥</Text>
+              <Text style={[styles.statCardTitle, { color: colors.text }]}>Dating Streaks</Text>
+            </View>
+            <View style={styles.streakContainer}>
+              <View style={styles.streakItem}>
+                <Text style={[styles.streakValue, { color: colors.primary }]}>
+                  {detailedStats.streaks.currentStreak}
+                </Text>
+                <Text style={[styles.streakLabel, { color: colors.textSecondary }]}>
+                  Current week{detailedStats.streaks.currentStreak !== 1 ? 's' : ''}
+                </Text>
+              </View>
+              <View style={styles.streakDivider} />
+              <View style={styles.streakItem}>
+                <Text style={[styles.streakValue, { color: colors.primary }]}>
+                  {detailedStats.streaks.longestStreak}
+                </Text>
+                <Text style={[styles.streakLabel, { color: colors.textSecondary }]}>
+                  Best streak
+                </Text>
+              </View>
+            </View>
+            <View style={styles.consistencyBar}>
+              <View style={[styles.consistencyProgress, { 
+                backgroundColor: colors.primary,
+                width: `${detailedStats.streaks.consistencyScore}%`
+              }]} />
+            </View>
+            <Text style={[styles.consistencyText, { color: colors.textSecondary }]}>
+              {detailedStats.streaks.consistencyScore}% consistency
+            </Text>
+          </View>
+        )}
+
+        {/* Time & Day Patterns */}
+        {detailedStats && (
+          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <View style={styles.statCardHeader}>
+              <Text style={styles.statEmoji}>⏰</Text>
+              <Text style={[styles.statCardTitle, { color: colors.text }]}>Dating Patterns</Text>
+            </View>
+            <Text style={[styles.patternHighlight, { color: colors.text }]}>
+              Your favorite day is <Text style={{ color: colors.primary }}>{detailedStats.datingPatterns.mostPopularDay}</Text>
+            </Text>
+            <View style={styles.timeDistribution}>
+              <View style={styles.timeSlot}>
+                <Ionicons name="sunny" size={24} color={colors.primary} />
+                <Text style={[styles.timeSlotLabel, { color: colors.text }]}>Morning</Text>
+                <Text style={[styles.timeSlotValue, { color: colors.textSecondary }]}>
+                  {detailedStats.datingPatterns.morningDates}
+                </Text>
+              </View>
+              <View style={styles.timeSlot}>
+                <Ionicons name="partly-sunny" size={24} color={colors.primary} />
+                <Text style={[styles.timeSlotLabel, { color: colors.text }]}>Afternoon</Text>
+                <Text style={[styles.timeSlotValue, { color: colors.textSecondary }]}>
+                  {detailedStats.datingPatterns.afternoonDates}
+                </Text>
+              </View>
+              <View style={styles.timeSlot}>
+                <Ionicons name="moon" size={24} color={colors.primary} />
+                <Text style={[styles.timeSlotLabel, { color: colors.text }]}>Evening</Text>
+                <Text style={[styles.timeSlotValue, { color: colors.textSecondary }]}>
+                  {detailedStats.datingPatterns.eveningDates}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Location Insights */}
+        {detailedStats && detailedStats.locationStats.uniqueLocations > 0 && (
+          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <View style={styles.statCardHeader}>
+              <Text style={styles.statEmoji}>📍</Text>
+              <Text style={[styles.statCardTitle, { color: colors.text }]}>Location Insights</Text>
+            </View>
+            <View style={styles.locationHighlight}>
+              <Text style={[styles.locationLabel, { color: colors.textSecondary }]}>Favorite spot</Text>
+              <Text style={[styles.locationName, { color: colors.primary }]}>
+                {detailedStats.locationStats.topLocation}
+              </Text>
+              <Text style={[styles.locationVisits, { color: colors.textSecondary }]}>
+                {detailedStats.locationStats.topLocationCount} visits • {detailedStats.locationStats.topLocationRating}/5 avg
+              </Text>
+            </View>
+            {detailedStats.locationStats.mostSuccessfulLocation !== detailedStats.locationStats.topLocation && (
+              <View style={[styles.locationHighlight, { marginTop: 12 }]}>
+                <Text style={[styles.locationLabel, { color: colors.textSecondary }]}>Most successful</Text>
+                <Text style={[styles.locationName, { color: colors.primary }]}>
+                  {detailedStats.locationStats.mostSuccessfulLocation}
+                </Text>
+                <Text style={[styles.locationVisits, { color: colors.textSecondary }]}>
+                  {detailedStats.locationStats.mostSuccessfulRating}/5 avg rating
+                </Text>
+              </View>
+            )}
+            <View style={styles.locationDiversity}>
+              <Text style={[styles.diversityText, { color: colors.text }]}>
+                You've explored {detailedStats.locationStats.uniqueLocations} unique locations
+              </Text>
+              <Text style={[styles.diversityScore, { color: colors.primary }]}>
+                {detailedStats.locationStats.locationDiversityScore}% diversity
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Achievements & Comparisons */}
+        {detailedStats && (
+          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <View style={styles.statCardHeader}>
+              <Text style={styles.statEmoji}>🏆</Text>
+              <Text style={[styles.statCardTitle, { color: colors.text }]}>Achievements</Text>
+            </View>
+            <View style={[styles.achievementBadge, { backgroundColor: colors.primary + '20' }]}>
+              <Text style={[styles.achievementTitle, { color: colors.primary }]}>
+                {detailedStats.achievements.uniqueAchievement}
+              </Text>
+            </View>
+            <View style={styles.comparisonStats}>
+              <Text style={[styles.comparisonText, { color: colors.text }]}>
+                You date more than <Text style={{ color: colors.primary }}>{Math.round(detailedStats.achievements.datesRankPercentile)}%</Text> of users
+              </Text>
+              <Text style={[styles.comparisonText, { color: colors.text }]}>
+                Your ratings are higher than <Text style={{ color: colors.primary }}>{Math.round(detailedStats.achievements.ratingRankPercentile)}%</Text> of users
+              </Text>
+            </View>
+            {detailedStats.achievements.perfectDatesCount > 0 && (
+              <View style={styles.perfectDates}>
+                <Text style={styles.perfectEmoji}>⭐⭐⭐⭐⭐</Text>
+                <Text style={[styles.perfectText, { color: colors.text }]}>
+                  {detailedStats.achievements.perfectDatesCount} perfect dates!
+                </Text>
+              </View>
+            )}
+            <Text style={[styles.momentumText, { color: colors.textSecondary }]}>
+              {detailedStats.achievements.datingMomentum}
+            </Text>
+          </View>
+        )}
       </View>
     );
   };
@@ -910,6 +1084,149 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     fontSize: 16,
+    textAlign: 'center',
+  },
+  personalityType: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  personalityDescription: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 16,
+  },
+  personalityTraits: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  trait: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  traitText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  streakContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 20,
+  },
+  streakItem: {
+    alignItems: 'center',
+  },
+  streakValue: {
+    fontSize: 36,
+    fontWeight: '700',
+  },
+  streakLabel: {
+    fontSize: 14,
+    marginTop: 4,
+  },
+  streakDivider: {
+    width: 1,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  consistencyBar: {
+    height: 8,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  consistencyProgress: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  consistencyText: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  patternHighlight: {
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  timeDistribution: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  timeSlot: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  timeSlotLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  timeSlotValue: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  locationHighlight: {
+    alignItems: 'center',
+  },
+  locationLabel: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  locationName: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  locationVisits: {
+    fontSize: 14,
+  },
+  locationDiversity: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+    alignItems: 'center',
+  },
+  diversityText: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  diversityScore: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  achievementBadge: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  achievementTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  comparisonStats: {
+    gap: 8,
+    marginBottom: 16,
+  },
+  comparisonText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  perfectDates: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  perfectEmoji: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  perfectText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  momentumText: {
+    fontSize: 16,
+    fontWeight: '600',
     textAlign: 'center',
   },
 });

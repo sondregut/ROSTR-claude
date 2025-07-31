@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -28,13 +28,17 @@ interface InlineCommentsProps {
   onSubmitComment: (text: string) => Promise<void>;
   isExpanded: boolean;
   placeholder?: string;
+  onFocus?: () => void;
+  autoFocus?: boolean;
 }
 
 export function InlineComments({
   comments,
   onSubmitComment,
   isExpanded,
-  placeholder = "Write a comment..."
+  placeholder = "Write a comment...",
+  onFocus,
+  autoFocus = false
 }: InlineCommentsProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -42,6 +46,19 @@ export function InlineComments({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const user = useSafeUser();
   const userProfile = user?.userProfile;
+  const inputRef = useRef<TextInput>(null);
+  const previouslyExpanded = useRef(isExpanded);
+
+  // Auto-focus when comments are expanded
+  useEffect(() => {
+    if (isExpanded && !previouslyExpanded.current && inputRef.current) {
+      // Small delay to ensure the component is fully rendered
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+    previouslyExpanded.current = isExpanded;
+  }, [isExpanded]);
 
   const handleSubmit = async () => {
     if (!commentText.trim() || isSubmitting) return;
@@ -100,6 +117,7 @@ export function InlineComments({
           </View>
         )}
         <TextInput
+          ref={inputRef}
           style={[styles.input, { 
             backgroundColor: colors.inputBackground || colors.border, 
             color: colors.text,
@@ -114,6 +132,8 @@ export function InlineComments({
           editable={!isSubmitting}
           onSubmitEditing={handleSubmit}
           blurOnSubmit={false}
+          onFocus={onFocus}
+          autoFocus={autoFocus}
         />
         <Pressable
           style={[styles.sendButton, { 

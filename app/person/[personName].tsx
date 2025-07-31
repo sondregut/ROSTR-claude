@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   ScrollView,
@@ -25,6 +25,7 @@ import { useDates } from '@/contexts/DateContext';
 import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
 import { useRoster } from '@/contexts/RosterContext';
 import { useUser } from '@/contexts/UserContext';
+import { RosterService } from '@/services/supabase/roster';
 
 type TabType = 'overview' | 'plans';
 
@@ -46,9 +47,31 @@ export default function UnifiedPersonDetailScreen() {
   const [showEditPlanModal, setShowEditPlanModal] = useState(false);
   const [selectedDateForEdit, setSelectedDateForEdit] = useState<any>(null);
   const [selectedPlanForEdit, setSelectedPlanForEdit] = useState<any>(null);
+  const [friendRosterStatus, setFriendRosterStatus] = useState<string | null>(null);
 
   // Determine if viewing own roster or friend's date
   const viewingFriendDate = !!friendUsername;
+  
+  // Fetch friend's roster status for this person
+  useEffect(() => {
+    const fetchFriendRosterStatus = async () => {
+      if (viewingFriendDate && friendUsername && personName) {
+        try {
+          const friendEntry = await RosterService.getFriendRosterEntry(
+            friendUsername as string, 
+            personName as string
+          );
+          if (friendEntry) {
+            setFriendRosterStatus(friendEntry.status);
+          }
+        } catch (error) {
+          console.error('Error fetching friend roster status:', error);
+        }
+      }
+    };
+    
+    fetchFriendRosterStatus();
+  }, [viewingFriendDate, friendUsername, personName]);
   
   // Get person data based on context
   let personData: any = null;
@@ -444,6 +467,16 @@ export default function UnifiedPersonDetailScreen() {
 
         {/* Consolidated Profile Section */}
         <View style={[styles.profileSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          {/* Friend's view indicator */}
+          {viewingFriendDate && friendRosterStatus && (
+            <View style={[styles.friendViewBanner, { backgroundColor: colors.primary + '10', borderColor: colors.primary }]}>
+              <Ionicons name="people" size={16} color={colors.primary} />
+              <Text style={[styles.friendViewText, { color: colors.primary }]}>
+                Viewing {friendUsername}'s perspective of {personData.name}
+              </Text>
+            </View>
+          )}
+          
           {/* Main Profile Header */}
           <View style={styles.profileHeader}>
             <View style={styles.avatarContainer}>
@@ -458,9 +491,9 @@ export default function UnifiedPersonDetailScreen() {
             <View style={styles.profileInfo}>
               <View style={styles.nameRow}>
                 <Text style={[styles.mainPersonName, { color: colors.text }]}>{personData.name}</Text>
-                <View style={[styles.statusBadge, { backgroundColor: getStatusBgColor(personData.status) }]}>
-                  <Text style={[styles.statusText, { color: getStatusColor(personData.status) }]}>
-                    {personData.status.charAt(0).toUpperCase() + personData.status.slice(1)}
+                <View style={[styles.statusBadge, { backgroundColor: getStatusBgColor(friendRosterStatus || personData.status) }]}>
+                  <Text style={[styles.statusText, { color: getStatusColor(friendRosterStatus || personData.status) }]}>
+                    {(friendRosterStatus || personData.status).charAt(0).toUpperCase() + (friendRosterStatus || personData.status).slice(1)}
                   </Text>
                 </View>
               </View>
@@ -1074,5 +1107,18 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  friendViewBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    marginBottom: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 8,
+  },
+  friendViewText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

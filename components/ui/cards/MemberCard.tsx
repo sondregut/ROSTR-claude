@@ -9,6 +9,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { Avatar } from '../Avatar';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 export type MemberRole = 'owner' | 'admin' | 'member';
 export type OnlineStatus = 'online' | 'offline' | 'away';
@@ -38,6 +39,8 @@ export function MemberCard({
   showActions = true,
   currentUserRole = 'member'
 }: MemberCardProps) {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
   
   const getRoleIcon = (role: MemberRole) => {
     switch (role) {
@@ -64,12 +67,12 @@ export function MemberCard({
   const getStatusColor = (status: OnlineStatus) => {
     switch (status) {
       case 'online':
-        return Colors.light.statusActive;
+        return colors.statusActive;
       case 'away':
-        return Colors.light.statusFading;
+        return colors.statusFading;
       case 'offline':
       default:
-        return Colors.light.textSecondary;
+        return colors.textSecondary;
     }
   };
 
@@ -129,6 +132,7 @@ export function MemberCard({
     <Pressable
       style={({ pressed }) => [
         styles.container,
+        { backgroundColor: colors.card, borderColor: colors.border },
         pressed && styles.pressed
       ]}
       onPress={onPress}
@@ -143,19 +147,19 @@ export function MemberCard({
           />
           <View style={[
             styles.statusIndicator,
-            { backgroundColor: getStatusColor(member.onlineStatus) }
+            { backgroundColor: getStatusColor(member.onlineStatus), borderColor: colors.card }
           ]} />
         </View>
 
         {/* Member info */}
         <View style={styles.info}>
           <View style={styles.nameRow}>
-            <Text style={styles.name} numberOfLines={1}>
+            <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
               {member.name}
             </Text>
             
             {/* Role badge */}
-            <View style={styles.roleContainer}>
+            <View style={[styles.roleContainer, { backgroundColor: colors.background }]}>
               {getRoleIcon(member.role) && (
                 <Text style={styles.roleIcon}>
                   {getRoleIcon(member.role)}
@@ -163,15 +167,16 @@ export function MemberCard({
               )}
               <Text style={[
                 styles.roleLabel,
-                member.role === 'owner' && styles.ownerLabel,
-                member.role === 'admin' && styles.adminLabel
+                { color: colors.textSecondary },
+                member.role === 'owner' && { color: colors.statusFading },
+                member.role === 'admin' && { color: colors.statusNew }
               ]}>
                 {getRoleLabel(member.role)}
               </Text>
             </View>
           </View>
           
-          <Text style={styles.username} numberOfLines={1}>
+          <Text style={[styles.username, { color: colors.textSecondary }]} numberOfLines={1}>
             @{member.username}
           </Text>
         </View>
@@ -181,14 +186,14 @@ export function MemberCard({
           <Pressable
             style={({ pressed }) => [
               styles.menuButton,
-              pressed && styles.menuPressed
+              pressed && [styles.menuPressed, { backgroundColor: colors.background }]
             ]}
             onPress={handleMenuPress}
           >
             <Ionicons 
               name="ellipsis-horizontal" 
               size={20} 
-              color={Colors.light.textSecondary} 
+              color={colors.textSecondary} 
             />
           </Pressable>
         )}
@@ -199,11 +204,9 @@ export function MemberCard({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: Colors.light.card,
     borderRadius: 12,
     marginVertical: 4,
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   pressed: {
     opacity: 0.95,
@@ -226,7 +229,6 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 7,
     borderWidth: 2,
-    borderColor: Colors.light.card,
   },
   info: {
     flex: 1,
@@ -241,14 +243,12 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.light.text,
     flex: 1,
     marginRight: 8,
   },
   roleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.light.background,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
@@ -260,24 +260,14 @@ const styles = StyleSheet.create({
   roleLabel: {
     fontSize: 12,
     fontWeight: '500',
-    color: Colors.light.textSecondary,
-  },
-  ownerLabel: {
-    color: Colors.light.statusFading,
-  },
-  adminLabel: {
-    color: Colors.light.statusNew,
   },
   username: {
     fontSize: 14,
-    color: Colors.light.textSecondary,
     fontWeight: '400',
   },
   menuButton: {
     padding: 8,
     borderRadius: 8,
   },
-  menuPressed: {
-    backgroundColor: Colors.light.background,
-  },
+  menuPressed: {},
 });

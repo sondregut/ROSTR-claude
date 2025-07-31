@@ -2,12 +2,13 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { getDisplayUsername, openInstagramProfile } from '@/lib/instagramUtils';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../../../constants/Colors';
 import { PollVoting } from '../feed/PollVoting';
 import { InlineComments } from '../feed/InlineComments';
-import { ReactionPicker, ReactionType } from '../feed/ReactionPicker';
-import { ReactionSummary } from '../feed/ReactionSummary';
+import { getEmojiById } from '@/constants/ReactionData';
+import * as Haptics from 'expo-haptics';
+import { OptimizedImage } from '../OptimizedImage';
 
 interface DateCardProps {
   id: string;
@@ -44,17 +45,18 @@ interface DateCardProps {
   onSubmitComment?: (text: string) => Promise<void>;
   onEdit?: () => void;
   onPollVote?: (dateId: string, optionIndex: number) => void;
+  onCommentFocus?: () => void;
   likeCount: number;
   commentCount: number;
   isLiked?: boolean;
   reactions?: {
-    [key in ReactionType]?: {
+    [key: string]: {
       count: number;
       users: string[];
     };
   };
-  userReaction?: ReactionType | null;
-  onReact?: (reaction: ReactionType | null) => void;
+  userReaction?: string | null;
+  onReact?: (reaction: string | null) => void;
 }
 
 export function DateCard({
@@ -82,6 +84,7 @@ export function DateCard({
   onSubmitComment,
   onEdit,
   onPollVote,
+  onCommentFocus,
   likeCount,
   commentCount,
   isLiked = false,
@@ -92,7 +95,6 @@ export function DateCard({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [showComments, setShowComments] = useState(comments && comments.length > 0);
-  const [showReactionPicker, setShowReactionPicker] = useState(false);
 
   const formatRating = (rating: number) => {
     return Math.round(rating) + '/5';
@@ -106,7 +108,7 @@ export function DateCard({
           onPress={authorName ? onAuthorPress : onPersonPress}
         >
           {authorAvatar ? (
-            <Image source={{ uri: authorAvatar }} style={styles.avatar} />
+            <OptimizedImage source={{ uri: authorAvatar }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
               <Text style={[styles.avatarInitial, { color: colors.buttonText }]}>
@@ -153,7 +155,7 @@ export function DateCard({
             {/* Person photo */}
             {personPhoto && (
               <Pressable onPress={onPersonHistoryPress} style={styles.personPhotoContainer}>
-                <Image source={{ uri: personPhoto }} style={styles.personPhoto} />
+                <OptimizedImage source={{ uri: personPhoto }} style={styles.personPhoto} priority="high" />
               </Pressable>
             )}
             
@@ -203,7 +205,7 @@ export function DateCard({
       
       {imageUri && (
         <View style={styles.imageContainer}>
-          <Image 
+          <OptimizedImage 
             source={{ uri: imageUri }} 
             style={styles.dateImage}
             resizeMode="cover"
@@ -249,74 +251,40 @@ export function DateCard({
       )}
 
       <View style={[styles.actionsContainer, { borderTopColor: colors.border }]}>
-        <View style={styles.reactionButtonContainer}>
-          <Pressable 
-            style={styles.actionButton} 
-            onPress={() => {
-              // Quick tap - toggle love reaction
-              if (onReact) {
-                onReact(userReaction === 'love' ? null : 'love');
-              } else if (onLike) {
-                // Fallback to old like system
-                onLike();
-              }
-            }}
-            onLongPress={() => {
-              setShowReactionPicker(!showReactionPicker);
-            }}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            accessibilityRole="button"
-            accessibilityLabel={userReaction ? "Change reaction" : "React"}
+        <Pressable 
+          style={styles.actionButton}
+          onPress={() => {
+            // Quick tap toggle logic
+            if (onReact) {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              // If any reaction exists, remove it. Otherwise add love
+              onReact(userReaction ? null : 'love');
+            }
+          }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="React"
+        >
+          {userReaction ? (
+            <Text style={styles.reactionEmoji}>
+              {getEmojiById(userReaction)}
+            </Text>
+          ) : (
+            <Ionicons 
+              name="heart-outline" 
+              size={20} 
+              color={colors.textSecondary} 
+            />
+          )}
+          <Text 
+            style={[
+              styles.actionText, 
+              { color: userReaction ? colors.primary : colors.textSecondary }
+            ]}
           >
-            {userReaction ? (
-              <Text style={styles.reactionEmoji}>
-                {userReaction === 'love' ? '❤️' : 
-                 userReaction === 'funny' ? '😂' :
-                 userReaction === 'exciting' ? '😍' :
-                 userReaction === 'hot' ? '🔥' :
-                 userReaction === 'awkward' ? '😳' :
-                 userReaction === 'fail' ? '💔' :
-                 userReaction === 'celebrate' ? '🎉' : '❤️'}
-              </Text>
-            ) : (
-              <Ionicons 
-                name="heart-outline" 
-                size={20} 
-                color={colors.textSecondary} 
-              />
-            )}
-            {reactions && Object.keys(reactions).length > 0 ? (
-              <ReactionSummary 
-                reactions={Object.entries(reactions).map(([type, data]) => ({
-                  type: type as ReactionType,
-                  count: data.count,
-                  users: data.users,
-                }))}
-                maxDisplay={2}
-              />
-            ) : (
-              <Text 
-                style={[
-                  styles.actionText, 
-                  { color: userReaction ? colors.primary : colors.textSecondary }
-                ]}
-              >
-                {likeCount > 0 ? likeCount : 'React'}
-              </Text>
-            )}
-          </Pressable>
-          
-          <ReactionPicker
-            visible={showReactionPicker}
-            onSelectReaction={(reaction) => {
-              if (onReact) {
-                onReact(reaction);
-              }
-              setShowReactionPicker(false);
-            }}
-            selectedReaction={userReaction}
-          />
-        </View>
+            {likeCount > 0 ? likeCount : 'React'}
+          </Text>
+        </Pressable>
         
         <Pressable 
           style={styles.actionButton} 
@@ -340,6 +308,7 @@ export function DateCard({
         comments={comments || []}
         isExpanded={showComments}
         onSubmitComment={onSubmitComment || (async () => {})}
+        onFocus={onCommentFocus}
       />
     </View>
   );
@@ -568,9 +537,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.1)',
-  },
-  reactionButtonContainer: {
-    position: 'relative',
   },
   reactionEmoji: {
     fontSize: 20,

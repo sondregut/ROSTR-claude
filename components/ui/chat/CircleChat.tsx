@@ -185,6 +185,28 @@ export function CircleChat({
           console.log('📩 New message via real-time (circle_chat_messages):', payload);
           
           if (payload.new && payload.new.circle_id === circleId) {
+            // Check if we already have this message (avoid duplicates from our own sends)
+            setMessages(prev => {
+              const messageExists = prev.some(msg => msg.id === payload.new.id);
+              if (messageExists) {
+                return prev;
+              }
+              
+              // Immediately add the message with available data
+              const immediateMessage = {
+                ...payload.new,
+                sender: members.find(m => m.id === payload.new.sender_id) || {
+                  id: payload.new.sender_id,
+                  name: payload.new.sender_name || 'Unknown',
+                  username: 'unknown',
+                  image_uri: payload.new.sender_avatar || ''
+                }
+              };
+              
+              return [...prev, immediateMessage];
+            });
+            
+            // Optionally fetch complete data in background
             try {
               const { data: messageWithSender, error } = await supabase
                 .from('circle_chat_messages')
@@ -201,7 +223,10 @@ export function CircleChat({
                 .single();
                 
               if (!error && messageWithSender) {
-                setMessages(prev => [...prev, messageWithSender]);
+                // Update the message with complete data
+                setMessages(prev => prev.map(msg => 
+                  msg.id === messageWithSender.id ? messageWithSender : msg
+                ));
               }
             } catch (err) {
               console.error('Error fetching complete message from circle_chat_messages:', err);
@@ -221,7 +246,28 @@ export function CircleChat({
           
           // If we get a message for this circle, add it
           if (payload.new && payload.new.circle_id === circleId) {
-            // Fetch complete message with sender info
+            // Check if we already have this message (avoid duplicates from our own sends)
+            setMessages(prev => {
+              const messageExists = prev.some(msg => msg.id === payload.new.id);
+              if (messageExists) {
+                return prev;
+              }
+              
+              // Immediately add the message with available data
+              const immediateMessage = {
+                ...payload.new,
+                sender: members.find(m => m.id === payload.new.sender_id) || {
+                  id: payload.new.sender_id,
+                  name: payload.new.sender_name || 'Unknown',
+                  username: 'unknown',
+                  image_uri: payload.new.sender_avatar || ''
+                }
+              };
+              
+              return [...prev, immediateMessage];
+            });
+            
+            // Fetch complete message with sender info in background
             try {
               const { data: messageWithSender, error } = await supabase
                 .from('messages')
@@ -238,7 +284,10 @@ export function CircleChat({
                 .single();
                 
               if (!error && messageWithSender) {
-                setMessages(prev => [...prev, messageWithSender]);
+                // Update the message with complete data
+                setMessages(prev => prev.map(msg => 
+                  msg.id === messageWithSender.id ? messageWithSender : msg
+                ));
               }
             } catch (err) {
               console.error('Error fetching complete message from messages:', err);
@@ -385,11 +434,34 @@ export function CircleChat({
   const handleSendMessage = async (content: string) => {
     if (isSending || !content.trim()) return;
 
+    // Create optimistic message
+    const optimisticMessage: CircleMessageWithSender = {
+      id: `temp-${Date.now()}`,
+      circle_id: circleId,
+      sender_id: currentUserId,
+      sender_name: currentUserName,
+      sender_avatar: currentUserAvatar,
+      content: content.trim(),
+      message_type: 'text',
+      is_read: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      sender: {
+        id: currentUserId,
+        name: currentUserName,
+        username: currentUserName.toLowerCase().replace(' ', '_'),
+        image_uri: currentUserAvatar
+      }
+    };
+
     try {
       setIsSending(true);
       
+      // Add optimistic message immediately
+      setMessages(prev => [...prev, optimisticMessage]);
+      
       const service = useMockService ? CircleChatMockService : CircleChatService;
-      await service.sendCircleMessage(
+      const sentMessage = await service.sendCircleMessage(
         circleId,
         currentUserId,
         currentUserName,
@@ -398,10 +470,19 @@ export function CircleChat({
         'text'
       );
 
+      // Replace optimistic message with real message
+      setMessages(prev => prev.map(msg => 
+        msg.id === optimisticMessage.id 
+          ? { ...sentMessage, sender: optimisticMessage.sender }
+          : msg
+      ));
+
       // Clear typing status
       await service.setTypingStatus(circleId, currentUserId, false);
     } catch (error) {
       console.error('Error sending message:', error);
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(msg => msg.id !== optimisticMessage.id));
       Alert.alert('Error', 'Failed to send message');
     } finally {
       setIsSending(false);

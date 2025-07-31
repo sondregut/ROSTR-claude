@@ -10,6 +10,13 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useSafeAuth } from '@/hooks/useSafeAuth';
 import { useSafeUser } from '@/hooks/useSafeUser';
 import { openFeatureRequest } from '@/lib/featurebase';
+import { useNotifications } from '@/contexts/NotificationContext';
+import * as Haptics from 'expo-haptics';
+import Constants from 'expo-constants';
+
+// Check if we're in a simulator/emulator or Expo Go
+const isSimulator = !Constants.isDevice;
+const isExpoGo = Constants.appOwnership === 'expo';
 
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();
@@ -20,6 +27,12 @@ export default function SettingsScreen() {
   const router = useRouter();
   const user = useSafeUser();
   const userProfile = user?.userProfile;
+  const { 
+    preferences, 
+    updatePreferences, 
+    pushEnabled, 
+    requestPushPermissions 
+  } = useNotifications();
 
   const themeOptions = [
     { value: 'system' as const, label: 'System', icon: 'phone-portrait-outline' as const },
@@ -52,6 +65,39 @@ export default function SettingsScreen() {
         },
       ]
     );
+  };
+
+  const handleToggleNotifications = async () => {
+    if (!pushEnabled) {
+      // Check if we're in an environment that doesn't support push notifications
+      if (isSimulator || isExpoGo) {
+        Alert.alert(
+          'Push Notifications Unavailable',
+          isSimulator 
+            ? 'Push notifications are not available in the simulator. Please test on a real device.'
+            : 'Push notifications require a development build. They are not available in Expo Go.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
+      const enabled = await requestPushPermissions();
+      if (!enabled) {
+        Alert.alert(
+          'Notifications Disabled',
+          'Please enable notifications in your device settings to receive updates.',
+          [{ text: 'OK' }]
+        );
+      }
+    } else {
+      await updatePreferences({ push_enabled: false });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
+  const handleToggleNotificationPreference = async (key: keyof typeof preferences, value: boolean) => {
+    await updatePreferences({ [key]: value });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   return (
@@ -99,6 +145,77 @@ export default function SettingsScreen() {
               </Pressable>
             ))}
           </View>
+        </View>
+
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Notifications</Text>
+          
+          <Pressable
+            style={[styles.settingRow, { borderBottomColor: colors.border }]}
+            onPress={handleToggleNotifications}
+          >
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingLabel, { color: colors.text }]}>Push Notifications</Text>
+              <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                Get notified about likes, comments, and friend activity
+              </Text>
+            </View>
+            <View style={[styles.toggle, { backgroundColor: pushEnabled ? colors.primary : colors.border }]}>
+              <View style={[styles.toggleThumb, { transform: [{ translateX: pushEnabled ? 22 : 2 }] }]} />
+            </View>
+          </Pressable>
+
+          {pushEnabled && preferences && (
+            <>
+              <Pressable
+                style={[styles.settingRow, { borderBottomColor: colors.border }]}
+                onPress={() => handleToggleNotificationPreference('likes_reactions', !preferences.likes_reactions)}
+              >
+                <View style={styles.settingInfo}>
+                  <Text style={[styles.settingLabel, { color: colors.text }]}>Likes & Reactions</Text>
+                </View>
+                <View style={[styles.toggle, { backgroundColor: preferences.likes_reactions ? colors.primary : colors.border }]}>
+                  <View style={[styles.toggleThumb, { transform: [{ translateX: preferences.likes_reactions ? 22 : 2 }] }]} />
+                </View>
+              </Pressable>
+
+              <Pressable
+                style={[styles.settingRow, { borderBottomColor: colors.border }]}
+                onPress={() => handleToggleNotificationPreference('comments', !preferences.comments)}
+              >
+                <View style={styles.settingInfo}>
+                  <Text style={[styles.settingLabel, { color: colors.text }]}>Comments & Mentions</Text>
+                </View>
+                <View style={[styles.toggle, { backgroundColor: preferences.comments ? colors.primary : colors.border }]}>
+                  <View style={[styles.toggleThumb, { transform: [{ translateX: preferences.comments ? 22 : 2 }] }]} />
+                </View>
+              </Pressable>
+
+              <Pressable
+                style={[styles.settingRow, { borderBottomColor: colors.border }]}
+                onPress={() => handleToggleNotificationPreference('friend_activity', !preferences.friend_activity)}
+              >
+                <View style={styles.settingInfo}>
+                  <Text style={[styles.settingLabel, { color: colors.text }]}>Friend Activity</Text>
+                </View>
+                <View style={[styles.toggle, { backgroundColor: preferences.friend_activity ? colors.primary : colors.border }]}>
+                  <View style={[styles.toggleThumb, { transform: [{ translateX: preferences.friend_activity ? 22 : 2 }] }]} />
+                </View>
+              </Pressable>
+
+              <Pressable
+                style={[styles.settingRow, { borderBottomColor: colors.border }]}
+                onPress={() => handleToggleNotificationPreference('circle_updates', !preferences.circle_updates)}
+              >
+                <View style={styles.settingInfo}>
+                  <Text style={[styles.settingLabel, { color: colors.text }]}>Circle Updates</Text>
+                </View>
+                <View style={[styles.toggle, { backgroundColor: preferences.circle_updates ? colors.primary : colors.border }]}>
+                  <View style={[styles.toggleThumb, { transform: [{ translateX: preferences.circle_updates ? 22 : 2 }] }]} />
+                </View>
+              </Pressable>
+            </>
+          )}
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.card }]}>
@@ -234,5 +351,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     flex: 1,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  settingInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
+  settingLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  settingDescription: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  toggle: {
+    width: 50,
+    height: 30,
+    borderRadius: 15,
+    padding: 2,
+    justifyContent: 'center',
+  },
+  toggleThumb: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'white',
+    position: 'absolute',
   },
 });

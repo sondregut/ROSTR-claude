@@ -237,26 +237,27 @@ export default function CircleSettingsScreen() {
   };
   
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </Pressable>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Circle Settings</Text>
+        <Pressable
+          onPress={handleSaveChanges}
+          disabled={isSaving}
+          style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+        >
+          {isSaving ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Text style={[styles.saveButtonText, { color: colors.primary }]}>Save</Text>
+          )}
+        </Pressable>
+      </View>
+      
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </Pressable>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Circle Settings</Text>
-          <Pressable
-            onPress={handleSaveChanges}
-            disabled={isSaving}
-            style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
-          >
-            {isSaving ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <Text style={[styles.saveButtonText, { color: colors.primary }]}>Save</Text>
-            )}
-          </Pressable>
-        </View>
         
         {/* Circle Info Section */}
         <View style={styles.section}>
@@ -388,8 +389,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 16,
+    paddingVertical: 12,
   },
   backButton: {
     padding: 4,

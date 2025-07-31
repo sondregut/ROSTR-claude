@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
 import { InlineComments } from '../feed/InlineComments';
+import { getEmojiById } from '@/constants/ReactionData';
+import * as Haptics from 'expo-haptics';
+import { OptimizedImage } from '../OptimizedImage';
 
 interface RosterCardProps {
   id: string;
@@ -27,11 +30,20 @@ interface RosterCardProps {
   onPersonPress?: () => void;
   onAuthorPress?: () => void;
   onLike?: () => void;
+  onReact?: (reaction: string | null) => void;
   onSubmitComment?: (text: string) => Promise<void>;
   onEdit?: () => void;
+  onCommentFocus?: () => void;
   likeCount: number;
   commentCount: number;
   isLiked?: boolean;
+  reactions?: {
+    [key: string]: {
+      count: number;
+      users: string[];
+    };
+  };
+  userReaction?: string | null;
   comments?: {
     name: string;
     content: string;
@@ -52,11 +64,15 @@ export function RosterCard({
   onPersonPress,
   onAuthorPress,
   onLike,
+  onReact,
   onSubmitComment,
   onEdit,
+  onCommentFocus,
   likeCount,
   commentCount,
   isLiked = false,
+  reactions = {},
+  userReaction = null,
   comments = [],
 }: RosterCardProps) {
   const colorScheme = useColorScheme();
@@ -72,7 +88,7 @@ export function RosterCard({
           onPress={onAuthorPress}
         >
           {authorAvatar ? (
-            <Image source={{ uri: authorAvatar }} style={styles.avatar} />
+            <OptimizedImage source={{ uri: authorAvatar }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
               <Text style={[styles.avatarInitial, { color: colors.buttonText }]}>
@@ -119,7 +135,7 @@ export function RosterCard({
       <View style={[styles.personCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
         <View style={styles.personHeader}>
           {imageUri ? (
-            <Image source={{ uri: imageUri }} style={styles.personImage} />
+            <OptimizedImage source={{ uri: imageUri }} style={styles.personImage} priority="high" />
           ) : (
             <View style={[styles.personImagePlaceholder, { backgroundColor: colors.primary }]}>
               <Text style={[styles.personInitial, { color: colors.buttonText }]}>
@@ -179,22 +195,37 @@ export function RosterCard({
       {/* Actions */}
       <View style={[styles.actionsContainer, { borderTopColor: colors.border }]}>
         <Pressable 
-          style={styles.actionButton} 
-          onPress={onLike}
+          style={styles.actionButton}
+          onPress={() => {
+            // Quick tap toggle logic
+            if (onReact) {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              // If any reaction exists, remove it. Otherwise add love
+              onReact(userReaction ? null : 'love');
+            }
+          }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="React"
         >
-          <Ionicons 
-            name={isLiked ? "heart" : "heart-outline"} 
-            size={20} 
-            color={isLiked ? colors.primary : colors.textSecondary} 
-          />
+          {userReaction ? (
+            <Text style={styles.reactionEmoji}>
+              {getEmojiById(userReaction)}
+            </Text>
+          ) : (
+            <Ionicons 
+              name="heart-outline" 
+              size={20} 
+              color={colors.textSecondary} 
+            />
+          )}
           <Text 
             style={[
               styles.actionButtonText, 
-              { color: isLiked ? colors.primary : colors.textSecondary }
+              { color: userReaction ? colors.primary : colors.textSecondary }
             ]}
           >
-            {likeCount > 0 ? likeCount : 'Like'}
+            {likeCount > 0 ? likeCount : 'React'}
           </Text>
         </Pressable>
         
@@ -218,6 +249,7 @@ export function RosterCard({
         comments={comments || []}
         isExpanded={showComments}
         onSubmitComment={onSubmitComment || (async () => {})}
+        onFocus={onCommentFocus}
       />
     </View>
   );
@@ -407,5 +439,8 @@ const styles = StyleSheet.create({
   commentContent: {
     fontSize: 14,
     lineHeight: 18,
+  },
+  reactionEmoji: {
+    fontSize: 20,
   },
 });

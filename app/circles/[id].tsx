@@ -171,14 +171,25 @@ export default function CircleDetailScreen() {
       name: item.user?.name || 'Unknown',
       username: item.user?.username || 'unknown',
       avatar: item.user?.image_uri || '',
-      role: item.role,
+      role: item.role || 'member',
       onlineStatus: 'offline' as OnlineStatus, // TODO: Implement real online status
     };
+    
+    const isCurrentUser = item.user_id === user?.id;
     
     return (
       <MemberCard
         member={memberData}
-        onPress={() => router.push(`/profile/${memberData.username}`)}
+        onPress={() => {
+          console.log('Member clicked:', memberData.name, memberData.username, 'isCurrentUser:', isCurrentUser);
+          if (isCurrentUser) {
+            // Navigate to profile tab for current user
+            router.push('/(tabs)/profile');
+          } else {
+            // Navigate to member's profile
+            router.push(`/profile/${memberData.username}`);
+          }
+        }}
         currentUserRole={permissions.role || 'member'}
         showActions={false} // Remove the ... buttons as requested
       />

@@ -52,6 +52,48 @@ export interface DetailedStats {
     date_count: number;
     avg_rating: number;
   }>;
+  // New fun stats
+  datingPatterns: {
+    mostPopularDay: string;
+    mostPopularDayCount: number;
+    morningDates: number;
+    afternoonDates: number;
+    eveningDates: number;
+    avgDaysBetweenDates: number;
+  };
+  streaks: {
+    currentStreak: number;
+    longestStreak: number;
+    totalWeeksDated: number;
+    consistencyScore: number;
+  };
+  locationStats: {
+    topLocation: string;
+    topLocationCount: number;
+    topLocationRating: number;
+    uniqueLocations: number;
+    mostSuccessfulLocation: string;
+    mostSuccessfulRating: number;
+    locationDiversityScore: number;
+  };
+  personality: {
+    type: string;
+    description: string;
+    primaryTrait: string;
+    secondaryTrait: string;
+    frequencyScore: number;
+    varietyScore: number;
+    commitmentScore: number;
+  };
+  achievements: {
+    datesRankPercentile: number;
+    ratingRankPercentile: number;
+    mostDatesInWeek: number;
+    perfectDatesCount: number;
+    favoriteSeason: string;
+    datingMomentum: string;
+    uniqueAchievement: string;
+  };
 }
 
 interface UserContextType {
@@ -181,14 +223,24 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         ratingBreakdown,
         mostUsedTags,
         longestConnections,
-        datingTrends
+        datingTrends,
+        datingPatterns,
+        streaks,
+        locationStats,
+        personality,
+        achievements
       ] = await Promise.all([
         UserService.getSecondDateRate(user.id),
         UserService.getActivityMetrics(user.id),
         UserService.getRatingBreakdown(user.id),
         UserService.getMostUsedTags(user.id, 5),
         UserService.getLongestConnections(user.id, 3),
-        UserService.getDatingTrends(user.id)
+        UserService.getDatingTrends(user.id),
+        UserService.getDatingPatterns(user.id),
+        UserService.getDatingStreaks(user.id),
+        UserService.getLocationStats(user.id),
+        UserService.getDatingPersonality(user.id),
+        UserService.getDatingAchievements(user.id)
       ]);
 
       const stats: DetailedStats = {
@@ -213,7 +265,48 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           month_year: trend.month_year,
           date_count: Number(trend.date_count),
           avg_rating: Number(trend.avg_rating)
-        }))
+        })),
+        datingPatterns: {
+          mostPopularDay: datingPatterns?.most_popular_day || 'N/A',
+          mostPopularDayCount: Number(datingPatterns?.most_popular_day_count || 0),
+          morningDates: Number(datingPatterns?.morning_dates || 0),
+          afternoonDates: Number(datingPatterns?.afternoon_dates || 0),
+          eveningDates: Number(datingPatterns?.evening_dates || 0),
+          avgDaysBetweenDates: Number(datingPatterns?.avg_days_between_dates || 0)
+        },
+        streaks: {
+          currentStreak: Number(streaks?.current_streak || 0),
+          longestStreak: Number(streaks?.longest_streak || 0),
+          totalWeeksDated: Number(streaks?.total_weeks_dated || 0),
+          consistencyScore: Number(streaks?.consistency_score || 0)
+        },
+        locationStats: {
+          topLocation: locationStats?.top_location || 'N/A',
+          topLocationCount: Number(locationStats?.top_location_count || 0),
+          topLocationRating: Number(locationStats?.top_location_avg_rating || 0),
+          uniqueLocations: Number(locationStats?.unique_locations || 0),
+          mostSuccessfulLocation: locationStats?.most_successful_location || 'N/A',
+          mostSuccessfulRating: Number(locationStats?.most_successful_rating || 0),
+          locationDiversityScore: Number(locationStats?.location_diversity_score || 0)
+        },
+        personality: {
+          type: personality?.personality_type || 'The Explorer',
+          description: personality?.description || '',
+          primaryTrait: personality?.primary_trait || '',
+          secondaryTrait: personality?.secondary_trait || '',
+          frequencyScore: Number(personality?.dating_frequency_score || 0),
+          varietyScore: Number(personality?.variety_score || 0),
+          commitmentScore: Number(personality?.commitment_score || 0)
+        },
+        achievements: {
+          datesRankPercentile: Number(achievements?.total_dates_rank_percentile || 0),
+          ratingRankPercentile: Number(achievements?.avg_rating_rank_percentile || 0),
+          mostDatesInWeek: Number(achievements?.most_dates_in_week || 0),
+          perfectDatesCount: Number(achievements?.perfect_dates_count || 0),
+          favoriteSeason: achievements?.favorite_season || 'N/A',
+          datingMomentum: achievements?.dating_momentum || 'Getting started',
+          uniqueAchievement: achievements?.unique_achievement || 'Rising Star'
+        }
       };
 
       setDetailedStats(stats);

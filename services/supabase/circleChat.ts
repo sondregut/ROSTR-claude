@@ -156,8 +156,8 @@ export class CircleChatService {
 
       console.log(`✅ Fetched ${messages?.length || 0} messages`);
       
-      // Reverse to show oldest first (for proper chat order)
-      return messages ? messages.reverse() : [];
+      // Return messages as-is (already ordered by created_at ascending)
+      return messages || [];
     } catch (error) {
       console.error('💥 Get circle messages error:', error);
       throw error;

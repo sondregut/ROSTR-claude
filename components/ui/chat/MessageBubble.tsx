@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { CircleMessageWithSender } from '@/services/supabase/circleChat';
+import { Avatar } from '../Avatar';
 
 interface MessageBubbleProps {
   message: CircleMessageWithSender;
@@ -67,9 +68,10 @@ export function MessageBubble({
       ]}>
         {/* Avatar for other users */}
         {!isOwnMessage && showSenderInfo && (
-          <Image 
-            source={{ uri: message.sender_avatar || message.sender?.image_uri }} 
-            style={styles.avatar} 
+          <Avatar 
+            uri={message.sender_avatar || message.sender?.image_uri}
+            name={message.sender_name || message.sender?.name}
+            size={28}
           />
         )}
         {!isOwnMessage && !showSenderInfo && (

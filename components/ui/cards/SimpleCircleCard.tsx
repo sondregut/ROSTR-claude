@@ -80,6 +80,23 @@ export function SimpleCircleCard({
     );
   };
   
+  // Generate consistent color based on circle name
+  const getCircleColor = (circleName: string): string => {
+    let hash = 0;
+    for (let i = 0; i < circleName.length; i++) {
+      hash = circleName.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    const circleColors = [
+      '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57',
+      '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2',
+    ];
+    
+    return circleColors[Math.abs(hash) % circleColors.length];
+  };
+
+  const circleColor = getCircleColor(name);
+  
   return (
     <Pressable
       style={({ pressed }) => [
@@ -92,11 +109,17 @@ export function SimpleCircleCard({
       ]}
       onPress={onPress}
     >
-      {groupPhotoUri && (
-        <View style={styles.groupPhotoContainer}>
+      <View style={styles.groupPhotoContainer}>
+        {groupPhotoUri ? (
           <Image source={{ uri: groupPhotoUri }} style={styles.groupPhoto} />
-        </View>
-      )}
+        ) : (
+          <View style={[styles.groupPhotoPlaceholder, { backgroundColor: circleColor }]}>
+            <Text style={styles.groupPhotoText}>
+              {name.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
+      </View>
       
       <View style={styles.leftContent}>
         <Text style={[styles.name, { color: colors.primary }]}>{name}</Text>
@@ -222,5 +245,17 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     backgroundColor: '#E0E0E0',
+  },
+  groupPhotoPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  groupPhotoText: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: 'white',
   },
 });

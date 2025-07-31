@@ -306,6 +306,106 @@ export class UserService {
   }
 
   /**
+   * Get dating patterns (day/time preferences)
+   */
+  static async getDatingPatterns(userId: string) {
+    try {
+      const { data, error } = await supabase.rpc('get_dating_patterns', {
+        user_id_param: userId
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return data?.[0] || null;
+    } catch (error) {
+      console.error('Get dating patterns error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get dating streaks
+   */
+  static async getDatingStreaks(userId: string) {
+    try {
+      const { data, error } = await supabase.rpc('get_dating_streaks', {
+        user_id_param: userId
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return data?.[0] || null;
+    } catch (error) {
+      console.error('Get dating streaks error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get location statistics
+   */
+  static async getLocationStats(userId: string) {
+    try {
+      const { data, error } = await supabase.rpc('get_location_stats', {
+        user_id_param: userId
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return data?.[0] || null;
+    } catch (error) {
+      console.error('Get location stats error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get dating personality
+   */
+  static async getDatingPersonality(userId: string) {
+    try {
+      const { data, error } = await supabase.rpc('get_dating_personality', {
+        user_id_param: userId
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return data?.[0] || null;
+    } catch (error) {
+      console.error('Get dating personality error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get dating achievements
+   */
+  static async getDatingAchievements(userId: string) {
+    try {
+      const { data, error } = await supabase.rpc('get_dating_achievements', {
+        user_id_param: userId
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return data?.[0] || null;
+    } catch (error) {
+      console.error('Get dating achievements error:', error);
+      return null;
+    }
+  }
+
+  /**
    * Get activity metrics
    */
   static async getActivityMetrics(userId: string) {

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View, Pressable, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DateFeed } from '@/components/ui/feed/DateFeed';
@@ -14,6 +14,7 @@ import { useSafeUser } from '@/hooks/useSafeUser';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
+import { NotificationBell } from '@/components/ui/notifications/NotificationBell';
 
 export default function FeedScreen() {
   const colorScheme = useColorScheme();
@@ -26,6 +27,8 @@ export default function FeedScreen() {
   
   const {
     dates,
+    hasNewPosts,
+    loadNewPosts,
     likeDate,
     likePlan,
     reactToDate,
@@ -263,7 +266,18 @@ export default function FeedScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>My Feed</Text>
+        <NotificationBell size={24} />
       </View>
+      
+      {hasNewPosts && (
+        <Pressable 
+          style={[styles.newPostsIndicator, { backgroundColor: colors.primary }]}
+          onPress={loadNewPosts}
+        >
+          <Ionicons name="arrow-up" size={16} color="white" />
+          <Text style={styles.newPostsText}>New posts</Text>
+        </Pressable>
+      )}
       
       <DateFeed
         data={dates}
@@ -383,5 +397,27 @@ const styles = StyleSheet.create({
   welcomeText: {
     fontSize: 16,
     fontWeight: '500',
+  },
+  newPostsIndicator: {
+    position: 'absolute',
+    top: 80,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    gap: 6,
+  },
+  newPostsText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

@@ -23,11 +23,13 @@ import { UserProvider } from '@/contexts/UserContext';
 import { DateProvider } from '@/contexts/DateContext';
 import { RosterProvider } from '@/contexts/RosterContext';
 import { CircleProvider } from '@/contexts/CircleContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 import { AuthenticatedApp } from '@/components/AuthenticatedApp';
 import { useDeepLinks } from '@/hooks/useDeepLinks';
 import { verifyEnvironmentVariables } from '@/utils/verifyEnv';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { initSentry } from '@/services/sentry';
+import { memoryMonitor } from '@/utils/memoryMonitor';
 
 
 function RootLayoutNav() {
@@ -87,6 +89,14 @@ function RootLayoutNav() {
               gestureDirection: 'vertical',
             }} 
           />
+          <Stack.Screen 
+            name="notifications" 
+            options={{ 
+              headerShown: false,
+              gestureEnabled: true,
+              gestureDirection: 'horizontal',
+            }} 
+          />
           <Stack.Screen name="+not-found" />
         </Stack>
       </AuthenticatedApp>
@@ -112,9 +122,17 @@ export default function RootLayout() {
       } catch (sentryError) {
         console.log('Sentry initialization skipped:', sentryError.message);
       }
+      
+      // Start memory monitoring
+      memoryMonitor.startMonitoring();
     } catch (error) {
       console.error('❌ App initialization failed:', error);
     }
+    
+    // Cleanup on unmount
+    return () => {
+      memoryMonitor.stopMonitoring();
+    };
   }, []);
 
   if (!loaded) {
@@ -131,7 +149,9 @@ export default function RootLayout() {
               <DateProvider>
                 <RosterProvider>
                   <CircleProvider>
-                    <RootLayoutNav />
+                    <NotificationProvider>
+                      <RootLayoutNav />
+                    </NotificationProvider>
                   </CircleProvider>
                 </RosterProvider>
               </DateProvider>

@@ -196,6 +196,44 @@ export function RosterProvider({ children }: { children: React.ReactNode }) {
       const currentEntry = entries.find(e => e.id === id);
       if (!currentEntry) throw new Error('Entry not found');
       
+      // If only updating status, do optimistic update
+      if (Object.keys(updates).length === 1 && updates.status !== undefined) {
+        const oldStatus = currentEntry.status;
+        
+        // Optimistically update the local state
+        setEntries(prevEntries => 
+          prevEntries.map(entry => 
+            entry.id === id 
+              ? { ...entry, status: updates.status! }
+              : entry
+          )
+        );
+        
+        try {
+          // Update in database
+          await RosterService.updateRosterEntry(id, { status: updates.status });
+          
+          // Sync to feed entries
+          try {
+            await DateService.syncRosterToFeedEntries(user.id, currentEntry.name, { status: updates.status });
+          } catch (syncError) {
+            console.error('Failed to sync roster changes to feed:', syncError);
+          }
+        } catch (err) {
+          // Revert optimistic update on failure
+          setEntries(prevEntries => 
+            prevEntries.map(entry => 
+              entry.id === id 
+                ? { ...entry, status: oldStatus }
+                : entry
+            )
+          );
+          throw err;
+        }
+        
+        return; // Don't reload for status-only updates
+      }
+      
       // Transform UI updates to database format
       const dbUpdates: any = {};
       if (updates.status !== undefined) dbUpdates.status = updates.status;

@@ -3,7 +3,6 @@ import {
   StyleSheet,
   View,
   Text,
-  Image,
   Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,28 +10,38 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { PlanEntry } from '@/contexts/DateContext';
 import { InlineComments } from '../feed/InlineComments';
+import { ReactionItems, getEmojiById } from '@/constants/ReactionData';
+import * as Haptics from 'expo-haptics';
+import { OptimizedImage } from '../OptimizedImage';
 
 interface PlanCardProps {
-  plan: PlanEntry;
+  plan: PlanEntry & {
+    reactions?: { [key: string]: { count: number; users: string[] } };
+    userReaction?: string | null;
+  };
   personPhoto?: string;
   onLike: () => void;
+  onReact?: (reaction: string | null) => void;
   onSubmitComment?: (text: string) => Promise<void>;
   onAddDetails?: () => void;
   onPersonPress?: () => void;
   onAuthorPress?: () => void;
   onEdit?: () => void;
+  onCommentFocus?: () => void;
   showEditOptions?: boolean;
 }
 
 export default function PlanCard({ 
   plan,
   personPhoto, 
-  onLike, 
+  onLike,
+  onReact, 
   onSubmitComment, 
   onAddDetails,
   onPersonPress,
   onAuthorPress,
   onEdit,
+  onCommentFocus,
   showEditOptions = true
 }: PlanCardProps) {
   const colorScheme = useColorScheme();
@@ -44,7 +53,7 @@ export default function PlanCard({
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={onAuthorPress}>
-          <Image 
+          <OptimizedImage 
             source={{ uri: plan.authorAvatar || '/placeholder.svg?height=40&width=40' }} 
             style={styles.avatar} 
           />
@@ -86,7 +95,7 @@ export default function PlanCard({
             <Text style={[styles.planTitle, { color: colors.text }]}>Date with</Text>
             {personPhoto && (
               <Pressable onPress={onPersonPress} style={styles.personPhotoContainer}>
-                <Image source={{ uri: personPhoto }} style={styles.personPhoto} />
+                <OptimizedImage source={{ uri: personPhoto }} style={styles.personPhoto} priority="high" />
               </Pressable>
             )}
             <Pressable onPress={onPersonPress}>
@@ -138,14 +147,30 @@ export default function PlanCard({
 
       {/* Actions */}
       <View style={[styles.actions, { borderTopColor: colors.border }]}>
-        <Pressable style={styles.actionButton} onPress={onLike}>
-          <Ionicons 
-            name={plan.isLiked ? "heart" : "heart-outline"} 
-            size={20} 
-            color={plan.isLiked ? colors.error : colors.textSecondary} 
-          />
-          <Text style={[styles.actionText, { color: colors.textSecondary }]}>
-            {plan.likeCount > 0 && plan.likeCount}
+        <Pressable 
+          style={styles.actionButton}
+          onPress={() => {
+            // Quick tap toggle logic
+            if (onReact) {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              // If any reaction exists, remove it. Otherwise add love
+              onReact(plan.userReaction ? null : 'love');
+            }
+          }}
+        >
+          {plan.userReaction ? (
+            <Text style={styles.reactionEmoji}>
+              {getEmojiById(plan.userReaction)}
+            </Text>
+          ) : (
+            <Ionicons 
+              name="heart-outline" 
+              size={20} 
+              color={colors.textSecondary} 
+            />
+          )}
+          <Text style={[styles.actionText, { color: plan.userReaction ? colors.primary : colors.textSecondary }]}>
+            {plan.likeCount > 0 ? plan.likeCount : 'React'}
           </Text>
         </Pressable>
 
@@ -172,6 +197,7 @@ export default function PlanCard({
         comments={plan.comments || []}
         isExpanded={showComments}
         onSubmitComment={onSubmitComment || (async () => {})}
+        onFocus={onCommentFocus}
       />
     </View>
   );
@@ -321,5 +347,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.1)',
+  },
+  reactionCard: {
+    borderRadius: 24,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  reactionEmoji: {
+    fontSize: 20,
   },
 });

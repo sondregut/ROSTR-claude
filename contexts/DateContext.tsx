@@ -1,10 +1,11 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { DateService } from '@/services/supabase/dates';
 import { StorageService } from '@/services/supabase/storage';
 import { DateEntryFormData } from '@/components/ui/forms/DateEntryForm';
 import { PlanFormData } from '@/components/ui/modals/AddPlanModal';
 import { useSafeAuth } from '@/hooks/useSafeAuth';
-import { ReactionType } from '@/components/ui/feed/ReactionPicker';
+import { supabase } from '@/lib/supabase';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // Extended interface for date entries in the feed
 export interface DateEntry {
@@ -35,12 +36,12 @@ export interface DateEntry {
   commentCount: number;
   isLiked: boolean;
   reactions?: {
-    [key in ReactionType]?: {
+    [key: string]: {
       count: number;
       users: string[];
     };
   };
-  userReaction?: ReactionType | null;
+  userReaction?: string | null;
   authorName: string; // The user who created this entry
   authorUsername?: string; // Username for navigation
   authorAvatar?: string;
@@ -77,12 +78,12 @@ export interface PlanEntry {
   commentCount: number;
   isLiked: boolean;
   reactions?: {
-    [key in ReactionType]?: {
+    [key: string]: {
       count: number;
       users: string[];
     };
   };
-  userReaction?: ReactionType | null;
+  userReaction?: string | null;
   comments: Array<{
     name: string;
     content: string;
@@ -93,6 +94,8 @@ export interface PlanEntry {
 interface DateContextType {
   dates: DateEntry[];
   plans: PlanEntry[];
+  hasNewPosts: boolean;
+  loadNewPosts: () => Promise<void>;
   addDate: (formData: DateEntryFormData) => Promise<void>;
   addRosterAddition: (personName: string, rosterInfo: any, circles: string[], isPrivate: boolean) => Promise<void>;
   updateRosterAddition: (id: string, updates: any) => Promise<void>;
@@ -105,8 +108,8 @@ interface DateContextType {
   deletePlan: (id: string) => Promise<void>;
   likeDate: (id: string) => Promise<void>;
   likePlan: (id: string) => Promise<void>;
-  reactToDate: (id: string, reaction: ReactionType | null) => Promise<void>;
-  reactToPlan: (id: string, reaction: ReactionType | null) => Promise<void>;
+  reactToDate: (id: string, reaction: string | null) => Promise<void>;
+  reactToPlan: (id: string, reaction: string | null) => Promise<void>;
   addComment: (id: string, comment: { name: string; content: string }) => Promise<void>;
   addPlanComment: (id: string, comment: { name: string; content: string }) => Promise<void>;
   voteOnPoll: (id: string, optionIndex: number) => Promise<void>;
@@ -174,6 +177,8 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
   const [plans, setPlans] = useState<PlanEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasNewPosts, setHasNewPosts] = useState(false);
+  const channelsRef = useRef<RealtimeChannel[]>([]);
 
   // Transform database dates to DateEntry format
   const transformDate = (dbDate: any): DateEntry => {
@@ -332,8 +337,254 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Set up real-time subscriptions
+  const setupRealtimeSubscriptions = () => {
+    if (!user) return;
+
+    console.log('🔄 Setting up real-time feed subscriptions');
+    
+    // Clean up existing channels
+    channelsRef.current.forEach(channel => {
+      supabase.removeChannel(channel);
+    });
+    channelsRef.current = [];
+
+    // Subscribe to date entries changes
+    const dateEntriesChannel = supabase
+      .channel('feed-date-entries')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'date_entries',
+        },
+        async (payload) => {
+          console.log('📨 Date entries change:', payload.eventType);
+          
+          if (payload.eventType === 'INSERT') {
+            // Show new posts indicator if not user's own post
+            if (payload.new.user_id !== user.id) {
+              setHasNewPosts(true);
+            } else {
+              // If it's user's own post, refresh immediately
+              await loadDates();
+            }
+          } else if (payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
+            // Refresh for updates and deletes
+            await loadDates();
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to likes changes
+    const likesChannel = supabase
+      .channel('feed-likes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'date_likes',
+        },
+        async (payload) => {
+          console.log('❤️ Likes change:', payload.eventType);
+          
+          // Only update the specific date entry's like status instead of refreshing entire feed
+          if (payload.eventType === 'INSERT' && payload.new) {
+            const dateId = payload.new.date_id;
+            const userId = payload.new.user_id;
+            
+            setDates(prevDates => 
+              prevDates.map(date => 
+                date.id === dateId
+                  ? { 
+                      ...date, 
+                      likeCount: (date.likeCount || 0) + 1,
+                      isLiked: userId === user?.id ? true : date.isLiked
+                    }
+                  : date
+              )
+            );
+          } else if (payload.eventType === 'DELETE' && payload.old) {
+            const dateId = payload.old.date_id;
+            const userId = payload.old.user_id;
+            
+            setDates(prevDates => 
+              prevDates.map(date => 
+                date.id === dateId
+                  ? { 
+                      ...date, 
+                      likeCount: Math.max((date.likeCount || 0) - 1, 0),
+                      isLiked: userId === user?.id ? false : date.isLiked
+                    }
+                  : date
+              )
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to comments changes
+    const commentsChannel = supabase
+      .channel('feed-comments')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'date_comments',
+        },
+        async (payload) => {
+          console.log('💬 Comments change:', payload.eventType);
+          
+          // Only update the specific date entry's comments instead of refreshing entire feed
+          if (payload.eventType === 'INSERT' && payload.new) {
+            const dateId = payload.new.date_id;
+            
+            // Update only the specific date's comment count
+            setDates(prevDates => 
+              prevDates.map(date => 
+                date.id === dateId
+                  ? { ...date, commentCount: (date.commentCount || 0) + 1 }
+                  : date
+              )
+            );
+          } else if (payload.eventType === 'DELETE' && payload.old) {
+            const dateId = payload.old.date_id;
+            
+            // Update only the specific date's comment count
+            setDates(prevDates => 
+              prevDates.map(date => 
+                date.id === dateId
+                  ? { ...date, commentCount: Math.max((date.commentCount || 0) - 1, 0) }
+                  : date
+              )
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to plans changes
+    const plansChannel = supabase
+      .channel('feed-plans')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'date_plans',
+        },
+        async (payload) => {
+          console.log('📅 Plans change:', payload.eventType);
+          
+          // For plans, we need to handle INSERT, UPDATE, and DELETE differently
+          // Only reload if it's from another user to avoid disrupting the feed
+          if (payload.new?.user_id !== user?.id && payload.old?.user_id !== user?.id) {
+            // Only refresh if it's someone else's plan
+            await loadDates();
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to poll votes
+    const pollsChannel = supabase
+      .channel('feed-polls')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'poll_votes',
+        },
+        async (payload) => {
+          console.log('📊 Poll votes change:', payload.eventType);
+          
+          // For poll votes, we need to reload the poll data for the specific date
+          // But only update that specific date entry, not the entire feed
+          if ((payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') && payload.new) {
+            const pollId = payload.new.poll_id;
+            
+            // Find which date contains this poll
+            const dateWithPoll = dates.find(date => date.poll?.id === pollId);
+            if (dateWithPoll) {
+              try {
+                // Fetch updated poll data
+                const { data: updatedPoll } = await supabase
+                  .from('polls')
+                  .select(`
+                    *,
+                    options:poll_options (
+                      id,
+                      text,
+                      vote_count
+                    ),
+                    votes:poll_votes (
+                      user_id,
+                      option_id
+                    )
+                  `)
+                  .eq('id', pollId)
+                  .single();
+                
+                if (updatedPoll) {
+                  setDates(prevDates => 
+                    prevDates.map(date => 
+                      date.id === dateWithPoll.id
+                        ? { 
+                            ...date, 
+                            poll: updatedPoll,
+                            userPollVote: updatedPoll.votes?.find(v => v.user_id === user?.id)?.option_id
+                          }
+                        : date
+                    )
+                  );
+                }
+              } catch (error) {
+                console.error('Error updating poll data:', error);
+              }
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    channelsRef.current = [
+      dateEntriesChannel,
+      likesChannel,
+      commentsChannel,
+      plansChannel,
+      pollsChannel,
+    ];
+  };
+
+  // Load when new posts indicator is clicked
+  const loadNewPosts = async () => {
+    setHasNewPosts(false);
+    await loadDates();
+  };
+
   useEffect(() => {
-    loadDates();
+    if (user) {
+      loadDates();
+      setupRealtimeSubscriptions();
+    } else {
+      setDates([]);
+      setPlans([]);
+      setIsLoading(false);
+    }
+
+    // Cleanup on unmount or user change
+    return () => {
+      channelsRef.current.forEach(channel => {
+        supabase.removeChannel(channel);
+      });
+      channelsRef.current = [];
+    };
   }, [user]);
 
   const addDate = async (formData: DateEntryFormData) => {
@@ -576,7 +827,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const reactToDate = async (id: string, reaction: ReactionType | null) => {
+  const reactToDate = async (id: string, reaction: string | null) => {
     if (!user) return;
     
     console.log('🔍 DateContext: reactToDate called with:', { id, reaction });
@@ -657,7 +908,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const reactToPlan = async (id: string, reaction: ReactionType | null) => {
+  const reactToPlan = async (id: string, reaction: string | null) => {
     if (!user) return;
     
     const plan = plans.find(p => p.id === id);
@@ -910,6 +1161,8 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
   const value = {
     dates,
     plans,
+    hasNewPosts,
+    loadNewPosts,
     addDate,
     addRosterAddition,
     updateRosterAddition,

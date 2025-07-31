@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { OptimizedImage } from '../OptimizedImage';
 
 interface ProfileCardProps {
   id: string;
@@ -82,7 +83,7 @@ export function ProfileCard({
       <View style={styles.contentRow}>
         <View style={styles.avatarContainer}>
           {avatarUri ? (
-            <Image source={{ uri: avatarUri }} style={styles.avatar} />
+            <OptimizedImage source={{ uri: avatarUri }} style={styles.avatar} priority="high" />
           ) : (
             <View style={[styles.avatarPlaceholder, { backgroundColor: colors.background }]}>
               <Text style={[styles.avatarInitial, { color: colors.textSecondary }]}>

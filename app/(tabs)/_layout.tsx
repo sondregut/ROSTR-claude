@@ -7,6 +7,7 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/contexts/ThemeContext';
+import { NotificationBell } from '@/components/ui/notifications/NotificationBell';
 
 export default function TabLayout() {
   // Try to use theme context, fall back to native color scheme
@@ -87,6 +88,11 @@ export default function TabLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
+          headerRight: () => (
+            <View style={{ marginRight: 16 }}>
+              <NotificationBell size={24} />
+            </View>
+          ),
         }}
       />
     </Tabs>
