@@ -106,15 +106,15 @@ export default {
       eas: {
         projectId: "bda19927-debe-46ff-a855-28e21348c0de"
       },
-      // Add environment variables to extra so they're accessible via Constants.expoConfig.extra
-      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-      env: process.env.EXPO_PUBLIC_ENV || "development",
-      analyticsEnabled: process.env.EXPO_PUBLIC_ANALYTICS_ENABLED === "true",
-      debugMode: process.env.EXPO_PUBLIC_DEBUG_MODE === "true",
-      enableTestUsers: process.env.EXPO_PUBLIC_ENABLE_TEST_USERS === "true",
-      showDevMenu: process.env.EXPO_PUBLIC_SHOW_DEV_MENU === "true",
-      sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN
+      // Hardcoded values for production - ensures they're always available
+      supabaseUrl: "https://iiyoasqgwpbuijuagfmz.supabase.co",
+      supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlpeW9hc3Fnd3BidWlqdWFnZm16Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3OTcxMDIsImV4cCI6MjA2OTM3MzEwMn0.L6TX1WYtZBZI_pLAAWoq49M1cmuZxzN6957ka6-KdnA",
+      env: process.env.EXPO_PUBLIC_ENV || "production",
+      analyticsEnabled: process.env.EXPO_PUBLIC_ANALYTICS_ENABLED === "true" || true,
+      debugMode: process.env.EXPO_PUBLIC_DEBUG_MODE === "true" || false,
+      enableTestUsers: process.env.EXPO_PUBLIC_ENABLE_TEST_USERS === "true" || false,
+      showDevMenu: process.env.EXPO_PUBLIC_SHOW_DEV_MENU === "true" || false,
+      sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN || undefined
     }
   }
 };
