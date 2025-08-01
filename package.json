@@ -4,18 +4,22 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
+    "start:production": "expo start --no-dev --minify",
     "reset-project": "node ./scripts/reset-project.js",
     "setup-storage": "node ./scripts/setup-storage.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "setup:storage": "node scripts/setup-storage-buckets.js"
+    "setup:storage": "node scripts/setup-storage-buckets.js",
+    "build:ios": "eas build --platform ios --profile production",
+    "build:ios:preview": "eas build --platform ios --profile preview",
+    "submit:ios": "eas submit --platform ios"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
     "@react-native-async-storage/async-storage": "2.1.2",
-    "@react-native-community/datetimepicker": "^8.4.1",
+    "@react-native-community/datetimepicker": "8.4.1",
     "@react-navigation/bottom-tabs": "^7.3.10",
     "@react-navigation/elements": "^2.3.8",
     "@react-navigation/native": "^7.1.6",
@@ -64,10 +68,18 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/react": "~19.0.10",
+    "babel-plugin-inline-dotenv": "^1.7.0",
     "dotenv": "^16.6.1",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~9.2.0",
     "typescript": "~5.8.3"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": ["react-native-otp-verify", "libphonenumber-js", "react-native-otp-textinput"]
+      }
+    }
+  }
 }
