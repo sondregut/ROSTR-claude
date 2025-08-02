@@ -1,7 +1,7 @@
 /**
- * Environment configuration with validation
- * This module ensures all required environment variables are present
- * and provides type-safe access to configuration values
+ * Environment configuration
+ * Simplified to read directly from Constants.expoConfig.extra
+ * which contains hardcoded values from app.config.js
  */
 
 import Constants from 'expo-constants';
@@ -26,138 +26,40 @@ interface EnvironmentConfig {
   showDevMenu: boolean;
 }
 
-class ConfigurationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'ConfigurationError';
-  }
-}
-
 /**
- * Validates that a required environment variable exists
- */
-function getRequiredEnvVar(key: string): string {
-  // First try process.env (for development)
-  let value = process.env[key];
-  
-  // If not found, try expo-constants (for production)
-  if (!value && Constants.expoConfig?.extra) {
-    // Map EXPO_PUBLIC_ prefixed keys to their config names
-    const configKey = key.replace('EXPO_PUBLIC_', '').replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-    const mappedKey = configKey.charAt(0).toLowerCase() + configKey.slice(1);
-    value = Constants.expoConfig.extra[mappedKey];
-  }
-  
-  if (!value || value.trim() === '') {
-    throw new ConfigurationError(
-      `Missing required environment variable: ${key}\n` +
-      `Please ensure your .env file is properly configured.`
-    );
-  }
-  
-  // Check for placeholder values
-  if (value.includes('your-') || value === 'placeholder') {
-    throw new ConfigurationError(
-      `Environment variable ${key} contains a placeholder value.\n` +
-      `Please update it with your actual configuration.`
-    );
-  }
-  
-  return value;
-}
-
-/**
- * Gets an optional environment variable with a default value
- */
-function getOptionalEnvVar(key: string, defaultValue: string = ''): string {
-  // First try process.env (for development)
-  let value = process.env[key];
-  
-  // If not found, try expo-constants (for production)
-  if (!value && Constants.expoConfig?.extra) {
-    // Map EXPO_PUBLIC_ prefixed keys to their config names
-    const configKey = key.replace('EXPO_PUBLIC_', '').replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-    const mappedKey = configKey.charAt(0).toLowerCase() + configKey.slice(1);
-    value = Constants.expoConfig.extra[mappedKey];
-  }
-  
-  return value || defaultValue;
-}
-
-/**
- * Gets a boolean environment variable
- */
-function getBooleanEnvVar(key: string, defaultValue: boolean = false): boolean {
-  // First try process.env (for development)
-  let value = process.env[key];
-  
-  // If not found, try expo-constants (for production)
-  if (!value && Constants.expoConfig?.extra) {
-    // Map EXPO_PUBLIC_ prefixed keys to their config names
-    const configKey = key.replace('EXPO_PUBLIC_', '').replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-    const mappedKey = configKey.charAt(0).toLowerCase() + configKey.slice(1);
-    const configValue = Constants.expoConfig.extra[mappedKey];
-    if (typeof configValue === 'boolean') {
-      return configValue;
-    }
-    value = configValue?.toString();
-  }
-  
-  if (!value) return defaultValue;
-  return value.toLowerCase() === 'true';
-}
-
-/**
- * Creates and validates the environment configuration
+ * Creates the environment configuration from hardcoded values in app.config.js
  */
 function createConfig(): EnvironmentConfig {
-  // Determine environment
-  const env = (getOptionalEnvVar('EXPO_PUBLIC_ENV', 'development') as 'development' | 'staging' | 'production');
+  // Get values from Constants.expoConfig.extra (hardcoded in app.config.js)
+  const extra = Constants.expoConfig?.extra || {};
+  
+  // Use hardcoded values with fallbacks for safety
+  const supabaseUrl = extra.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+  const supabaseAnonKey = extra.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+  const env = (extra.env || process.env.EXPO_PUBLIC_ENV || 'production') as 'development' | 'staging' | 'production';
+  
   const isProduction = env === 'production';
   const isDevelopment = env === 'development';
   
-  // In development, we can be more lenient with missing vars
-  const requireInProduction = (key: string, devDefault: string = '') => {
-    if (isProduction) {
-      return getRequiredEnvVar(key);
-    }
-    return getOptionalEnvVar(key, devDefault);
-  };
-  
   const config: EnvironmentConfig = {
-    // Supabase configuration (always required)
-    supabaseUrl: getRequiredEnvVar('EXPO_PUBLIC_SUPABASE_URL'),
-    supabaseAnonKey: getRequiredEnvVar('EXPO_PUBLIC_SUPABASE_ANON_KEY'),
+    // Supabase configuration
+    supabaseUrl,
+    supabaseAnonKey,
     
     // Environment
     env,
     isProduction,
     isDevelopment,
     
-    // Optional services
-    sentryDsn: getOptionalEnvVar('EXPO_PUBLIC_SENTRY_DSN'),
-    analyticsEnabled: getBooleanEnvVar('EXPO_PUBLIC_ANALYTICS_ENABLED', isProduction),
-    debugMode: getBooleanEnvVar('EXPO_PUBLIC_DEBUG_MODE', isDevelopment),
+    // Optional services (with safe defaults)
+    sentryDsn: extra.sentryDsn || process.env.EXPO_PUBLIC_SENTRY_DSN || undefined,
+    analyticsEnabled: extra.analyticsEnabled ?? (process.env.EXPO_PUBLIC_ANALYTICS_ENABLED === 'true') ?? true,
+    debugMode: extra.debugMode ?? (process.env.EXPO_PUBLIC_DEBUG_MODE === 'true') ?? false,
     
-    // Feature flags
-    enableTestUsers: getBooleanEnvVar('EXPO_PUBLIC_ENABLE_TEST_USERS', isDevelopment),
-    showDevMenu: getBooleanEnvVar('EXPO_PUBLIC_SHOW_DEV_MENU', isDevelopment),
+    // Feature flags (with safe defaults)
+    enableTestUsers: extra.enableTestUsers ?? (process.env.EXPO_PUBLIC_ENABLE_TEST_USERS === 'true') ?? false,
+    showDevMenu: extra.showDevMenu ?? (process.env.EXPO_PUBLIC_SHOW_DEV_MENU === 'true') ?? false,
   };
-  
-  // Validate Supabase URL format
-  try {
-    const url = new URL(config.supabaseUrl);
-    if (!url.hostname.includes('supabase.co') && !url.hostname.includes('supabase.in')) {
-      console.warn('Warning: Supabase URL does not appear to be a valid Supabase domain');
-    }
-  } catch (error) {
-    throw new ConfigurationError(`Invalid Supabase URL format: ${config.supabaseUrl}`);
-  }
-  
-  // Validate Supabase anon key format (basic check)
-  if (!config.supabaseAnonKey.startsWith('eyJ')) {
-    throw new ConfigurationError('Invalid Supabase anon key format');
-  }
   
   // Only log configuration in development mode
   if (isDevelopment && config.debugMode) {
@@ -167,43 +69,23 @@ function createConfig(): EnvironmentConfig {
       debugMode: config.debugMode,
       enableTestUsers: config.enableTestUsers,
       showDevMenu: config.showDevMenu,
+      supabaseUrlPresent: !!config.supabaseUrl,
+      supabaseKeyPresent: !!config.supabaseAnonKey,
     });
+  }
+  
+  // Log warnings if critical values are missing (but don't crash)
+  if (!config.supabaseUrl || !config.supabaseAnonKey) {
+    console.warn('⚠️  Warning: Supabase configuration is missing. App may not function correctly.');
+    console.warn('- Supabase URL:', config.supabaseUrl ? 'Present' : 'Missing');
+    console.warn('- Supabase Key:', config.supabaseAnonKey ? 'Present' : 'Missing');
   }
   
   return config;
 }
 
 // Create and export the configuration
-// This will throw an error if required variables are missing
-let config: EnvironmentConfig;
-
-try {
-  config = createConfig();
-} catch (error) {
-  if (error instanceof ConfigurationError) {
-    console.error('❌ Configuration Error:', error.message);
-    
-    // Log current environment for debugging
-    console.error('\n🔍 Current Environment:');
-    console.error('- NODE_ENV:', process.env.NODE_ENV);
-    console.error('- EXPO_PUBLIC_ENV:', process.env.EXPO_PUBLIC_ENV);
-    console.error('- Supabase URL present:', !!process.env.EXPO_PUBLIC_SUPABASE_URL);
-    console.error('- Supabase Key present:', !!process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
-    
-    // In development, provide helpful instructions
-    if (process.env.NODE_ENV === 'development') {
-      console.error('\n📋 Setup Instructions:');
-      console.error('1. Copy .env.example to .env');
-      console.error('2. Update .env with your Supabase project keys');
-      console.error('3. Restart the development server\n');
-    } else {
-      console.error('\n⚠️  Production Environment Issue:');
-      console.error('Environment variables are not properly configured.');
-      console.error('Please check your EAS build configuration or environment secrets.');
-    }
-  }
-  throw error;
-}
+const config = createConfig();
 
 export default config;
 
