@@ -26,7 +26,7 @@ export class StorageService {
   }
 
   /**
-   * Upload user profile photo
+   * Upload user profile photo with non-blocking operations
    */
   static async uploadUserPhoto(imageUri: string, userId: string): Promise<UploadResult> {
     try {
@@ -44,40 +44,55 @@ export class StorageService {
       // Generate unique filename
       const filename = this.generateUniqueFilename(userId, 'profile_photo.jpg', 'profile');
 
-      // Read file as base64
-      const base64 = await FileSystem.readAsStringAsync(imageUri, {
-        encoding: FileSystem.EncodingType.Base64,
+      // Create upload promise with timeout
+      const uploadPromise = new Promise<UploadResult>(async (resolve, reject) => {
+        try {
+          // Use fetch with timeout instead of FileSystem for better performance
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 4000);
+          
+          const response = await fetch(imageUri, { signal: controller.signal });
+          clearTimeout(timeout);
+          
+          const blob = await response.blob();
+
+          // Yield to main thread
+          await new Promise(r => setTimeout(r, 0));
+
+          // Upload to Supabase Storage
+          const { data, error } = await supabase.storage
+            .from(this.BUCKETS.USER_PHOTOS)
+            .upload(filename, blob, {
+              contentType: 'image/jpeg',
+              upsert: false,
+            });
+
+          if (error) {
+            throw error;
+          }
+
+          // Get public URL
+          const { data: urlData } = supabase.storage
+            .from(this.BUCKETS.USER_PHOTOS)
+            .getPublicUrl(data.path);
+
+          resolve({
+            url: urlData.publicUrl,
+            path: data.path,
+            fullUrl: urlData.publicUrl,
+          });
+        } catch (error) {
+          reject(error);
+        }
       });
 
-      // Decode base64 to ArrayBuffer for Supabase
-      const binaryString = atob(base64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
+      // Add 5-second timeout
+      const timeoutPromise = new Promise<UploadResult>((_, reject) => {
+        setTimeout(() => reject(new Error('Upload timed out after 5 seconds')), 5000);
+      });
 
-      // Upload to Supabase Storage
-      const { data, error } = await supabase.storage
-        .from(this.BUCKETS.USER_PHOTOS)
-        .upload(filename, bytes.buffer, {
-          contentType: 'image/jpeg',
-          upsert: false,
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from(this.BUCKETS.USER_PHOTOS)
-        .getPublicUrl(data.path);
-
-      return {
-        url: urlData.publicUrl,
-        path: data.path,
-        fullUrl: urlData.publicUrl,
-      };
+      // Race between upload and timeout
+      return await Promise.race([uploadPromise, timeoutPromise]);
     } catch (error) {
       console.error('Upload user photo error:', error);
       throw error;
@@ -101,7 +116,7 @@ export class StorageService {
   }
 
   /**
-   * Upload date entry image
+   * Upload date entry image with non-blocking operations
    */
   static async uploadDateEntryImage(imageUri: string, userId: string): Promise<UploadResult> {
     try {
@@ -119,40 +134,55 @@ export class StorageService {
       // Generate unique filename
       const filename = this.generateUniqueFilename(userId, 'date_image.jpg', 'date');
 
-      // Read file as base64
-      const base64 = await FileSystem.readAsStringAsync(imageUri, {
-        encoding: FileSystem.EncodingType.Base64,
+      // Create upload promise with timeout
+      const uploadPromise = new Promise<UploadResult>(async (resolve, reject) => {
+        try {
+          // Use fetch with timeout
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 4000);
+          
+          const response = await fetch(imageUri, { signal: controller.signal });
+          clearTimeout(timeout);
+          
+          const blob = await response.blob();
+
+          // Yield to main thread
+          await new Promise(r => setTimeout(r, 0));
+
+          // Upload to Supabase Storage
+          const { data, error } = await supabase.storage
+            .from(this.BUCKETS.DATE_ENTRY_IMAGES)
+            .upload(filename, blob, {
+              contentType: 'image/jpeg',
+              upsert: false,
+            });
+
+          if (error) {
+            throw error;
+          }
+
+          // Get public URL
+          const { data: urlData } = supabase.storage
+            .from(this.BUCKETS.DATE_ENTRY_IMAGES)
+            .getPublicUrl(data.path);
+
+          resolve({
+            url: urlData.publicUrl,
+            path: data.path,
+            fullUrl: urlData.publicUrl,
+          });
+        } catch (error) {
+          reject(error);
+        }
       });
 
-      // Decode base64 to ArrayBuffer for Supabase
-      const binaryString = atob(base64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
+      // Add 5-second timeout
+      const timeoutPromise = new Promise<UploadResult>((_, reject) => {
+        setTimeout(() => reject(new Error('Upload timed out after 5 seconds')), 5000);
+      });
 
-      // Upload to Supabase Storage
-      const { data, error } = await supabase.storage
-        .from(this.BUCKETS.DATE_ENTRY_IMAGES)
-        .upload(filename, bytes.buffer, {
-          contentType: 'image/jpeg',
-          upsert: false,
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from(this.BUCKETS.DATE_ENTRY_IMAGES)
-        .getPublicUrl(data.path);
-
-      return {
-        url: urlData.publicUrl,
-        path: data.path,
-        fullUrl: urlData.publicUrl,
-      };
+      // Race between upload and timeout
+      return await Promise.race([uploadPromise, timeoutPromise]);
     } catch (error) {
       console.error('Upload date entry image error:', error);
       throw error;
@@ -160,7 +190,7 @@ export class StorageService {
   }
 
   /**
-   * Upload chat media (private)
+   * Upload chat media (private) with non-blocking operations
    */
   static async uploadChatMedia(
     mediaUri: string, 
@@ -182,48 +212,62 @@ export class StorageService {
       // Generate unique filename
       const extension = mediaType === 'video' ? 'mp4' : 'jpg';
       const filename = this.generateUniqueFilename(userId, `chat_media.${extension}`, 'chat');
+      const contentType = mediaType === 'video' ? 'video/mp4' : 'image/jpeg';
 
-      // Read file as base64
-      const base64 = await FileSystem.readAsStringAsync(mediaUri, {
-        encoding: FileSystem.EncodingType.Base64,
+      // Create upload promise with timeout
+      const uploadPromise = new Promise<UploadResult>(async (resolve, reject) => {
+        try {
+          // Use fetch with timeout
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 8000); // Longer timeout for videos
+          
+          const response = await fetch(mediaUri, { signal: controller.signal });
+          clearTimeout(timeout);
+          
+          const blob = await response.blob();
+
+          // Yield to main thread
+          await new Promise(r => setTimeout(r, 0));
+
+          // Upload to Supabase Storage (private bucket)
+          const { data, error } = await supabase.storage
+            .from(this.BUCKETS.CHAT_MEDIA)
+            .upload(filename, blob, {
+              contentType,
+              upsert: false,
+            });
+
+          if (error) {
+            throw error;
+          }
+
+          // For private buckets, we'll need to generate signed URLs when accessing
+          const { data: urlData } = await supabase.storage
+            .from(this.BUCKETS.CHAT_MEDIA)
+            .createSignedUrl(data.path, 3600); // 1 hour expiry
+
+          if (urlData?.signedUrl) {
+            resolve({
+              url: urlData.signedUrl,
+              path: data.path,
+              fullUrl: urlData.signedUrl,
+            });
+          } else {
+            throw new Error('Failed to generate signed URL');
+          }
+        } catch (error) {
+          reject(error);
+        }
       });
 
-      // Convert base64 to blob
-      const contentType = mediaType === 'video' ? 'video/mp4' : 'image/jpeg';
-      
-      // Decode base64 to ArrayBuffer for Supabase
-      const binaryString = atob(base64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
+      // Add timeout (longer for videos)
+      const timeoutMs = mediaType === 'video' ? 10000 : 5000;
+      const timeoutPromise = new Promise<UploadResult>((_, reject) => {
+        setTimeout(() => reject(new Error(`Upload timed out after ${timeoutMs/1000} seconds`)), timeoutMs);
+      });
 
-      // Upload to Supabase Storage (private bucket)
-      const { data, error } = await supabase.storage
-        .from(this.BUCKETS.CHAT_MEDIA)
-        .upload(filename, bytes.buffer, {
-          contentType,
-          upsert: false,
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      // For private buckets, we'll need to generate signed URLs when accessing
-      const { data: urlData } = await supabase.storage
-        .from(this.BUCKETS.CHAT_MEDIA)
-        .createSignedUrl(data.path, 3600); // 1 hour expiry
-
-      if (urlData?.signedUrl) {
-        return {
-          url: urlData.signedUrl,
-          path: data.path,
-          fullUrl: urlData.signedUrl,
-        };
-      }
-
-      throw new Error('Failed to generate signed URL');
+      // Race between upload and timeout
+      return await Promise.race([uploadPromise, timeoutPromise]);
     } catch (error) {
       console.error('Upload chat media error:', error);
       throw error;

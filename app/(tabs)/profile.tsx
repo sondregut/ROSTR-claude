@@ -7,7 +7,8 @@ import {
   Platform, 
   Pressable, 
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  InteractionManager
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +26,7 @@ import { useEffect } from 'react';
 import { MiniBarChart } from '@/components/ui/charts/MiniBarChart';
 import { ProgressRing } from '@/components/ui/charts/ProgressRing';
 import { OptimizedImage } from '@/components/ui/OptimizedImage';
+import { useAppLifecycle } from '@/hooks/useAppLifecycle';
 
 
 
@@ -44,12 +46,25 @@ export default function ProfileScreen() {
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
+  // Use lifecycle hook to manage operations
+  const { runAfterInteractions } = useAppLifecycle({
+    onBackground: () => {
+      // Cancel any ongoing uploads when app goes to background
+      if (isUploadingPhoto) {
+        setIsUploadingPhoto(false);
+      }
+    }
+  });
+
   // Load detailed stats when stats tab is selected
   useEffect(() => {
     if (activeTab === 'stats' && !detailedStats && !isLoadingStats && loadDetailedStats) {
-      loadDetailedStats();
+      // Defer stats loading to avoid blocking UI
+      runAfterInteractions(() => {
+        loadDetailedStats();
+      });
     }
-  }, [activeTab, detailedStats, isLoadingStats, loadDetailedStats]);
+  }, [activeTab, detailedStats, isLoadingStats, loadDetailedStats, runAfterInteractions]);
 
   const handlePhotoUpload = async () => {
     if (!userProfile?.id) {
@@ -79,24 +94,28 @@ export default function ProfileScreen() {
   const uploadPhoto = async (source: 'camera' | 'library') => {
     try {
       const userId = userProfile!.id || 'mock-user-id';
-      const result = await uploadProfilePhoto(userId, source, {
-        quality: 0.8,
-        allowsEditing: true,
-        aspect: [1, 1],
-        maxWidth: 800,
-        maxHeight: 800,
-      });
+      
+      // Run photo upload after interactions to prevent blocking
+      InteractionManager.runAfterInteractions(async () => {
+        const result = await uploadProfilePhoto(userId, source, {
+          quality: 0.8,
+          allowsEditing: true,
+          aspect: [1, 1],
+          maxWidth: 800,
+          maxHeight: 800,
+        });
 
-      if (result.success && result.url) {
-        // For mock user, just update locally. For real users, update Supabase too
-        if (userProfile!.id && userProfile!.id !== 'mock-user-id') {
-          const { error } = await supabase
-            .from('users')
-            .update({ image_uri: result.url })
-            .eq('id', userProfile!.id);
+        if (result.success && result.url) {
+          // For mock user, just update locally. For real users, update Supabase too
+          if (userProfile!.id && userProfile!.id !== 'mock-user-id') {
+            const { error } = await supabase
+              .from('users')
+              .update({ image_uri: result.url })
+              .eq('id', userProfile!.id);
 
-          if (error) {
-            throw error;
+            if (error) {
+              throw error;
+            }
           }
         }
 

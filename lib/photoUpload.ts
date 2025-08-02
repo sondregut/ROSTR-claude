@@ -186,7 +186,7 @@ export const pickImage = async (
 };
 
 /**
- * Upload image to Supabase storage
+ * Upload image to Supabase storage with timeout and non-blocking operations
  */
 export const uploadImageToSupabase = async (
   uri: string,
@@ -198,36 +198,74 @@ export const uploadImageToSupabase = async (
     const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
     const fileName = `${userId}_${Date.now()}.${fileExt}`;
 
-    // Convert image to blob
-    const response = await fetch(uri);
-    const blob = await response.blob();
+    // Create upload with timeout to prevent watchdog kills
+    const uploadPromise = new Promise<PhotoUploadResult>(async (resolve, reject) => {
+      try {
+        // Fetch with timeout to prevent blocking
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 4000);
+        
+        const response = await fetch(uri, { signal: controller.signal });
+        clearTimeout(timeout);
+        
+        // Convert to blob asynchronously
+        const blob = await response.blob();
 
-    // Upload to Supabase storage
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .upload(fileName, blob, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: `image/${fileExt}`,
-      });
+        // Yield to main thread before upload
+        await new Promise(r => setTimeout(r, 0));
 
-    if (error) {
-      console.error('Upload error:', error);
-      return {
-        success: false,
-        error: error.message,
-      };
-    }
+        // Upload to Supabase storage
+        const { data, error } = await supabase.storage
+          .from(bucket)
+          .upload(fileName, blob, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: `image/${fileExt}`,
+          });
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(data.path);
+        if (error) {
+          console.error('Upload error:', error);
+          resolve({
+            success: false,
+            error: error.message,
+          });
+          return;
+        }
 
-    return {
-      success: true,
-      url: urlData.publicUrl,
-    };
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from(bucket)
+          .getPublicUrl(data.path);
+
+        resolve({
+          success: true,
+          url: urlData.publicUrl,
+        });
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          resolve({
+            success: false,
+            error: 'Image fetch timed out',
+          });
+        } else {
+          reject(error);
+        }
+      }
+    });
+
+    // Add 5-second timeout to prevent watchdog kills
+    const timeoutPromise = new Promise<PhotoUploadResult>((resolve) => {
+      setTimeout(() => {
+        resolve({
+          success: false,
+          error: 'Upload timed out after 5 seconds',
+        });
+      }, 5000);
+    });
+
+    // Race between upload and timeout
+    const result = await Promise.race([uploadPromise, timeoutPromise]);
+    return result;
   } catch (error) {
     console.error('Upload error:', error);
     return {

@@ -109,31 +109,37 @@ export default function RootLayout() {
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
-  // Initialize services on app start
+  // Initialize services on app start with non-blocking operations
   React.useEffect(() => {
-    try {
-      // Verify environment variables
-      verifyEnvironmentVariables();
-      
-      // Initialize Sentry for error tracking (only if configured)
+    // Defer initialization to prevent blocking main thread
+    const initTimeout = setTimeout(() => {
       try {
-        initSentry();
-      } catch (sentryError) {
+        // Verify environment variables
+        verifyEnvironmentVariables();
+        
+        // Initialize Sentry for error tracking (only if configured)
+        try {
+          initSentry();
+        } catch (sentryError) {
+          if (__DEV__) {
+            console.log('Sentry initialization skipped:', sentryError.message);
+          }
+        }
+        
+        // Start memory monitoring after a delay
+        setTimeout(() => {
+          memoryMonitor.startMonitoring();
+        }, 1000);
+      } catch (error) {
         if (__DEV__) {
-          console.log('Sentry initialization skipped:', sentryError.message);
+          console.error('❌ App initialization failed:', error);
         }
       }
-      
-      // Start memory monitoring
-      memoryMonitor.startMonitoring();
-    } catch (error) {
-      if (__DEV__) {
-        console.error('❌ App initialization failed:', error);
-      }
-    }
+    }, 100); // Small delay to allow UI to render first
     
     // Cleanup on unmount
     return () => {
+      clearTimeout(initTimeout);
       memoryMonitor.stopMonitoring();
     };
   }, []);
