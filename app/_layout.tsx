@@ -2,14 +2,13 @@
 import 'react-native-url-polyfill/auto';
 
 // Verify URL polyfill is working
-if (typeof URL === 'undefined') {
+if (typeof URL === 'undefined' && __DEV__) {
   console.error('❌ URL polyfill failed to load!');
-} else {
-  console.log('✅ URL polyfill loaded successfully');
 }
 
 
 import React from 'react';
+import { View, Text } from 'react-native';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -120,13 +119,17 @@ export default function RootLayout() {
       try {
         initSentry();
       } catch (sentryError) {
-        console.log('Sentry initialization skipped:', sentryError.message);
+        if (__DEV__) {
+          console.log('Sentry initialization skipped:', sentryError.message);
+        }
       }
       
       // Start memory monitoring
       memoryMonitor.startMonitoring();
     } catch (error) {
-      console.error('❌ App initialization failed:', error);
+      if (__DEV__) {
+        console.error('❌ App initialization failed:', error);
+      }
     }
     
     // Cleanup on unmount

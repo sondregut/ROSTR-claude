@@ -4,7 +4,6 @@ import {
   ScrollView,
   View,
   Text,
-  Image,
   Pressable,
   Platform,
   Alert,
@@ -26,6 +25,7 @@ import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
 import { useRoster } from '@/contexts/RosterContext';
 import { useUser } from '@/contexts/UserContext';
 import { RosterService } from '@/services/supabase/roster';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 
 type TabType = 'overview' | 'plans';
 
@@ -481,7 +481,12 @@ export default function UnifiedPersonDetailScreen() {
           <View style={styles.profileHeader}>
             <View style={styles.avatarContainer}>
               {personData.avatarUri ? (
-                <Image source={{ uri: personData.avatarUri }} style={styles.largeAvatar} />
+                <OptimizedImage 
+                  source={{ uri: personData.avatarUri }} 
+                  style={styles.largeAvatar} 
+                  priority="high"
+                  cachePolicy="memory-disk"
+                />
               ) : (
                 <View style={[styles.largeAvatar, { backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }]}>
                   <Ionicons name="person-outline" size={48} color={colors.textSecondary} />

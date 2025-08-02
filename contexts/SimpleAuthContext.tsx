@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import authService from '@/services/supabase/authWithRateLimit';
 import { router } from 'expo-router';
 import { setSentryUser } from '@/services/sentry';
@@ -138,6 +139,22 @@ export function SimpleAuthProvider({ children }: { children: React.ReactNode }) 
     try {
       // Reset onboarding state so user sees it again
       await onboardingService.resetOnboarding();
+      
+      // Clear all cached data to prevent data leakage
+      const keys = await AsyncStorage.getAllKeys();
+      const keysToRemove = keys.filter(key => 
+        key.includes('user') || 
+        key.includes('stats') || 
+        key.includes('profile') ||
+        key.includes('feed') ||
+        key.includes('roster') ||
+        key.includes('dates')
+      );
+      
+      if (keysToRemove.length > 0) {
+        await AsyncStorage.multiRemove(keysToRemove);
+        console.log('🧹 Cleared user data keys:', keysToRemove.length);
+      }
       
       const { error } = await authService.signOut();
       

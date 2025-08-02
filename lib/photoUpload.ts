@@ -125,7 +125,7 @@ export const pickImageWithCrop = async (
     }
 
     const defaultOptions: ImagePicker.ImagePickerOptions = {
-      mediaTypes: [ImagePicker.MediaType.Images],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false, // Disabled to prevent freezing, we'll crop manually
       quality: options.quality ?? 0.8,
     };
@@ -171,7 +171,7 @@ export const pickImage = async (
   options: PhotoUploadOptions = {}
 ): Promise<ImagePicker.ImagePickerResult> => {
   const defaultOptions: ImagePicker.ImagePickerOptions = {
-    mediaTypes: [ImagePicker.MediaType.Images],
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
     allowsEditing: false, // Disabled to prevent freezing
     quality: options.quality ?? 0.8,
     ...(options.maxWidth && { width: options.maxWidth }),

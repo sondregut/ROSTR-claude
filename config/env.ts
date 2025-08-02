@@ -4,6 +4,8 @@
  * and provides type-safe access to configuration values
  */
 
+import Constants from 'expo-constants';
+
 interface EnvironmentConfig {
   // Required Supabase configuration
   supabaseUrl: string;
@@ -35,7 +37,16 @@ class ConfigurationError extends Error {
  * Validates that a required environment variable exists
  */
 function getRequiredEnvVar(key: string): string {
-  const value = process.env[key];
+  // First try process.env (for development)
+  let value = process.env[key];
+  
+  // If not found, try expo-constants (for production)
+  if (!value && Constants.expoConfig?.extra) {
+    // Map EXPO_PUBLIC_ prefixed keys to their config names
+    const configKey = key.replace('EXPO_PUBLIC_', '').replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    const mappedKey = configKey.charAt(0).toLowerCase() + configKey.slice(1);
+    value = Constants.expoConfig.extra[mappedKey];
+  }
   
   if (!value || value.trim() === '') {
     throw new ConfigurationError(
@@ -59,14 +70,39 @@ function getRequiredEnvVar(key: string): string {
  * Gets an optional environment variable with a default value
  */
 function getOptionalEnvVar(key: string, defaultValue: string = ''): string {
-  return process.env[key] || defaultValue;
+  // First try process.env (for development)
+  let value = process.env[key];
+  
+  // If not found, try expo-constants (for production)
+  if (!value && Constants.expoConfig?.extra) {
+    // Map EXPO_PUBLIC_ prefixed keys to their config names
+    const configKey = key.replace('EXPO_PUBLIC_', '').replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    const mappedKey = configKey.charAt(0).toLowerCase() + configKey.slice(1);
+    value = Constants.expoConfig.extra[mappedKey];
+  }
+  
+  return value || defaultValue;
 }
 
 /**
  * Gets a boolean environment variable
  */
 function getBooleanEnvVar(key: string, defaultValue: boolean = false): boolean {
-  const value = process.env[key];
+  // First try process.env (for development)
+  let value = process.env[key];
+  
+  // If not found, try expo-constants (for production)
+  if (!value && Constants.expoConfig?.extra) {
+    // Map EXPO_PUBLIC_ prefixed keys to their config names
+    const configKey = key.replace('EXPO_PUBLIC_', '').replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    const mappedKey = configKey.charAt(0).toLowerCase() + configKey.slice(1);
+    const configValue = Constants.expoConfig.extra[mappedKey];
+    if (typeof configValue === 'boolean') {
+      return configValue;
+    }
+    value = configValue?.toString();
+  }
+  
   if (!value) return defaultValue;
   return value.toLowerCase() === 'true';
 }
@@ -123,11 +159,10 @@ function createConfig(): EnvironmentConfig {
     throw new ConfigurationError('Invalid Supabase anon key format');
   }
   
-  // Log configuration in development (without sensitive data)
+  // Only log configuration in development mode
   if (isDevelopment && config.debugMode) {
     console.log('🔧 Environment Configuration:', {
       env: config.env,
-      supabaseUrl: config.supabaseUrl,
       analyticsEnabled: config.analyticsEnabled,
       debugMode: config.debugMode,
       enableTestUsers: config.enableTestUsers,
@@ -148,12 +183,23 @@ try {
   if (error instanceof ConfigurationError) {
     console.error('❌ Configuration Error:', error.message);
     
+    // Log current environment for debugging
+    console.error('\n🔍 Current Environment:');
+    console.error('- NODE_ENV:', process.env.NODE_ENV);
+    console.error('- EXPO_PUBLIC_ENV:', process.env.EXPO_PUBLIC_ENV);
+    console.error('- Supabase URL present:', !!process.env.EXPO_PUBLIC_SUPABASE_URL);
+    console.error('- Supabase Key present:', !!process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
+    
     // In development, provide helpful instructions
     if (process.env.NODE_ENV === 'development') {
       console.error('\n📋 Setup Instructions:');
       console.error('1. Copy .env.example to .env');
       console.error('2. Update .env with your Supabase project keys');
       console.error('3. Restart the development server\n');
+    } else {
+      console.error('\n⚠️  Production Environment Issue:');
+      console.error('Environment variables are not properly configured.');
+      console.error('Please check your EAS build configuration or environment secrets.');
     }
   }
   throw error;

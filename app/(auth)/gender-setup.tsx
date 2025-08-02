@@ -101,15 +101,21 @@ export default function GenderSetupScreen() {
       
       // If username already exists, try again with a different suffix
       if (error?.message?.includes('duplicate key') && error?.message?.includes('username')) {
+        // Re-get user data for error handling
+        const { data: retryUserData } = await supabase.auth.getUser();
+        const retryFirstName = retryUserData?.user?.user_metadata?.first_name || 'User';
+        const retryLastName = retryUserData?.user?.user_metadata?.last_name || '';
+        const retryFullName = retryUserData?.user?.user_metadata?.name || `${retryFirstName} ${retryLastName}`.trim();
+        
         const newRandomSuffix = Date.now().toString(36);
-        const newUsername = `${firstName}${lastName}`.toLowerCase().replace(/[^a-z0-9]/g, '') + '_' + newRandomSuffix;
+        const newUsername = `${retryFirstName}${retryLastName}`.toLowerCase().replace(/[^a-z0-9]/g, '') + '_' + newRandomSuffix;
         
         try {
           const profileData: any = {
             username: newUsername,
-            name: fullName,
+            name: retryFullName,
             gender: gender,
-            bio: `Hi, I'm ${firstName}!`,
+            bio: `Hi, I'm ${retryFirstName}!`,
             location: '',
             occupation: '',
             interests: [],

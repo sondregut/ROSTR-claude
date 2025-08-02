@@ -95,6 +95,7 @@ export default function CreateAccountScreen() {
             {/* Phone Input Section */}
             <View style={styles.inputSection}>
               <PhoneInput
+                label="Phone Number"
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
                 placeholder=""

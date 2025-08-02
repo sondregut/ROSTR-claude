@@ -101,7 +101,23 @@ Migrated from bare to managed workflow to fix configuration issues and environme
 - All expo doctor checks pass
 - Ready for production build
 
+## Issue 5: EAS Build Cache Error (spawn pod ENOENT)
+Build failed because EAS was using cached ios directory from previous builds.
+
+### Solution Applied
+1. Removed local native folders completely
+2. Committed all changes to ensure clean git state
+3. Ready to build with --clear-cache flag
+
 ## Next Steps
-1. Create new production build with `eas build --platform ios --profile production`
+1. Create new production build with cache cleared:
+   ```bash
+   eas build --platform ios --profile production --clear-cache
+   ```
 2. Test the new build thoroughly - environment variables should work correctly
 3. Submit to App Store once verified
+
+### Important Notes
+- Always use `--clear-cache` when switching between bare and managed workflows
+- The ios and android folders are now properly gitignored
+- EAS Build will generate fresh native code from app.config.js on each build

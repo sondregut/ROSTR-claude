@@ -6,7 +6,6 @@ import {
   ScrollView, 
   Platform, 
   Pressable, 
-  Image,
   Alert,
   ActivityIndicator
 } from 'react-native';
@@ -25,6 +24,7 @@ import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
 import { useEffect } from 'react';
 import { MiniBarChart } from '@/components/ui/charts/MiniBarChart';
 import { ProgressRing } from '@/components/ui/charts/ProgressRing';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 
 
 
@@ -151,9 +151,11 @@ export default function ProfileScreen() {
             disabled={isUploadingPhoto}
           >
             {userProfile.imageUri ? (
-              <Image 
+              <OptimizedImage 
                 source={{ uri: userProfile.imageUri }} 
                 style={styles.profileImage}
+                priority="high"
+                cachePolicy="memory-disk"
               />
             ) : (
               <View style={[styles.profileImage, { backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }]}>
@@ -340,6 +342,17 @@ export default function ProfileScreen() {
         <View style={[styles.tabContent, styles.loadingContainer]}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading stats...</Text>
+        </View>
+      );
+    }
+
+    // Validate that we're showing stats for the current user
+    if (!userProfile || !user || userProfile.id !== user.id) {
+      return (
+        <View style={[styles.tabContent, styles.loadingContainer]}>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            Loading your profile...
+          </Text>
         </View>
       );
     }

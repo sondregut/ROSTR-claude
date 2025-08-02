@@ -2,12 +2,13 @@ import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabaseUrl, supabaseAnonKey, debugMode } from '@/config/env';
+import logger from '@/utils/logger';
 
 // Log configuration for debugging (only in debug mode)
 if (debugMode) {
-  console.log('🔧 Initializing Supabase client...');
-  console.log('📍 URL:', supabaseUrl);
-  console.log('🔑 Key:', supabaseAnonKey.substring(0, 20) + '...');
+  logger.debug('🔧 Initializing Supabase client...');
+  logger.debug('📍 URL:', supabaseUrl);
+  logger.debug('🔑 Key:', supabaseAnonKey.substring(0, 20) + '...');
 }
 
 
@@ -35,6 +36,7 @@ export type Database = {
           location: string;
           occupation: string;
           age: number;
+          date_of_birth: string;
           image_uri: string;
           instagram_username: string;
           total_dates: number;
@@ -56,6 +58,7 @@ export type Database = {
           location?: string;
           occupation?: string;
           age?: number;
+          date_of_birth?: string;
           image_uri?: string;
           instagram_username?: string;
           total_dates?: number;
@@ -77,6 +80,7 @@ export type Database = {
           location?: string;
           occupation?: string;
           age?: number;
+          date_of_birth?: string;
           image_uri?: string;
           instagram_username?: string;
           total_dates?: number;

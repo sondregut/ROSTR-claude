@@ -391,7 +391,7 @@ export class UserService {
   static async getDatingAchievements(userId: string) {
     try {
       const { data, error } = await supabase.rpc('get_dating_achievements', {
-        user_id_param: userId
+        p_user_id: userId
       });
 
       if (error) {

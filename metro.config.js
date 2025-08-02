@@ -15,9 +15,9 @@ config.resolver = {
 config.transformer = {
   ...config.transformer,
   minifierConfig: {
-    keep_fnames: false, // Changed to false for smaller bundle
+    keep_fnames: true, // Keep function names for better debugging
     mangle: {
-      keep_fnames: false, // Changed to false for smaller bundle
+      keep_fnames: true, // Keep function names
     },
     output: {
       ascii_only: true,
@@ -29,12 +29,13 @@ config.transformer = {
     },
     toplevel: false,
     compress: {
-      reduce_funcs: true,
-      reduce_vars: true,
-      keep_classnames: false,
-      keep_fnames: false,
-      keep_infinity: false,
-      passes: 2,
+      // Less aggressive compression to avoid breaking code
+      reduce_funcs: false,
+      reduce_vars: false,
+      keep_classnames: true,
+      keep_fnames: true,
+      keep_infinity: true,
+      passes: 1,
     },
   },
 };

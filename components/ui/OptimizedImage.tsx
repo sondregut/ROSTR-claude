@@ -1,8 +1,9 @@
 import React from 'react';
-import { Image } from 'expo-image';
 import { StyleSheet, View, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+
 
 interface OptimizedImageProps {
   source: { uri: string } | number;

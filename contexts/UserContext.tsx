@@ -318,8 +318,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    if (!user) {
+      // Clear all user data when logged out
+      setUserProfile(null);
+      setDetailedStats(null);
+      setIsLoading(false);
+      setIsLoadingStats(false);
+      setError(null);
+      return;
+    }
+    
+    // Clear previous user's data before loading new user
+    setDetailedStats(null);
     loadProfile();
-  }, [user]);
+  }, [user?.id]); // Use user.id to detect user changes
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) {
