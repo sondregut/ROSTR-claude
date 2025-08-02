@@ -97,39 +97,46 @@ export default function ProfileScreen() {
       
       // Run photo upload after interactions to prevent blocking
       InteractionManager.runAfterInteractions(async () => {
-        const result = await uploadProfilePhoto(userId, source, {
-          quality: 0.8,
-          allowsEditing: true,
-          aspect: [1, 1],
-          maxWidth: 800,
-          maxHeight: 800,
-        });
+        try {
+          const result = await uploadProfilePhoto(userId, source, {
+            quality: 0.8,
+            allowsEditing: true,
+            aspect: [1, 1],
+            maxWidth: 800,
+            maxHeight: 800,
+          });
 
-        if (result.success && result.url) {
-          // For mock user, just update locally. For real users, update Supabase too
-          if (userProfile!.id && userProfile!.id !== 'mock-user-id') {
-            const { error } = await supabase
-              .from('users')
-              .update({ image_uri: result.url })
-              .eq('id', userProfile!.id);
+          if (result.success && result.url) {
+            // For mock user, just update locally. For real users, update Supabase too
+            if (userProfile!.id && userProfile!.id !== 'mock-user-id') {
+              const { error } = await supabase
+                .from('users')
+                .update({ image_uri: result.url })
+                .eq('id', userProfile!.id);
 
-            if (error) {
-              throw error;
+              if (error) {
+                throw error;
+              }
             }
+
+            // Update local profile
+            updateProfile({ imageUri: result.url });
+
+            Alert.alert('Success', 'Profile photo updated successfully!');
+          } else {
+            Alert.alert('Error', result.error || 'Failed to upload photo');
           }
+        } catch (error) {
+          console.error('Photo upload error:', error);
+          Alert.alert('Error', 'Failed to update profile photo');
+        } finally {
+          setIsUploadingPhoto(false);
         }
-
-        // Update local profile
-        updateProfile({ imageUri: result.url });
-
-        Alert.alert('Success', 'Profile photo updated successfully!');
-      } else {
-        Alert.alert('Error', result.error || 'Failed to upload photo');
-      }
+      });
     } catch (error) {
-      console.error('Photo upload error:', error);
-      Alert.alert('Error', 'Failed to update profile photo');
-    } finally {
+      // Handle any errors setting up the interaction
+      console.error('Failed to setup photo upload:', error);
+      Alert.alert('Error', 'Failed to start photo upload');
       setIsUploadingPhoto(false);
     }
   };
