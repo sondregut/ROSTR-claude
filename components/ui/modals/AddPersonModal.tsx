@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Modal,
   View,
@@ -10,6 +10,7 @@ import {
   Platform,
   Pressable,
   Image,
+  InteractionManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -71,6 +72,28 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
   
   const [errors, setErrors] = useState<Partial<Record<keyof PersonData, string>>>({});
   const [showHowWeMetOptions, setShowHowWeMetOptions] = useState(false);
+  
+  // Refs for debouncing
+  const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
+  
+  // Memoized styles to prevent recalculation on every render
+  const inputStyle = useMemo(() => [
+    styles.input,
+    {
+      color: colors.text,
+      backgroundColor: colors.card,
+      borderColor: colors.border
+    }
+  ], [colors]);
+  
+  const textAreaStyle = useMemo(() => [
+    styles.textArea,
+    {
+      color: colors.text,
+      backgroundColor: colors.card,
+      borderColor: colors.border
+    }
+  ], [colors]);
 
   // Initialize form data when initialData is provided (for editing)
   useEffect(() => {
@@ -81,21 +104,55 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
       resetForm();
     }
   }, [visible, initialData]);
+  
+  // Cleanup debounce timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(debounceTimers.current).forEach(clearTimeout);
+    };
+  }, []);
 
-  const handleChange = (field: keyof PersonData, value: string | string[]) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    
-    // Clear error when user types
-    if (errors[field]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: undefined
-      }));
+  // Debounced change handler to improve typing performance
+  const handleChange = useCallback((field: keyof PersonData, value: string | string[]) => {
+    // Clear any existing timer for this field
+    if (debounceTimers.current[field]) {
+      clearTimeout(debounceTimers.current[field]);
     }
-  };
+    
+    // For text inputs, debounce the state update
+    if (typeof value === 'string' && field !== 'howWeMet') {
+      // Update local state immediately for responsive UI
+      setFormData(prev => ({
+        ...prev,
+        [field]: value
+      }));
+      
+      // Debounce error clearing to avoid UI thread blocking
+      debounceTimers.current[field] = setTimeout(() => {
+        if (errors[field]) {
+          InteractionManager.runAfterInteractions(() => {
+            setErrors(prev => ({
+              ...prev,
+              [field]: undefined
+            }));
+          });
+        }
+      }, 300);
+    } else {
+      // For non-text inputs, update immediately
+      setFormData(prev => ({
+        ...prev,
+        [field]: value
+      }));
+      
+      if (errors[field]) {
+        setErrors(prev => ({
+          ...prev,
+          [field]: undefined
+        }));
+      }
+    }
+  }, [errors]);
 
   const handleImagePick = async () => {
     try {
@@ -121,7 +178,7 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
     handleChange('photos', newPhotos);
   };
 
-  const validateForm = (): boolean => {
+  const validateForm = useCallback((): boolean => {
     const newErrors: typeof errors = {};
     let isValid = true;
     
@@ -190,9 +247,56 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
     
     setErrors(newErrors);
     return isValid;
-  };
+  }, [formData]);
+  
+  // Validate individual field on blur
+  const validateField = useCallback((field: keyof PersonData) => {
+    InteractionManager.runAfterInteractions(() => {
+      const newErrors = { ...errors };
+      
+      switch (field) {
+        case 'name':
+          if (!formData.name) {
+            newErrors.name = 'Name is required';
+          } else {
+            const nameResult = validateName(formData.name);
+            if (!nameResult.isValid) {
+              newErrors.name = nameResult.error;
+            } else {
+              delete newErrors.name;
+            }
+          }
+          break;
+        case 'age':
+          if (formData.age) {
+            const ageResult = validateAge(formData.age);
+            if (!ageResult.isValid) {
+              newErrors.age = ageResult.error;
+            } else {
+              delete newErrors.age;
+            }
+          }
+          break;
+        case 'instagram':
+          if (formData.instagram) {
+            const instagramResult = validateInstagram(formData.instagram);
+            if (!instagramResult.isValid) {
+              newErrors.instagram = instagramResult.error;
+            } else {
+              delete newErrors.instagram;
+            }
+          }
+          break;
+      }
+      
+      setErrors(newErrors);
+    });
+  }, [formData, errors]);
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
+    // Clear all debounce timers before saving
+    Object.values(debounceTimers.current).forEach(clearTimeout);
+    
     if (validateForm()) {
       // Sanitize text fields before saving
       const sanitizedData: PersonData = {
@@ -210,7 +314,7 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
       resetForm();
       onClose();
     }
-  };
+  }, [validateForm, formData, onSave, onClose]);
 
   const resetForm = () => {
     setFormData({
@@ -229,15 +333,19 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
     // No errors to reset
   };
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
+    // Clear all debounce timers
+    Object.values(debounceTimers.current).forEach(clearTimeout);
+    debounceTimers.current = {};
+    
     resetForm();
     onClose();
-  };
+  }, [onClose]);
 
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="none"
       presentationStyle="pageSheet"
       onRequestClose={handleClose}
     >
@@ -299,18 +407,13 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
               <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Name</Text>
                 <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      color: colors.text,
-                      backgroundColor: colors.card,
-                      borderColor: colors.border
-                    }
-                  ]}
+                  style={inputStyle}
                   placeholder="Enter name"
                   placeholderTextColor={colors.textSecondary}
                   value={formData.name}
                   onChangeText={(text) => handleChange('name', text)}
+                  onBlur={() => validateField('name')}
+                  autoCorrect={false}
                 />
               </View>
 
@@ -318,18 +421,12 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
                 <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
                   <Text style={[styles.label, { color: colors.text }]}>Age</Text>
                   <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        color: colors.text,
-                        backgroundColor: colors.card,
-                        borderColor: colors.border
-                      }
-                    ]}
+                    style={inputStyle}
                     placeholder="Age"
                     placeholderTextColor={colors.textSecondary}
                     value={formData.age}
                     onChangeText={(text) => handleChange('age', text)}
+                    onBlur={() => validateField('age')}
                     keyboardType="numeric"
                   />
                 </View>
@@ -337,18 +434,12 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
                 <View style={[styles.formGroup, { flex: 2 }]}>
                   <Text style={[styles.label, { color: colors.text }]}>Occupation</Text>
                   <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        color: colors.text,
-                        backgroundColor: colors.card,
-                        borderColor: colors.border
-                      }
-                    ]}
+                    style={inputStyle}
                     placeholder="Job title"
                     placeholderTextColor={colors.textSecondary}
                     value={formData.occupation}
                     onChangeText={(text) => handleChange('occupation', text)}
+                    autoCorrect={false}
                   />
                 </View>
               </View>
@@ -356,18 +447,12 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
               <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Location</Text>
                 <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      color: colors.text,
-                      backgroundColor: colors.card,
-                      borderColor: colors.border
-                    }
-                  ]}
+                  style={inputStyle}
                   placeholder="City or neighborhood"
                   placeholderTextColor={colors.textSecondary}
                   value={formData.location}
                   onChangeText={(text) => handleChange('location', text)}
+                  autoCorrect={false}
                 />
               </View>
 
@@ -422,14 +507,7 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
               <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Interests</Text>
                 <TextInput
-                  style={[
-                    styles.textArea,
-                    {
-                      color: colors.text,
-                      backgroundColor: colors.card,
-                      borderColor: colors.border
-                    }
-                  ]}
+                  style={textAreaStyle}
                   placeholder="Hobbies, interests, things they like..."
                   placeholderTextColor={colors.textSecondary}
                   value={formData.interests}
@@ -437,39 +515,28 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
                   multiline
                   numberOfLines={3}
                   textAlignVertical="top"
+                  autoCorrect={false}
                 />
               </View>
 
               <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Instagram</Text>
                 <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      color: colors.text,
-                      backgroundColor: colors.card,
-                      borderColor: colors.border
-                    }
-                  ]}
+                  style={inputStyle}
                   placeholder="@username"
                   placeholderTextColor={colors.textSecondary}
                   value={formData.instagram}
                   onChangeText={(text) => handleChange('instagram', text)}
+                  onBlur={() => validateField('instagram')}
                   autoCapitalize="none"
+                  autoCorrect={false}
                 />
               </View>
 
               <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Notes</Text>
                 <TextInput
-                  style={[
-                    styles.textArea,
-                    {
-                      color: colors.text,
-                      backgroundColor: colors.card,
-                      borderColor: colors.border
-                    }
-                  ]}
+                  style={textAreaStyle}
                   placeholder="Any additional notes..."
                   placeholderTextColor={colors.textSecondary}
                   value={formData.notes}
@@ -477,6 +544,7 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
                   multiline
                   numberOfLines={4}
                   textAlignVertical="top"
+                  autoCorrect={false}
                 />
               </View>
             </View>
