@@ -143,7 +143,7 @@ export default function PhoneAuthScreen() {
           text: 'Full Debug', 
           onPress: async () => {
             try {
-              await debugSupabaseConnection();
+              // Debug connection removed
               Alert.alert('Debug Complete', 'Check console logs for details');
             } catch (error: any) {
               Alert.alert('Debug Error', error.message);
@@ -155,9 +155,7 @@ export default function PhoneAuthScreen() {
           onPress: async () => {
             try {
               console.log('🧪 Running Supabase tests...');
-              await testSupabaseConnection();
-              console.log('\n🌐 Running raw network tests...');
-              await testRawNetwork();
+              // Connection tests removed
               Alert.alert('Test Complete', 'Check console logs for detailed results');
             } catch (error: any) {
               Alert.alert('Test Error', error.message);

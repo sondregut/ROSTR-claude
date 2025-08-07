@@ -164,7 +164,7 @@ export function PersonSelector({
       
       <Modal
         visible={modalVisible}
-        animationType="slide"
+        animationType="none"
         presentationStyle="pageSheet"
         onRequestClose={() => setModalVisible(false)}
       >

@@ -12,9 +12,8 @@ export default function AuthLayout() {
       <Stack
         screenOptions={{
           headerShown: false,
-          gestureEnabled: true,
-          gestureDirection: 'horizontal',
-          animation: 'slide_from_right',
+          gestureEnabled: false, // Disabled to prevent gesture conflicts
+          animation: 'fade', // Use simple fade animation
         }}
       >
         <Stack.Screen name="onboarding-welcome" />

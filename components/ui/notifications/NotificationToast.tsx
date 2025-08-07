@@ -6,13 +6,15 @@ import {
   Animated, 
   Pressable,
   Dimensions,
-  Platform
+  Platform,
+  AppState
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import * as Haptics from 'expo-haptics';
+import { SafeAnimated } from '@/utils/globalAnimationManager';
 
 interface NotificationToastProps {
   title: string;
@@ -44,50 +46,82 @@ export function NotificationToast({
   const translateY = useRef(new Animated.Value(-200)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const dismissTimer = useRef<NodeJS.Timeout>();
+  const animationRef = useRef<Animated.CompositeAnimation>();
+  const appStateRef = useRef(AppState.currentState);
 
   useEffect(() => {
+    // Track app state
+    const handleAppStateChange = (nextAppState: AppState.AppStateStatus) => {
+      if (appStateRef.current === 'active' && nextAppState !== 'active') {
+        // App going to background - cancel animations and timer
+        if (dismissTimer.current) {
+          clearTimeout(dismissTimer.current);
+        }
+        animationRef.current?.stop();
+      }
+      appStateRef.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
     // Show animation
-    Animated.parallel([
-      Animated.timing(translateY, {
+    animationRef.current = SafeAnimated.parallel([
+      SafeAnimated.timing(translateY, {
         toValue: 0,
         duration: ANIMATION_DURATION,
         useNativeDriver: true,
       }),
-      Animated.timing(opacity, {
+      SafeAnimated.timing(opacity, {
         toValue: 1,
         duration: ANIMATION_DURATION,
         useNativeDriver: true,
       }),
-    ]).start();
+    ]);
+    
+    animationRef.current.start();
 
     // Haptic feedback
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (appStateRef.current === 'active') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
 
     // Auto dismiss
-    dismissTimer.current = setTimeout(() => {
-      dismiss();
-    }, duration);
+    if (appStateRef.current === 'active') {
+      dismissTimer.current = setTimeout(() => {
+        dismiss();
+      }, duration);
+    }
 
     return () => {
+      subscription.remove();
       if (dismissTimer.current) {
         clearTimeout(dismissTimer.current);
       }
+      animationRef.current?.stop();
     };
   }, []);
 
   const dismiss = () => {
-    Animated.parallel([
-      Animated.timing(translateY, {
+    // Don't animate if app is not active
+    if (appStateRef.current !== 'active') {
+      onDismiss?.();
+      return;
+    }
+    
+    animationRef.current = SafeAnimated.parallel([
+      SafeAnimated.timing(translateY, {
         toValue: -200,
         duration: ANIMATION_DURATION,
         useNativeDriver: true,
       }),
-      Animated.timing(opacity, {
+      SafeAnimated.timing(opacity, {
         toValue: 0,
         duration: ANIMATION_DURATION,
         useNativeDriver: true,
       }),
-    ]).start(() => {
+    ]);
+    
+    animationRef.current.start(() => {
       onDismiss?.();
     });
   };

@@ -19,7 +19,7 @@ import {
   CircleMessageWithSender, 
   TypingUser 
 } from '@/services/supabase/circleChat';
-import { CircleChatMockService } from '@/services/supabase/circleChatMock';
+// Mock service removed for production
 import { MemberData } from '@/components/ui/cards/MemberCard';
 import { supabase } from '@/lib/supabase';
 
@@ -47,8 +47,7 @@ export function CircleChat({
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
-  const [useMockService, setUseMockService] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error' | 'mock'>('connecting');
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
   const flatListRef = useRef<FlatList>(null);
   const typingTimerRef = useRef<NodeJS.Timeout>();
 
@@ -72,8 +71,8 @@ export function CircleChat({
         if (authError || !user) {
           console.error('❌ Auth check failed:', authError || 'No user');
           console.log('💡 Chat requires authentication - please sign in');
-          setUseMockService(true);
-          setConnectionStatus('mock');
+          setConnectionStatus('error');
+          Alert.alert('Authentication Required', 'Please sign in to use chat');
           return;
         }
         console.log('✅ Authenticated as:', user.id);
@@ -90,15 +89,14 @@ export function CircleChat({
           if (memberError || !membership) {
             console.error('❌ User not a member of this circle:', memberError?.message);
             console.log('💡 Only circle members can access chat');
-            setUseMockService(true);
-            setConnectionStatus('mock');
+            setConnectionStatus('error');
+            Alert.alert('Access Denied', 'Only circle members can access this chat');
             return;
           }
           console.log('✅ Circle membership confirmed');
         } catch (err) {
           console.error('💥 Circle membership check failed:', err);
-          setUseMockService(true);
-          setConnectionStatus('mock');
+          setConnectionStatus('error');
           return;
         }
         
@@ -112,16 +110,14 @@ export function CircleChat({
             
           if (queryError) {
             console.error('❌ Message query failed:', queryError.message);
-            console.log('💡 Database schema may need setup - switching to mock service');
-            setUseMockService(true);
-            setConnectionStatus('mock');
+            console.log('💡 Database connection issue');
+            setConnectionStatus('error');
             return;
           }
           console.log('✅ Message query successful:', testMessages?.length || 0, 'messages found');
         } catch (err) {
           console.error('💥 Query error:', err);
-          setUseMockService(true);
-          setConnectionStatus('mock');
+          setConnectionStatus('error');
           return;
         }
         
@@ -133,7 +129,6 @@ export function CircleChat({
         setConnectionStatus('connected');
       } catch (error) {
         console.error('💥 Diagnostics failed:', error);
-        setUseMockService(true);
         setConnectionStatus('error');
       }
     };
@@ -143,32 +138,11 @@ export function CircleChat({
 
   // Set up real-time subscriptions
   useEffect(() => {
-    if (useMockService) {
-      console.log('📱 Using mock service for messages');
-      const service = CircleChatMockService;
-      
-      // Mock subscriptions
-      messageUnsubscribe.current = service.subscribeToCircleMessages(
-        circleId,
-        (newMessage) => {
-          setMessages(prev => [...prev, newMessage]);
-        }
-      );
-      
-      typingUnsubscribe.current = service.subscribeToCircleTyping(
-        circleId,
-        currentUserId,
-        (users) => {
-          setTypingUsers(users);
-        }
-      );
-      
-      return () => {
-        messageUnsubscribe.current?.();
-        typingUnsubscribe.current?.();
-      };
+    if (connectionStatus === 'error') {
+      console.log('⚠️ Skipping subscriptions due to connection error');
+      return;
     }
-    
+
     console.log('🔌 Setting up real-time subscriptions for circle:', circleId);
     
     // Set up subscriptions for both possible table structures
@@ -365,24 +339,23 @@ export function CircleChat({
       messageChannel.unsubscribe();
       typingChannel.unsubscribe();
     };
-  }, [circleId, currentUserId, useMockService]);
+  }, [circleId, currentUserId]);
 
   const loadMessages = async () => {
     try {
       setIsLoading(true);
       console.log(`🔍 Loading messages for circle ${circleId}`);
       
-      const service = useMockService ? CircleChatMockService : CircleChatService;
-      const fetchedMessages = await service.getCircleMessages(circleId);
+      const fetchedMessages = await CircleChatService.getCircleMessages(circleId);
       console.log(`📨 Loaded ${fetchedMessages.length} messages`);
       setMessages(fetchedMessages);
       
       // Mark last message as read (with error handling)
-      if (fetchedMessages.length > 0 && !useMockService) {
+      if (fetchedMessages.length > 0) {
         try {
           const lastMessage = fetchedMessages[fetchedMessages.length - 1];
           if (lastMessage && lastMessage.id) {
-            await service.markCircleMessagesAsRead(
+            await CircleChatService.markCircleMessagesAsRead(
               circleId,
               currentUserId,
               lastMessage.id
@@ -404,27 +377,16 @@ export function CircleChat({
                              !error?.message?.includes('circle_message_reads') &&
                              !error?.message?.includes('foreign key constraint');
       
-      if (isCriticalError && !useMockService) {
-        console.log('🔄 Switching to mock service for messages due to critical error');
-        setUseMockService(true);
-        setConnectionStatus('mock');
-        
-        // Retry with mock service
-        try {
-          const mockMessages = await CircleChatMockService.getCircleMessages(circleId);
-          setMessages(mockMessages);
-        } catch (mockError) {
-          console.error('❌ Mock service also failed:', mockError);
-          setConnectionStatus('error');
-          Alert.alert(
-            'Error', 
-            'Unable to load messages. Please check your connection.'
-          );
-        }
-      } else if (!isCriticalError) {
-        console.log('💡 Non-critical error (likely read tracking), continuing with real service');
+      if (isCriticalError) {
+        console.log('❌ Critical error loading messages');
+        setConnectionStatus('error');
+        Alert.alert(
+          'Error', 
+          'Unable to load messages. Please check your connection.'
+        );
+      } else {
+        console.log('💡 Non-critical error (likely read tracking), continuing');
         setConnectionStatus('connected');
-        // Don't switch to mock for read tracking errors
       }
     } finally {
       setIsLoading(false);
@@ -460,8 +422,7 @@ export function CircleChat({
       // Add optimistic message immediately
       setMessages(prev => [...prev, optimisticMessage]);
       
-      const service = useMockService ? CircleChatMockService : CircleChatService;
-      const sentMessage = await service.sendCircleMessage(
+      const sentMessage = await CircleChatService.sendCircleMessage(
         circleId,
         currentUserId,
         currentUserName,
@@ -495,16 +456,14 @@ export function CircleChat({
       clearTimeout(typingTimerRef.current);
     }
 
-    const service = useMockService ? CircleChatMockService : CircleChatService;
-    
     // Set typing status
-    service.setTypingStatus(circleId, currentUserId, true);
+    CircleChatService.setTypingStatus(circleId, currentUserId, true);
 
     // Auto-clear after 3 seconds of inactivity
     typingTimerRef.current = setTimeout(() => {
-      service.setTypingStatus(circleId, currentUserId, false);
+      CircleChatService.setTypingStatus(circleId, currentUserId, false);
     }, 3000);
-  }, [circleId, currentUserId, useMockService]);
+  }, [circleId, currentUserId]);
 
   const renderMessage = ({ item, index }: { item: CircleMessageWithSender; index: number }) => {
     const isOwnMessage = item.sender_id === currentUserId;
@@ -549,8 +508,7 @@ export function CircleChat({
 
   const handleDeleteMessage = async (messageId: string) => {
     try {
-      const service = useMockService ? CircleChatMockService : CircleChatService;
-      await service.deleteMessage(messageId, currentUserId);
+      await CircleChatService.deleteMessage(messageId, currentUserId);
       setMessages(prev => prev.filter(msg => msg.id !== messageId));
     } catch (error) {
       console.error('Error deleting message:', error);
@@ -569,18 +527,10 @@ export function CircleChat({
       );
     }
     
-    if (connectionStatus === 'mock') {
-      return (
-        <View style={[styles.statusBar, { backgroundColor: '#FF8C00' }]}>
-          <Text style={styles.statusText}>⚠️ Demo mode - messages won't persist</Text>
-        </View>
-      );
-    }
-    
     if (connectionStatus === 'error') {
       return (
         <View style={[styles.statusBar, { backgroundColor: '#FF4444' }]}>
-          <Text style={styles.statusText}>❌ Connection failed - using demo mode</Text>
+          <Text style={styles.statusText}>❌ Connection error - please try again later</Text>
         </View>
       );
     }

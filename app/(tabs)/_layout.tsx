@@ -31,7 +31,7 @@ export default function TabLayout() {
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
-        animation: 'shift', // Better animation for gesture support
+        animation: 'none', // No animation - screens just pop
         tabBarStyle: Platform.select({
           ios: {
             // Force background color on iOS too for consistent theming

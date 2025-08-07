@@ -10,11 +10,12 @@ import {
   Platform,
   KeyboardAvoidingView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { pickImageWithCrop } from '@/lib/photoUpload';
+import { pickImageWithCrop, uploadImageToSupabase } from '@/lib/photoUpload';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Button } from '@/components/ui/buttons/Button';
@@ -60,6 +61,7 @@ export default function EditProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { userProfile, updateProfile } = useUser();
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   
   // Initialize with current user profile data
   const [profileData, setProfileData] = useState<ProfileData>({
@@ -120,8 +122,21 @@ export default function EditProfileScreen() {
       Alert.alert('Success', 'Your profile has been updated!', [
         { text: 'OK', onPress: () => router.back() }
       ]);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to update profile. Please try again.');
+    } catch (error: any) {
+      console.error('Update profile error:', error);
+      
+      // Handle specific errors
+      if (error?.code === '23505' && error?.message?.includes('username')) {
+        Alert.alert(
+          'Username Taken', 
+          'This username is already in use. Please choose a different one.'
+        );
+      } else {
+        Alert.alert(
+          'Error', 
+          error?.message || 'Failed to update profile. Please try again.'
+        );
+      }
     }
   };
   
@@ -137,7 +152,14 @@ export default function EditProfileScreen() {
   };
   
   const pickImage = async () => {
+    if (!userProfile?.id) {
+      Alert.alert('Error', 'User profile not found');
+      return;
+    }
+
     try {
+      setIsUploadingPhoto(true);
+      
       const result = await pickImageWithCrop('library', {
         aspect: [1, 1], // Square aspect ratio for profile photos
         quality: 0.8,
@@ -145,13 +167,29 @@ export default function EditProfileScreen() {
       });
       
       if (result.success && result.uri) {
-        setProfileData({ ...profileData, avatarUri: result.uri });
+        console.log('[EditProfile] Image picked, uploading to Supabase...');
+        
+        // Upload to Supabase
+        const uploadResult = await uploadImageToSupabase(result.uri, userProfile.id);
+        
+        if (uploadResult.success && uploadResult.url) {
+          console.log('[EditProfile] Upload successful:', uploadResult.url);
+          setProfileData({ ...profileData, avatarUri: uploadResult.url });
+          
+          // Also update the profile immediately
+          await updateProfile({ imageUri: uploadResult.url });
+        } else {
+          console.error('[EditProfile] Upload failed:', uploadResult.error);
+          Alert.alert('Upload Failed', uploadResult.error || 'Failed to upload image');
+        }
       } else if (result.error && result.error !== 'Selection cancelled') {
         Alert.alert('Error', `Failed to pick image: ${result.error}`);
       }
     } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
+      console.error('[EditProfile] Error:', error);
+      Alert.alert('Error', 'Failed to update profile photo. Please try again.');
+    } finally {
+      setIsUploadingPhoto(false);
     }
   };
   
@@ -229,7 +267,7 @@ export default function EditProfileScreen() {
             
             {/* Avatar */}
             <View style={styles.avatarSection}>
-              <Pressable onPress={pickImage} style={styles.avatarContainer}>
+              <Pressable onPress={pickImage} style={styles.avatarContainer} disabled={isUploadingPhoto}>
                 <Avatar 
                   uri={profileData.avatarUri} 
                   name={profileData.name}
@@ -238,7 +276,11 @@ export default function EditProfileScreen() {
                   textColor="white"
                 />
                 <View style={[styles.cameraButton, { backgroundColor: colors.primary }]}>
-                  <Ionicons name="camera" size={20} color="white" />
+                  {isUploadingPhoto ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <Ionicons name="camera" size={20} color="white" />
+                  )}
                 </View>
               </Pressable>
             </View>

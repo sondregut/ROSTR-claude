@@ -12,11 +12,14 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 
 interface ButtonProps {
   onPress: () => void;
-  title: string;
+  title?: string;
+  children?: React.ReactNode;
   variant?: 'primary' | 'secondary' | 'outline' | 'text';
   size?: 'small' | 'medium' | 'large';
   isLoading?: boolean;
   isDisabled?: boolean;
+  loading?: boolean;
+  disabled?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
   leftIcon?: React.ReactNode;
@@ -26,15 +29,23 @@ interface ButtonProps {
 export function Button({
   onPress,
   title,
+  children,
   variant = 'primary',
   size = 'medium',
   isLoading = false,
   isDisabled = false,
+  loading,
+  disabled,
   style,
   textStyle,
   leftIcon,
   rightIcon,
 }: ButtonProps) {
+  // Support both prop naming conventions
+  const _isLoading = loading ?? isLoading;
+  const _isDisabled = disabled ?? isDisabled;
+  const buttonTitle = title || (typeof children === 'string' ? children : '');
+  
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -114,12 +125,12 @@ export function Button({
         style,
       ]}
       onPress={onPress}
-      disabled={isDisabled || isLoading}
+      disabled={_isDisabled || _isLoading}
       accessibilityRole="button"
-      accessibilityLabel={title}
-      accessibilityState={{ disabled: isDisabled || isLoading }}
+      accessibilityLabel={buttonTitle}
+      accessibilityState={{ disabled: _isDisabled || _isLoading }}
     >
-      {isLoading ? (
+      {_isLoading ? (
         <ActivityIndicator 
           size="small" 
           color={variant === 'primary' || variant === 'secondary' ? colors.buttonText : colors.primary} 
@@ -127,7 +138,15 @@ export function Button({
       ) : (
         <>
           {leftIcon && <>{leftIcon}</>}
-          <Text style={[getTextStyles(), textStyle]}>{title}</Text>
+          {children ? (
+            typeof children === 'string' ? (
+              <Text style={[getTextStyles(), textStyle]}>{children}</Text>
+            ) : (
+              children
+            )
+          ) : (
+            <Text style={[getTextStyles(), textStyle]}>{buttonTitle}</Text>
+          )}
           {rightIcon && <>{rightIcon}</>}
         </>
       )}

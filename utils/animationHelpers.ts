@@ -127,8 +127,9 @@ export const performantSpring = (
  * Cancel all pending animations (useful for scene transitions)
  */
 export const cancelAllAnimations = () => {
-  // This will stop all running animations
-  Animated.stopAllAnimations();
+  // Note: Individual animations must be tracked and stopped
+  // as Animated.stopAllAnimations() doesn't exist
+  console.log('[AnimationHelpers] Cancel all animations called');
 };
 
 /**

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { InteractionManager } from 'react-native';
+import { SafeAnimated } from '@/utils/globalAnimationManager';
 
 interface LifecycleCallbacks {
   onForeground?: () => void;
@@ -25,6 +26,9 @@ export function useAppLifecycle(callbacks?: LifecycleCallbacks) {
           InteractionManager.clearInteractionHandle(handle);
         });
         animationHandles.current.clear();
+        
+        // Cancel all global animations
+        SafeAnimated.cancelAll();
         
         // Call appropriate callback
         if (nextAppState === 'background') {

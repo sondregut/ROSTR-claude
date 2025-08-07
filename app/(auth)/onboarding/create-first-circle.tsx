@@ -35,7 +35,7 @@ export default function CreateFirstCircleScreen() {
       setIsLoading(true);
       
       // Create the circle
-      await createCircle(circleName.trim(), '');
+      await createCircle(circleName.trim());
       
       // Mark step as complete
       await markCircleCreated();

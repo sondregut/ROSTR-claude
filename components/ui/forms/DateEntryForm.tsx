@@ -154,7 +154,7 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
       setShowAddPersonModal(false);
       
       // Navigate to roster tab to show the newly added person
-      router.push('/(tabs)/roster');
+      router.navigate('/(tabs)/roster');
     } catch (error) {
       console.error('Error adding new person:', error);
     }
@@ -578,10 +578,5 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 40,
     fontSize: 16,
-  },
-  errorText: {
-    fontSize: 12,
-    marginTop: 4,
-    marginLeft: 4,
   },
 });

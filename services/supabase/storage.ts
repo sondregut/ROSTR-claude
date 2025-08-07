@@ -9,7 +9,7 @@ export interface UploadResult {
 }
 
 export class StorageService {
-  private static readonly BUCKETS = {
+  static readonly BUCKETS = {
     USER_PHOTOS: 'user-photos',
     DATE_ENTRY_IMAGES: 'date-entry-images',
     CHAT_MEDIA: 'chat-media',
@@ -60,20 +60,23 @@ export class StorageService {
           await new Promise(r => setTimeout(r, 0));
 
           // Upload to Supabase Storage
+          console.log(`StorageService: Uploading to bucket: ${StorageService.BUCKETS.USER_PHOTOS}, filename: ${filename}`);
           const { data, error } = await supabase.storage
-            .from(this.BUCKETS.USER_PHOTOS)
+            .from(StorageService.BUCKETS.USER_PHOTOS)
             .upload(filename, blob, {
               contentType: 'image/jpeg',
               upsert: false,
             });
 
           if (error) {
+            console.error('StorageService upload error:', error);
+            console.error('Bucket:', StorageService.BUCKETS.USER_PHOTOS);
             throw error;
           }
 
           // Get public URL
           const { data: urlData } = supabase.storage
-            .from(this.BUCKETS.USER_PHOTOS)
+            .from(StorageService.BUCKETS.USER_PHOTOS)
             .getPublicUrl(data.path);
 
           resolve({
@@ -151,7 +154,7 @@ export class StorageService {
 
           // Upload to Supabase Storage
           const { data, error } = await supabase.storage
-            .from(this.BUCKETS.DATE_ENTRY_IMAGES)
+            .from(StorageService.BUCKETS.DATE_ENTRY_IMAGES)
             .upload(filename, blob, {
               contentType: 'image/jpeg',
               upsert: false,
@@ -163,7 +166,7 @@ export class StorageService {
 
           // Get public URL
           const { data: urlData } = supabase.storage
-            .from(this.BUCKETS.DATE_ENTRY_IMAGES)
+            .from(StorageService.BUCKETS.DATE_ENTRY_IMAGES)
             .getPublicUrl(data.path);
 
           resolve({
@@ -231,7 +234,7 @@ export class StorageService {
 
           // Upload to Supabase Storage (private bucket)
           const { data, error } = await supabase.storage
-            .from(this.BUCKETS.CHAT_MEDIA)
+            .from(StorageService.BUCKETS.CHAT_MEDIA)
             .upload(filename, blob, {
               contentType,
               upsert: false,
@@ -243,7 +246,7 @@ export class StorageService {
 
           // For private buckets, we'll need to generate signed URLs when accessing
           const { data: urlData } = await supabase.storage
-            .from(this.BUCKETS.CHAT_MEDIA)
+            .from(StorageService.BUCKETS.CHAT_MEDIA)
             .createSignedUrl(data.path, 3600); // 1 hour expiry
 
           if (urlData?.signedUrl) {
@@ -379,7 +382,7 @@ export class StorageService {
     try {
       // List all files for user
       const { data: files, error } = await supabase.storage
-        .from(this.BUCKETS.USER_PHOTOS)
+        .from(StorageService.BUCKETS.USER_PHOTOS)
         .list(`${userId}/`, {
           limit: 100,
           sortBy: { column: 'created_at', order: 'desc' }
@@ -396,7 +399,7 @@ export class StorageService {
         const pathsToDelete = filesToDelete.map(file => `${userId}/${file.name}`);
         
         const { error: deleteError } = await supabase.storage
-          .from(this.BUCKETS.USER_PHOTOS)
+          .from(StorageService.BUCKETS.USER_PHOTOS)
           .remove(pathsToDelete);
 
         if (deleteError) {

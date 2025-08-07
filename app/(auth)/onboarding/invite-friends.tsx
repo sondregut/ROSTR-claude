@@ -148,7 +148,7 @@ export default function InviteFriendsScreen() {
           </View>
         </View>
         <Ionicons
-          name={isSelected ? 'checkmark-circle' : 'circle-outline'}
+          name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
           size={24}
           color={isSelected ? '#FE5268' : '#999'}
         />

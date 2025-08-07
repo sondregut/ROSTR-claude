@@ -126,7 +126,7 @@ export function ShareAppModal({ visible, onClose, userProfile }: ShareAppModalPr
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="none"
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >

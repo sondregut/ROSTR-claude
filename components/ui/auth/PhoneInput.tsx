@@ -292,7 +292,7 @@ export function PhoneInput({
       {/* Country Picker Modal */}
       <Modal
         visible={showCountryPicker}
-        animationType="slide"
+        animationType="none"
         transparent={true}
         onRequestClose={closeCountryPicker}
       >

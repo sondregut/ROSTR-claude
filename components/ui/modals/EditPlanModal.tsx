@@ -177,7 +177,7 @@ export function EditPlanModal({ visible, plan, onClose, onSave, onDelete }: Edit
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="none"
       presentationStyle="pageSheet"
       onRequestClose={handleClose}
     >

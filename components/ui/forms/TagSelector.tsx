@@ -119,7 +119,7 @@ export function TagSelector({ selectedTags, onTagsChange, placeholder = 'Select 
       
       <Modal
         visible={showModal}
-        animationType="slide"
+        animationType="none"
         presentationStyle="pageSheet"
         onRequestClose={() => setShowModal(false)}
       >

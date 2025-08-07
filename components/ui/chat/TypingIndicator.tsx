@@ -5,10 +5,12 @@ import {
   StyleSheet,
   Animated,
   Image,
+  AppState,
 } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { TypingUser } from '@/services/supabase/circleChat';
+import { SafeAnimated } from '@/utils/globalAnimationManager';
 
 interface TypingIndicatorProps {
   typingUsers: TypingUser[];
@@ -22,20 +24,36 @@ export function TypingIndicator({ typingUsers }: TypingIndicatorProps) {
   const dot1Anim = useRef(new Animated.Value(0)).current;
   const dot2Anim = useRef(new Animated.Value(0)).current;
   const dot3Anim = useRef(new Animated.Value(0)).current;
+  const animationRef = useRef<Animated.CompositeAnimation>();
+  const appStateRef = useRef(AppState.currentState);
 
   useEffect(() => {
-    if (typingUsers.length > 0) {
+    // Track app state
+    const handleAppStateChange = (nextAppState: AppState.AppStateStatus) => {
+      if (appStateRef.current === 'active' && nextAppState !== 'active') {
+        // Stop animations when app goes to background
+        animationRef.current?.stop();
+        dot1Anim.setValue(0);
+        dot2Anim.setValue(0);
+        dot3Anim.setValue(0);
+      }
+      appStateRef.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    if (typingUsers.length > 0 && appStateRef.current === 'active') {
       // Start animations
       const createAnimation = (animValue: Animated.Value, delay: number) => {
-        return Animated.loop(
-          Animated.sequence([
-            Animated.timing(animValue, {
+        return SafeAnimated.loop(
+          SafeAnimated.sequence([
+            SafeAnimated.timing(animValue, {
               toValue: -5,
               duration: 300,
               delay,
               useNativeDriver: true,
             }),
-            Animated.timing(animValue, {
+            SafeAnimated.timing(animValue, {
               toValue: 0,
               duration: 300,
               useNativeDriver: true,
@@ -44,17 +62,25 @@ export function TypingIndicator({ typingUsers }: TypingIndicatorProps) {
         );
       };
 
-      Animated.parallel([
+      animationRef.current = SafeAnimated.parallel([
         createAnimation(dot1Anim, 0),
         createAnimation(dot2Anim, 100),
         createAnimation(dot3Anim, 200),
-      ]).start();
+      ]);
+      
+      animationRef.current.start();
     } else {
       // Stop animations
+      animationRef.current?.stop();
       dot1Anim.setValue(0);
       dot2Anim.setValue(0);
       dot3Anim.setValue(0);
     }
+
+    return () => {
+      subscription.remove();
+      animationRef.current?.stop();
+    };
   }, [typingUsers.length]);
 
   if (typingUsers.length === 0) return null;

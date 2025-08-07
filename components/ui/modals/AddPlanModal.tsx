@@ -138,7 +138,7 @@ export function AddPlanModal({ visible, onClose, onSubmit, personName }: AddPlan
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="none"
       presentationStyle="pageSheet"
       onRequestClose={handleClose}
     >

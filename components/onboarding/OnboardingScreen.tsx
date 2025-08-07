@@ -7,6 +7,7 @@ import {
   Pressable,
   StatusBar,
   Image,
+  AppState,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -38,19 +39,45 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
   const scrollX = useSharedValue(0);
   const currentIndex = useSharedValue(0);
   const autoScrollTimer = useRef<NodeJS.Timeout | null>(null);
+  const appStateRef = useRef(AppState.currentState);
 
-  // Auto-advance timer
+  // Auto-advance timer with app state management
   useEffect(() => {
-    startAutoScroll();
-    return () => {
-      if (autoScrollTimer.current) {
-        clearInterval(autoScrollTimer.current);
+    const handleAppStateChange = (nextAppState: AppState.AppStateStatus) => {
+      if (appStateRef.current === 'active' && nextAppState !== 'active') {
+        // Stop auto-scroll when app goes to background
+        stopAutoScroll();
+      } else if (appStateRef.current !== 'active' && nextAppState === 'active') {
+        // Resume auto-scroll when app comes back to foreground
+        startAutoScroll();
       }
+      appStateRef.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    // Only start auto-scroll if app is active
+    if (appStateRef.current === 'active') {
+      startAutoScroll();
+    }
+    
+    return () => {
+      subscription.remove();
+      stopAutoScroll();
     };
   }, []);
 
   const startAutoScroll = () => {
+    // Clear any existing timer first
+    stopAutoScroll();
+    
     autoScrollTimer.current = setInterval(() => {
+      // Check if app is still active before scrolling
+      if (appStateRef.current !== 'active') {
+        stopAutoScroll();
+        return;
+      }
+      
       const nextIndex = currentIndex.value + 1;
       if (nextIndex < ONBOARDING_SLIDES.length) {
         scrollRef.current?.scrollTo({
@@ -58,9 +85,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
           animated: true,
         });
       } else {
-        if (autoScrollTimer.current) {
-          clearInterval(autoScrollTimer.current);
-        }
+        stopAutoScroll();
       }
     }, 5000); // 5 seconds per slide
   };
@@ -86,6 +111,9 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
   });
 
   const handleNext = () => {
+    // Don't navigate if app is not active
+    if (appStateRef.current !== 'active') return;
+    
     const nextIndex = currentIndex.value + 1;
     if (nextIndex < ONBOARDING_SLIDES.length) {
       scrollRef.current?.scrollTo({
@@ -93,6 +121,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
         animated: true,
       });
     } else {
+      stopAutoScroll();
       onComplete();
     }
   };

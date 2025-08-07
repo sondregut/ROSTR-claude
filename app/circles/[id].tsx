@@ -56,7 +56,7 @@ export default function CircleDetailScreen() {
   // Update local state when circle data changes
   useEffect(() => {
     if (currentCircle) {
-      setUpdates(currentCircle.recentUpdates || []);
+      setUpdates([]);
       setIsActive(currentCircle.is_active);
     }
   }, [currentCircle]);

@@ -236,7 +236,7 @@ export function CircleSelector({
       
       <Modal
         visible={modalVisible}
-        animationType="slide"
+        animationType="none"
         presentationStyle="pageSheet"
         onRequestClose={() => setModalVisible(false)}
       >

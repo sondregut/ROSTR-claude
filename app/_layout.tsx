@@ -29,6 +29,9 @@ import { verifyEnvironmentVariables } from '@/utils/verifyEnv';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { initSentry } from '@/services/sentry';
 import { memoryMonitor } from '@/utils/memoryMonitor';
+import { SafeAnimated } from '@/utils/globalAnimationManager';
+import { thermalStateManager } from '@/utils/thermalStateManager';
+import { AppState } from 'react-native';
 
 
 function RootLayoutNav() {
@@ -42,9 +45,8 @@ function RootLayoutNav() {
       <AuthenticatedApp>
         <Stack
           screenOptions={{
-            gestureEnabled: true,
-            gestureDirection: 'horizontal',
-            fullScreenGestureEnabled: true,
+            gestureEnabled: false, // Disabled to prevent gesture conflicts during transitions
+            animation: 'none', // No animation - screens just pop
           }}
         >
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
@@ -53,47 +55,36 @@ function RootLayoutNav() {
             name="circles/[id]" 
             options={{ 
               headerShown: false,
-              gestureEnabled: true,
-              gestureDirection: 'horizontal',
             }} 
           />
           <Stack.Screen 
             name="circles/[id]/settings" 
             options={{ 
               headerShown: false,
-              gestureEnabled: true,
-              gestureDirection: 'horizontal',
             }} 
           />
           <Stack.Screen 
             name="profile/[username]" 
             options={{ 
               headerShown: false,
-              gestureEnabled: true,
-              gestureDirection: 'horizontal',
             }} 
           />
           <Stack.Screen 
             name="person/[personName]" 
             options={{ 
               headerShown: false,
-              gestureEnabled: true,
-              gestureDirection: 'horizontal',
             }} 
           />
           <Stack.Screen 
             name="settings" 
             options={{ 
               presentation: 'modal',
-              gestureDirection: 'vertical',
             }} 
           />
           <Stack.Screen 
             name="notifications" 
             options={{ 
               headerShown: false,
-              gestureEnabled: true,
-              gestureDirection: 'horizontal',
             }} 
           />
           <Stack.Screen name="+not-found" />
@@ -111,6 +102,25 @@ export default function RootLayout() {
 
   // Initialize services on app start with non-blocking operations
   React.useEffect(() => {
+    // Cancel all animations on app state change
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'inactive' || nextAppState === 'background') {
+        console.log('[RootLayout] App going to background, cancelling all animations');
+        SafeAnimated.cancelAll();
+      }
+    };
+
+    const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
+
+    // Monitor thermal state changes
+    const thermalUnsubscribe = thermalStateManager.addListener((state) => {
+      console.log('[RootLayout] Thermal state changed:', state);
+      if (state === 'serious' || state === 'critical') {
+        // Cancel all animations when device is hot
+        SafeAnimated.cancelAll();
+      }
+    });
+
     // Defer initialization to prevent blocking main thread
     const initTimeout = setTimeout(() => {
       try {
@@ -122,7 +132,7 @@ export default function RootLayout() {
           initSentry();
         } catch (sentryError) {
           if (__DEV__) {
-            console.log('Sentry initialization skipped:', sentryError.message);
+            console.log('Sentry initialization skipped:', (sentryError as Error).message);
           }
         }
         
@@ -141,6 +151,10 @@ export default function RootLayout() {
     return () => {
       clearTimeout(initTimeout);
       memoryMonitor.stopMonitoring();
+      appStateSubscription.remove();
+      thermalUnsubscribe();
+      SafeAnimated.cancelAll();
+      thermalStateManager.cleanup();
     };
   }, []);
 

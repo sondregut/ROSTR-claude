@@ -179,7 +179,7 @@ export function EditDateModal({ visible, date, onClose, onSave, onDelete }: Edit
   
   return (
     <Modal
-      animationType="slide"
+      animationType="none"
       transparent={false}
       visible={visible}
       onRequestClose={onClose}

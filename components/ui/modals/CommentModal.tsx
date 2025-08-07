@@ -83,17 +83,18 @@ export function CommentModal({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="none"
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardAvoid}
-        >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalOverlay}
+        keyboardVerticalOffset={0}
+      >
+        <View style={styles.modalInner}>
           <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
-            <SafeAreaView edges={['top']} style={styles.safeArea}>
+            <SafeAreaView edges={['bottom']} style={styles.safeArea}>
               {/* Header */}
               <View style={[styles.header, { borderBottomColor: colors.border }]}>
                 <Pressable onPress={onClose} style={styles.closeButton}>
@@ -155,8 +156,8 @@ export function CommentModal({
               </View>
             </SafeAreaView>
           </View>
-        </KeyboardAvoidingView>
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -165,17 +166,15 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
   },
-  keyboardAvoid: {
+  modalInner: {
     flex: 1,
     justifyContent: 'flex-end',
   },
   modalContent: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    height: '80%',
-    minHeight: 400,
+    maxHeight: '90%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.25,

@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
   Animated,
+  AppState,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { SafeAnimated } from '@/utils/globalAnimationManager';
 
 interface PollOption {
   text: string;
@@ -39,21 +41,42 @@ export function PollVoting({
   const [animatedValues] = useState(() => 
     options.map(() => new Animated.Value(0))
   );
+  const appStateRef = useRef(AppState.currentState);
+  const animationRef = useRef<Animated.CompositeAnimation>();
   
   const totalVotes = propTotalVotes || options.reduce((sum, option) => sum + option.votes, 0);
   const hasVoted = selectedOption !== null;
   
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppState.AppStateStatus) => {
+      if (appStateRef.current === 'active' && nextAppState !== 'active') {
+        // Stop any running animations
+        animationRef.current?.stop();
+      }
+      appStateRef.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    return () => {
+      subscription.remove();
+      animationRef.current?.stop();
+    };
+  }, []);
+  
   const handleVote = (index: number) => {
-    if (!allowVoting || hasVoted) return;
+    if (!allowVoting || hasVoted || appStateRef.current !== 'active') return;
     
     setSelectedOption(index);
     
     // Animate the selected option
-    Animated.timing(animatedValues[index], {
+    animationRef.current = SafeAnimated.timing(animatedValues[index], {
       toValue: 1,
       duration: 300,
       useNativeDriver: false,
-    }).start();
+    });
+    
+    animationRef.current.start();
     
     if (onVote) {
       onVote(index);

@@ -125,7 +125,7 @@ export const pickImageWithCrop = async (
     }
 
     const defaultOptions: ImagePicker.ImagePickerOptions = {
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaType.Images,
       allowsEditing: false, // Disabled to prevent freezing, we'll crop manually
       quality: options.quality ?? 0.8,
     };
@@ -171,7 +171,7 @@ export const pickImage = async (
   options: PhotoUploadOptions = {}
 ): Promise<ImagePicker.ImagePickerResult> => {
   const defaultOptions: ImagePicker.ImagePickerOptions = {
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    mediaTypes: ImagePicker.MediaType.Images,
     allowsEditing: false, // Disabled to prevent freezing
     quality: options.quality ?? 0.8,
     ...(options.maxWidth && { width: options.maxWidth }),
@@ -191,12 +191,37 @@ export const pickImage = async (
 export const uploadImageToSupabase = async (
   uri: string,
   userId: string,
-  bucket: string = 'profile-photos'
+  bucket: string = 'user-photos'
 ): Promise<PhotoUploadResult> => {
   try {
+    console.log('[uploadImageToSupabase] Starting upload...');
+    console.log('[uploadImageToSupabase] Bucket:', bucket);
+    console.log('[uploadImageToSupabase] User ID:', userId);
+    
+    // Verify authentication first
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      console.error('[uploadImageToSupabase] Not authenticated:', authError);
+      return {
+        success: false,
+        error: 'Please sign in to upload photos',
+      };
+    }
+    
+    console.log('[uploadImageToSupabase] Authenticated as:', user.email);
+    
+    // Verify user ID matches
+    if (user.id !== userId) {
+      console.error('[uploadImageToSupabase] User ID mismatch:', user.id, 'vs', userId);
+      return {
+        success: false,
+        error: 'Invalid user session',
+      };
+    }
     // Get file extension
     const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
-    const fileName = `${userId}_${Date.now()}.${fileExt}`;
+    // Include user folder in the path structure
+    const fileName = `${userId}/profile_${Date.now()}.${fileExt}`;
 
     // Create upload with timeout to prevent watchdog kills
     const uploadPromise = new Promise<PhotoUploadResult>(async (resolve, reject) => {
@@ -215,6 +240,7 @@ export const uploadImageToSupabase = async (
         await new Promise(r => setTimeout(r, 0));
 
         // Upload to Supabase storage
+        console.log(`Uploading to bucket: ${bucket}, filename: ${fileName}`);
         const { data, error } = await supabase.storage
           .from(bucket)
           .upload(fileName, blob, {
@@ -224,10 +250,28 @@ export const uploadImageToSupabase = async (
           });
 
         if (error) {
-          console.error('Upload error:', error);
+          console.error('[uploadImageToSupabase] Upload error:', error);
+          console.error('[uploadImageToSupabase] Error details:', {
+            message: error.message,
+            statusCode: error.statusCode,
+            error: error.error,
+            bucket: bucket,
+            fileName: fileName
+          });
+          
+          // Provide more specific error messages
+          let errorMessage = error.message;
+          if (error.message?.includes('storage/object-not-found')) {
+            errorMessage = 'Storage bucket not found. Please contact support.';
+          } else if (error.message?.includes('storage/unauthorized')) {
+            errorMessage = 'You do not have permission to upload photos.';
+          } else if (error.message?.includes('Bucket not found')) {
+            errorMessage = 'Storage not properly configured. Please contact support.';
+          }
+          
           resolve({
             success: false,
-            error: error.message,
+            error: errorMessage,
           });
           return;
         }
@@ -266,8 +310,17 @@ export const uploadImageToSupabase = async (
     // Race between upload and timeout
     const result = await Promise.race([uploadPromise, timeoutPromise]);
     return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Upload error:', error);
+    
+    // Handle specific storage errors
+    if (error?.message?.includes('Bucket not found')) {
+      return {
+        success: false,
+        error: 'Storage not configured. Please contact support.',
+      };
+    }
+    
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',

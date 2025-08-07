@@ -90,7 +90,7 @@ export function InviteAcceptanceScreen({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="none"
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >

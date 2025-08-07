@@ -373,7 +373,7 @@ export default function ProfileScreen() {
     }
 
     // Validate that we're showing stats for the current user
-    if (!userProfile || !user || userProfile.id !== user.id) {
+    if (!userProfile || !user || !id || userProfile.id !== id) {
       return (
         <View style={[styles.tabContent, styles.loadingContainer]}>
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>

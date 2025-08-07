@@ -45,7 +45,7 @@ export default function CirclesScreen() {
         name: circle.name,
         description: circle.description,
         memberCount: circle.member_count,
-        members: circle.members?.map(m => m.user).filter(Boolean) || [],
+        members: circle.members?.map((m: any) => m.user).filter(Boolean) || [],
         isActive: circle.is_active,
         groupPhotoUri: circle.group_photo_url,
         joinCode: circle.join_code,
@@ -56,7 +56,7 @@ export default function CirclesScreen() {
       // Extract unique friends from all circles with enhanced data structure
       const friendsMap = new Map();
       userCircles.forEach(circle => {
-        circle.members?.forEach(member => {
+        circle.members?.forEach((member: any) => {
           if (member.user && member.user.id !== user.id) {
             const existingFriend = friendsMap.get(member.user.id);
             if (existingFriend) {
@@ -384,7 +384,7 @@ export default function CirclesScreen() {
             </View>
             <View style={styles.joinContent}>
               <Text style={[styles.joinTitle, { color: colors.text }]}>Have an invite code?</Text>
-              <Text style={[styles.joinSubtitle, { color: colors.secondaryText }]}>
+              <Text style={[styles.joinSubtitle, { color: colors.textSecondary }]}>
                 Join a friend's circle with their code
               </Text>
             </View>

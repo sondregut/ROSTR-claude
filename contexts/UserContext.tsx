@@ -97,9 +97,10 @@ export interface DetailedStats {
 }
 
 interface UserContextType {
+  id?: string;
   userProfile: UserProfile | null;
   detailedStats: DetailedStats | null;
-  updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
+  updateProfile: (updates: Partial<UserProfile>) => void;
   loadDetailedStats: () => Promise<void>;
   isLoading: boolean;
   isLoadingStats: boolean;
@@ -366,16 +367,21 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         };
       }
       
-      // Update in database
-      await UserService.updateProfile(user.id, dbUpdates);
-      
       // Optimistically update local state
       if (userProfile) {
         setUserProfile({ ...userProfile, ...updates });
       }
       
-      // Refresh profile to ensure consistency
-      await loadProfile();
+      // Update in database asynchronously
+      UserService.updateProfile(user.id, dbUpdates)
+        .then(() => {
+          // Refresh profile to ensure consistency
+          loadProfile();
+        })
+        .catch((error) => {
+          console.error('Failed to update profile in database:', error);
+          setError('Failed to update profile');
+        });
     } catch (err) {
       console.error('Error updating profile:', err);
       setError('Failed to update profile');
@@ -385,14 +391,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const value = {
+  const value: UserContextType = {
+    id: user?.id,
     userProfile,
     detailedStats,
     updateProfile,
     loadDetailedStats,
     isLoading,
-    isLoadingStats,
-    error,
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

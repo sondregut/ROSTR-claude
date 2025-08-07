@@ -339,227 +339,341 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
 
   // Set up real-time subscriptions
   const setupRealtimeSubscriptions = () => {
-    if (!user) return;
+    if (!user) {
+      console.log('⚠️ Skipping subscriptions setup - no user');
+      return;
+    }
 
     console.log('🔄 Setting up real-time feed subscriptions');
     
     // Clean up existing channels
     channelsRef.current.forEach(channel => {
-      supabase.removeChannel(channel);
+      try {
+        supabase.removeChannel(channel);
+      } catch (error) {
+        console.error('Error removing channel:', error);
+      }
     });
     channelsRef.current = [];
 
     // Subscribe to date entries changes
-    const dateEntriesChannel = supabase
-      .channel('feed-date-entries')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'date_entries',
-        },
-        async (payload) => {
-          console.log('📨 Date entries change:', payload.eventType);
-          
-          if (payload.eventType === 'INSERT') {
-            // Show new posts indicator if not user's own post
-            if (payload.new.user_id !== user.id) {
-              setHasNewPosts(true);
-            } else {
-              // If it's user's own post, refresh immediately
-              await loadDates();
+    try {
+      const dateEntriesChannel = supabase
+        .channel('feed-date-entries')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'date_entries',
+          },
+          async (payload) => {
+            try {
+              // Validate user still exists
+              if (!user?.id) {
+                console.warn('User no longer exists, skipping date entries update');
+                return;
+              }
+              
+              console.log('📨 Date entries change:', payload.eventType);
+              
+              if (payload.eventType === 'INSERT') {
+                // Show new posts indicator if not user's own post
+                if (payload.new?.user_id && payload.new.user_id !== user.id) {
+                  setHasNewPosts(true);
+                } else {
+                  // If it's user's own post, refresh immediately
+                  await loadDates();
+                }
+              } else if (payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
+                // Refresh for updates and deletes
+                await loadDates();
+              }
+            } catch (error) {
+              console.error('Error handling date entries change:', error);
             }
-          } else if (payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
-            // Refresh for updates and deletes
-            await loadDates();
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIPTION_ERROR') {
+            console.error('Date entries subscription error');
+            setError('Connection issue - some updates may be delayed');
+          }
+        });
+      
+      if (dateEntriesChannel) {
+        channelsRef.current.push(dateEntriesChannel);
+      }
+    } catch (error) {
+      console.error('Failed to setup date entries subscription:', error);
+    }
 
     // Subscribe to likes changes
-    const likesChannel = supabase
-      .channel('feed-likes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'date_likes',
-        },
-        async (payload) => {
-          console.log('❤️ Likes change:', payload.eventType);
-          
-          // Only update the specific date entry's like status instead of refreshing entire feed
-          if (payload.eventType === 'INSERT' && payload.new) {
-            const dateId = payload.new.date_id;
-            const userId = payload.new.user_id;
-            
-            setDates(prevDates => 
-              prevDates.map(date => 
-                date.id === dateId
-                  ? { 
-                      ...date, 
-                      likeCount: (date.likeCount || 0) + 1,
-                      isLiked: userId === user?.id ? true : date.isLiked
-                    }
-                  : date
-              )
-            );
-          } else if (payload.eventType === 'DELETE' && payload.old) {
-            const dateId = payload.old.date_id;
-            const userId = payload.old.user_id;
-            
-            setDates(prevDates => 
-              prevDates.map(date => 
-                date.id === dateId
-                  ? { 
-                      ...date, 
-                      likeCount: Math.max((date.likeCount || 0) - 1, 0),
-                      isLiked: userId === user?.id ? false : date.isLiked
-                    }
-                  : date
-              )
-            );
-          }
-        }
-      )
-      .subscribe();
-
-    // Subscribe to comments changes
-    const commentsChannel = supabase
-      .channel('feed-comments')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'date_comments',
-        },
-        async (payload) => {
-          console.log('💬 Comments change:', payload.eventType);
-          
-          // Only update the specific date entry's comments instead of refreshing entire feed
-          if (payload.eventType === 'INSERT' && payload.new) {
-            const dateId = payload.new.date_id;
-            
-            // Update only the specific date's comment count
-            setDates(prevDates => 
-              prevDates.map(date => 
-                date.id === dateId
-                  ? { ...date, commentCount: (date.commentCount || 0) + 1 }
-                  : date
-              )
-            );
-          } else if (payload.eventType === 'DELETE' && payload.old) {
-            const dateId = payload.old.date_id;
-            
-            // Update only the specific date's comment count
-            setDates(prevDates => 
-              prevDates.map(date => 
-                date.id === dateId
-                  ? { ...date, commentCount: Math.max((date.commentCount || 0) - 1, 0) }
-                  : date
-              )
-            );
-          }
-        }
-      )
-      .subscribe();
-
-    // Subscribe to plans changes
-    const plansChannel = supabase
-      .channel('feed-plans')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'date_plans',
-        },
-        async (payload) => {
-          console.log('📅 Plans change:', payload.eventType);
-          
-          // For plans, we need to handle INSERT, UPDATE, and DELETE differently
-          // Only reload if it's from another user to avoid disrupting the feed
-          if (payload.new?.user_id !== user?.id && payload.old?.user_id !== user?.id) {
-            // Only refresh if it's someone else's plan
-            await loadDates();
-          }
-        }
-      )
-      .subscribe();
-
-    // Subscribe to poll votes
-    const pollsChannel = supabase
-      .channel('feed-polls')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'poll_votes',
-        },
-        async (payload) => {
-          console.log('📊 Poll votes change:', payload.eventType);
-          
-          // For poll votes, we need to reload the poll data for the specific date
-          // But only update that specific date entry, not the entire feed
-          if ((payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') && payload.new) {
-            const pollId = payload.new.poll_id;
-            
-            // Find which date contains this poll
-            const dateWithPoll = dates.find(date => date.poll?.id === pollId);
-            if (dateWithPoll) {
-              try {
-                // Fetch updated poll data
-                const { data: updatedPoll } = await supabase
-                  .from('polls')
-                  .select(`
-                    *,
-                    options:poll_options (
-                      id,
-                      text,
-                      vote_count
-                    ),
-                    votes:poll_votes (
-                      user_id,
-                      option_id
-                    )
-                  `)
-                  .eq('id', pollId)
-                  .single();
+    try {
+      const likesChannel = supabase
+        .channel('feed-likes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'date_likes',
+          },
+          async (payload) => {
+            try {
+              // Validate user still exists
+              if (!user?.id) {
+                console.warn('User no longer exists, skipping likes update');
+                return;
+              }
+              
+              console.log('❤️ Likes change:', payload.eventType);
+              
+              // Only update the specific date entry's like status instead of refreshing entire feed
+              if (payload.eventType === 'INSERT' && payload.new) {
+                const dateId = payload.new.date_id || payload.new.date_entry_id;
+                const userId = payload.new.user_id;
                 
-                if (updatedPoll) {
+                if (dateId) {
                   setDates(prevDates => 
                     prevDates.map(date => 
-                      date.id === dateWithPoll.id
+                      date.id === dateId
                         ? { 
                             ...date, 
-                            poll: updatedPoll,
-                            userPollVote: updatedPoll.votes?.find(v => v.user_id === user?.id)?.option_id
+                            likeCount: (date.likeCount || 0) + 1,
+                            isLiked: userId === user.id ? true : date.isLiked
                           }
                         : date
                     )
                   );
                 }
-              } catch (error) {
-                console.error('Error updating poll data:', error);
+              } else if (payload.eventType === 'DELETE' && payload.old) {
+                const dateId = payload.old.date_id || payload.old.date_entry_id;
+                const userId = payload.old.user_id;
+                
+                if (dateId) {
+                  setDates(prevDates => 
+                    prevDates.map(date => 
+                      date.id === dateId
+                        ? { 
+                            ...date, 
+                            likeCount: Math.max((date.likeCount || 0) - 1, 0),
+                            isLiked: userId === user.id ? false : date.isLiked
+                          }
+                        : date
+                    )
+                  );
+                }
               }
+            } catch (error) {
+              console.error('Error handling likes change:', error);
             }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIPTION_ERROR') {
+            console.error('Likes subscription error');
+          }
+        });
+      
+      if (likesChannel) {
+        channelsRef.current.push(likesChannel);
+      }
+    } catch (error) {
+      console.error('Failed to setup likes subscription:', error);
+    }
 
-    channelsRef.current = [
-      dateEntriesChannel,
-      likesChannel,
-      commentsChannel,
-      plansChannel,
-      pollsChannel,
-    ];
+    // Subscribe to comments changes
+    try {
+      const commentsChannel = supabase
+        .channel('feed-comments')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'date_comments',
+          },
+          async (payload) => {
+            try {
+              console.log('💬 Comments change:', payload.eventType);
+              
+              // Only update the specific date entry's comments instead of refreshing entire feed
+              if (payload.eventType === 'INSERT' && payload.new) {
+                const dateId = payload.new.date_id || payload.new.date_entry_id;
+                
+                if (dateId) {
+                  // Update only the specific date's comment count
+                  setDates(prevDates => 
+                    prevDates.map(date => 
+                      date.id === dateId
+                        ? { ...date, commentCount: (date.commentCount || 0) + 1 }
+                        : date
+                    )
+                  );
+                }
+              } else if (payload.eventType === 'DELETE' && payload.old) {
+                const dateId = payload.old.date_id || payload.old.date_entry_id;
+                
+                if (dateId) {
+                  // Update only the specific date's comment count
+                  setDates(prevDates => 
+                    prevDates.map(date => 
+                      date.id === dateId
+                        ? { ...date, commentCount: Math.max((date.commentCount || 0) - 1, 0) }
+                        : date
+                    )
+                  );
+                }
+              }
+            } catch (error) {
+              console.error('Error handling comments change:', error);
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIPTION_ERROR') {
+            console.error('Comments subscription error');
+          }
+        });
+      
+      if (commentsChannel) {
+        channelsRef.current.push(commentsChannel);
+      }
+    } catch (error) {
+      console.error('Failed to setup comments subscription:', error);
+    }
+
+    // Subscribe to plans changes
+    try {
+      const plansChannel = supabase
+        .channel('feed-plans')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'date_plans',
+          },
+          async (payload) => {
+            try {
+              // Validate user still exists
+              if (!user?.id) {
+                console.warn('User no longer exists, skipping plans update');
+                return;
+              }
+              
+              console.log('📅 Plans change:', payload.eventType);
+              
+              // For plans, we need to handle INSERT, UPDATE, and DELETE differently
+              // Only reload if it's from another user to avoid disrupting the feed
+              if (payload.new?.user_id !== user.id && payload.old?.user_id !== user.id) {
+                // Only refresh if it's someone else's plan
+                await loadDates();
+              }
+            } catch (error) {
+              console.error('Error handling plans change:', error);
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIPTION_ERROR') {
+            console.error('Plans subscription error');
+          }
+        });
+      
+      if (plansChannel) {
+        channelsRef.current.push(plansChannel);
+      }
+    } catch (error) {
+      console.error('Failed to setup plans subscription:', error);
+    }
+
+    // Subscribe to poll votes
+    try {
+      const pollsChannel = supabase
+        .channel('feed-polls')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'poll_votes',
+          },
+          async (payload) => {
+            try {
+              // Validate user still exists
+              if (!user?.id) {
+                console.warn('User no longer exists, skipping poll update');
+                return;
+              }
+              
+              console.log('📊 Poll votes change:', payload.eventType);
+              
+              // For poll votes, we need to reload the poll data for the specific date
+              // But only update that specific date entry, not the entire feed
+              if ((payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') && payload.new) {
+                const pollId = payload.new.poll_id;
+                
+                if (pollId) {
+                  // Find which date contains this poll
+                  const dateWithPoll = dates.find(date => date.poll?.id === pollId);
+                  if (dateWithPoll) {
+                    try {
+                      // Fetch updated poll data
+                      const { data: updatedPoll } = await supabase
+                        .from('polls')
+                        .select(`
+                          *,
+                          options:poll_options (
+                            id,
+                            text,
+                            vote_count
+                          ),
+                          votes:poll_votes (
+                            user_id,
+                            option_id
+                          )
+                        `)
+                        .eq('id', pollId)
+                        .single();
+                      
+                      if (updatedPoll) {
+                        setDates(prevDates => 
+                          prevDates.map(date => 
+                            date.id === dateWithPoll.id
+                              ? { 
+                                  ...date, 
+                                  poll: updatedPoll,
+                                  userPollVote: updatedPoll.votes?.find(v => v.user_id === user.id)?.option_id
+                                }
+                              : date
+                          )
+                        );
+                      }
+                    } catch (error) {
+                      console.error('Error updating poll data:', error);
+                    }
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('Error handling poll votes change:', error);
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIPTION_ERROR') {
+            console.error('Polls subscription error');
+          }
+        });
+      
+      if (pollsChannel) {
+        channelsRef.current.push(pollsChannel);
+      }
+    } catch (error) {
+      console.error('Failed to setup polls subscription:', error);
+    }
   };
 
   // Load when new posts indicator is clicked
@@ -580,15 +694,25 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
 
     // Cleanup on unmount or user change
     return () => {
+      console.log('🧹 Cleaning up DateContext subscriptions');
       channelsRef.current.forEach(channel => {
-        supabase.removeChannel(channel);
+        try {
+          supabase.removeChannel(channel);
+        } catch (error) {
+          console.error('Error removing channel during cleanup:', error);
+        }
       });
       channelsRef.current = [];
     };
   }, [user]);
 
   const addDate = async (formData: DateEntryFormData) => {
-    if (!user) throw new Error('No user logged in');
+    if (!user) {
+      const error = new Error('No user logged in');
+      console.error('addDate error:', error);
+      setError('You must be logged in to add dates');
+      throw error;
+    }
     
     try {
       let imageUrl = formData.imageUri;
@@ -619,7 +743,12 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addRosterAddition = async (personName: string, rosterInfo: any, circles: string[] = [], isPrivate: boolean = false) => {
-    if (!user) throw new Error('No user logged in');
+    if (!user) {
+      const error = new Error('No user logged in');
+      console.error('addRosterAddition error:', error);
+      setError('You must be logged in to add roster entries');
+      throw error;
+    }
     
     try {
       await DateService.createRosterAddition(personName, rosterInfo, user.id, circles, isPrivate);
@@ -633,7 +762,12 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addPlan = async (formData: PlanFormData, personName: string) => {
-    if (!user) throw new Error('No user logged in');
+    if (!user) {
+      const error = new Error('No user logged in');
+      console.error('addPlan error:', error);
+      setError('You must be logged in to add plans');
+      throw error;
+    }
     
     try {
       await DateService.createPlan(formData, personName, user.id);
@@ -647,7 +781,12 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const completePlan = async (planId: string, dateData: DateEntryFormData) => {
-    if (!user) throw new Error('No user logged in');
+    if (!user) {
+      const error = new Error('No user logged in');
+      console.error('completePlan error:', error);
+      setError('You must be logged in to complete plans');
+      throw error;
+    }
     
     try {
       await DateService.completePlan(planId, dateData, user.id);
@@ -730,7 +869,10 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const likeDate = async (id: string) => {
-    if (!user) return;
+    if (!user) {
+      console.warn('likeDate called without user');
+      return;
+    }
     
     console.log('🔍 DateContext: likeDate called with id:', id);
     
@@ -788,7 +930,10 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const likePlan = async (id: string) => {
-    if (!user) return;
+    if (!user) {
+      console.warn('likePlan called without user');
+      return;
+    }
     
     try {
       // Optimistically update UI
@@ -828,7 +973,10 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const reactToDate = async (id: string, reaction: string | null) => {
-    if (!user) return;
+    if (!user) {
+      console.warn('reactToDate called without user');
+      return;
+    }
     
     console.log('🔍 DateContext: reactToDate called with:', { id, reaction });
     
@@ -909,7 +1057,10 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const reactToPlan = async (id: string, reaction: string | null) => {
-    if (!user) return;
+    if (!user) {
+      console.warn('reactToPlan called without user');
+      return;
+    }
     
     const plan = plans.find(p => p.id === id);
     if (!plan) return;
@@ -1116,7 +1267,10 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const voteOnPoll = async (id: string, optionIndex: number) => {
-    if (!user) return;
+    if (!user) {
+      console.warn('voteOnPoll called without user');
+      return;
+    }
     
     try {
       await DateService.voteOnPoll(id, optionIndex, user.id);
@@ -1129,7 +1283,12 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateRosterAddition = async (id: string, updates: any) => {
-    if (!user) throw new Error('No user logged in');
+    if (!user) {
+      const error = new Error('No user logged in');
+      console.error('updateRosterAddition error:', error);
+      setError('You must be logged in to update roster entries');
+      throw error;
+    }
     
     try {
       await DateService.updateRosterAddition(id, updates);

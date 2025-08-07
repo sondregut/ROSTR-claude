@@ -241,7 +241,7 @@ export default function FeedScreen() {
         <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
           <Text style={[styles.headerTitle, { color: colors.text }]}>My Feed</Text>
         </View>
-        <View style={styles.loadingContainer}>
+        <View style={styles.container}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </SafeAreaView>

@@ -15,7 +15,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { simpleAuth } from '@/services/supabase/simpleAuth';
-import { debugAppleAuth } from '@/utils/debugAppleAuth';
 import { useOnboardingState } from '@/hooks/useOnboardingState';
 
 export default function WelcomeScreen() {
@@ -170,27 +169,6 @@ export default function WelcomeScreen() {
                 </Text>
               </View>
               
-              {/* Debug button - REMOVE BEFORE PRODUCTION */}
-              {__DEV__ && (
-                <>
-                  <Pressable
-                    onPress={debugAppleAuth}
-                    style={{ marginTop: 20, padding: 10 }}
-                  >
-                    <Text style={{ color: 'white', textAlign: 'center' }}>Debug Apple Auth</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={async () => {
-                      const { resetOnboardingForTesting } = await import('@/utils/resetOnboarding');
-                      await resetOnboardingForTesting();
-                      router.replace('/(auth)/onboarding-welcome');
-                    }}
-                    style={{ marginTop: 10, padding: 15, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10 }}
-                  >
-                    <Text style={{ color: 'white', textAlign: 'center', fontWeight: '600' }}>🎯 Show Onboarding (Dev)</Text>
-                  </Pressable>
-                </>
-              )}
             </View>
           </View>
         </SafeAreaView>

@@ -127,15 +127,15 @@ export default function ProfileSetupScreen() {
       if (error?.message?.includes('duplicate key') && error?.message?.includes('username')) {
         errorMessage = 'Username already taken. Please try again.';
         // Auto-generate a new username and retry
-        const newUsername = `${formData.firstName.toLowerCase()}_${Date.now().toString(36)}`;
+        const newUsername = `${firstName.toLowerCase()}_${Date.now().toString(36)}`;
         console.log('Retrying with new username:', newUsername);
-        profileData.username = newUsername;
+        const updatedProfileData = { ...profileData, username: newUsername };
         
         try {
           if (existingProfile) {
-            await UserService.updateProfile(user.id, profileData);
+            await UserService.updateProfile(user.id, updatedProfileData);
           } else {
-            await UserService.createProfile({ ...profileData, id: user.id });
+            await UserService.createProfile({ ...updatedProfileData, id: user.id });
           }
           updateProfileComplete(true);
           router.replace('/(tabs)');

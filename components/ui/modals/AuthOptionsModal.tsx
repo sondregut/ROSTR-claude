@@ -143,7 +143,7 @@ export function AuthOptionsModal({ visible, onClose }: AuthOptionsModalProps) {
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="none"
       onRequestClose={onClose}
       statusBarTranslucent
     >

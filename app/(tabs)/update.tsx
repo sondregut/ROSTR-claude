@@ -27,7 +27,7 @@ export default function UpdateScreen() {
       setFormKey(Date.now());
       
       // Navigate directly to feed tab to show the new entry
-      router.push('/(tabs)/');
+      router.push('/(tabs)');
     } catch (error) {
       console.error('Error saving date:', error);
       Alert.alert(
