@@ -73,8 +73,7 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
   const [errors, setErrors] = useState<Partial<Record<keyof PersonData, string>>>({});
   const [showHowWeMetOptions, setShowHowWeMetOptions] = useState(false);
   
-  // Refs for debouncing
-  const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
+  // Removed debouncing to fix performance issues
   
   // Memoized styles to prevent recalculation on every render
   const inputStyle = useMemo(() => [
@@ -105,54 +104,26 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
     }
   }, [visible, initialData]);
   
-  // Cleanup debounce timers on unmount
-  useEffect(() => {
-    return () => {
-      Object.values(debounceTimers.current).forEach(clearTimeout);
-    };
-  }, []);
+  // No cleanup needed since we removed debounce timers
 
-  // Debounced change handler to improve typing performance
+  // Simple change handler without circular dependencies
   const handleChange = useCallback((field: keyof PersonData, value: string | string[]) => {
-    // Clear any existing timer for this field
-    if (debounceTimers.current[field]) {
-      clearTimeout(debounceTimers.current[field]);
-    }
+    // Update state immediately for responsive UI
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
     
-    // For text inputs, debounce the state update
-    if (typeof value === 'string' && field !== 'howWeMet') {
-      // Update local state immediately for responsive UI
-      setFormData(prev => ({
-        ...prev,
-        [field]: value
-      }));
-      
-      // Debounce error clearing to avoid UI thread blocking
-      debounceTimers.current[field] = setTimeout(() => {
-        if (errors[field]) {
-          InteractionManager.runAfterInteractions(() => {
-            setErrors(prev => ({
-              ...prev,
-              [field]: undefined
-            }));
-          });
-        }
-      }, 300);
-    } else {
-      // For non-text inputs, update immediately
-      setFormData(prev => ({
-        ...prev,
-        [field]: value
-      }));
-      
-      if (errors[field]) {
-        setErrors(prev => ({
-          ...prev,
-          [field]: undefined
-        }));
+    // Clear error for this field if it exists
+    setErrors(prev => {
+      if (prev[field]) {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
       }
-    }
-  }, [errors]);
+      return prev;
+    });
+  }, []); // No dependencies to prevent recreating on every render
 
   const handleImagePick = async () => {
     try {
@@ -249,53 +220,60 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
     return isValid;
   }, [formData]);
   
-  // Validate individual field on blur
+  // Validate individual field on blur without circular dependency
   const validateField = useCallback((field: keyof PersonData) => {
-    InteractionManager.runAfterInteractions(() => {
-      const newErrors = { ...errors };
-      
-      switch (field) {
-        case 'name':
-          if (!formData.name) {
-            newErrors.name = 'Name is required';
-          } else {
-            const nameResult = validateName(formData.name);
-            if (!nameResult.isValid) {
-              newErrors.name = nameResult.error;
+    setFormData(currentData => {
+      // Use current form data from state
+      setErrors(currentErrors => {
+        const newErrors = { ...currentErrors };
+        
+        switch (field) {
+          case 'name':
+            if (!currentData.name) {
+              newErrors.name = 'Name is required';
             } else {
-              delete newErrors.name;
+              const nameResult = validateName(currentData.name);
+              if (!nameResult.isValid) {
+                newErrors.name = nameResult.error;
+              } else {
+                delete newErrors.name;
+              }
             }
-          }
-          break;
-        case 'age':
-          if (formData.age) {
-            const ageResult = validateAge(formData.age);
-            if (!ageResult.isValid) {
-              newErrors.age = ageResult.error;
+            break;
+          case 'age':
+            if (currentData.age) {
+              const ageResult = validateAge(currentData.age);
+              if (!ageResult.isValid) {
+                newErrors.age = ageResult.error;
+              } else {
+                delete newErrors.age;
+              }
             } else {
               delete newErrors.age;
             }
-          }
-          break;
-        case 'instagram':
-          if (formData.instagram) {
-            const instagramResult = validateInstagram(formData.instagram);
-            if (!instagramResult.isValid) {
-              newErrors.instagram = instagramResult.error;
+            break;
+          case 'instagram':
+            if (currentData.instagram) {
+              const instagramResult = validateInstagram(currentData.instagram);
+              if (!instagramResult.isValid) {
+                newErrors.instagram = instagramResult.error;
+              } else {
+                delete newErrors.instagram;
+              }
             } else {
               delete newErrors.instagram;
             }
-          }
-          break;
-      }
+            break;
+        }
+        
+        return newErrors;
+      });
       
-      setErrors(newErrors);
+      return currentData; // Don't change form data
     });
-  }, [formData, errors]);
+  }, []); // No dependencies
 
   const handleSave = useCallback(() => {
-    // Clear all debounce timers before saving
-    Object.values(debounceTimers.current).forEach(clearTimeout);
     
     if (validateForm()) {
       // Sanitize text fields before saving
@@ -334,9 +312,6 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
   };
 
   const handleClose = useCallback(() => {
-    // Clear all debounce timers
-    Object.values(debounceTimers.current).forEach(clearTimeout);
-    debounceTimers.current = {};
     
     resetForm();
     onClose();
