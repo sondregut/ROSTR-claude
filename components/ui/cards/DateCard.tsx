@@ -8,7 +8,7 @@ import { PollVoting } from '../feed/PollVoting';
 import { InlineComments } from '../feed/InlineComments';
 import { getEmojiById } from '@/constants/ReactionData';
 import * as Haptics from 'expo-haptics';
-import { OptimizedImage } from '../OptimizedImage';
+import { Image } from 'react-native';
 
 interface DateCardProps {
   id: string;
@@ -108,7 +108,7 @@ export function DateCard({
           onPress={authorName ? onAuthorPress : onPersonPress}
         >
           {authorAvatar ? (
-            <OptimizedImage source={{ uri: authorAvatar }} style={styles.avatar} />
+            <Image source={{ uri: authorAvatar }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
               <Text style={[styles.avatarInitial, { color: colors.buttonText }]}>
@@ -155,7 +155,7 @@ export function DateCard({
             {/* Person photo */}
             {personPhoto && (
               <Pressable onPress={onPersonHistoryPress} style={styles.personPhotoContainer}>
-                <OptimizedImage source={{ uri: personPhoto }} style={styles.personPhoto} priority="high" />
+                <Image source={{ uri: personPhoto }} style={styles.personPhoto} />
               </Pressable>
             )}
             
@@ -205,7 +205,7 @@ export function DateCard({
       
       {imageUri && (
         <View style={styles.imageContainer}>
-          <OptimizedImage 
+          <Image 
             source={{ uri: imageUri }} 
             style={styles.dateImage}
             resizeMode="cover"

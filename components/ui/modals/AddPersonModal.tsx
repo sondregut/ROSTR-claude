@@ -20,6 +20,7 @@ import { CircleSelector } from '../forms/CircleSelector';
 import { Colors } from '../../../constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { validateName, validateAge, validateTextLength, validateInstagram, sanitizeInput } from '@/utils/validation';
+import { cleanupStaleImagePaths } from '@/utils/imageValidation';
 
 interface AddPersonModalProps {
   visible: boolean;
@@ -351,7 +352,7 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Photos</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.photoContainer}>
-                  {(formData.photos || []).map((photo, index) => (
+                  {cleanupStaleImagePaths(formData.photos || []).map((photo, index) => (
                     <View key={index} style={styles.photoWrapper}>
                       <Image 
                         source={{ uri: photo }} 

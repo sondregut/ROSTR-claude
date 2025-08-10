@@ -1,5 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from './supabase';
+import { supabaseUrl } from '@/config/env';
 
 // Dynamically import ImageCropPicker to handle cases where it's not available
 let ImageCropPicker: any = null;
@@ -7,21 +8,6 @@ try {
   ImageCropPicker = require('react-native-image-crop-picker');
 } catch (error) {
   console.log('react-native-image-crop-picker not available, using fallback image handling');
-}
-
-
-export interface PhotoUploadOptions {
-  quality?: number;
-  allowsEditing?: boolean;
-  aspect?: [number, number];
-  maxWidth?: number;
-  maxHeight?: number;
-}
-
-export interface PhotoUploadResult {
-  success: boolean;
-  url?: string;
-  error?: string;
 }
 
 /**
@@ -92,9 +78,15 @@ export const pickImageWithCrop = async (
         result = await ImageCropPicker.openPicker(cropOptions);
       }
 
+      // Ensure the path is a proper URI
+      let imageUri = result.path;
+      if (!imageUri.startsWith('file://') && !imageUri.startsWith('http')) {
+        imageUri = `file://${imageUri}`;
+      }
+      
       return {
         success: true,
-        uri: result.path,
+        uri: imageUri,
       };
     } catch (error: any) {
       // Handle user cancellation
@@ -185,6 +177,9 @@ export const pickImage = async (
   }
 };
 
+// Track active error logging to prevent recursion
+const activeErrorLogs = new WeakSet();
+
 /**
  * Upload image to Supabase storage with timeout and non-blocking operations
  */
@@ -193,54 +188,109 @@ export const uploadImageToSupabase = async (
   userId: string,
   bucket: string = 'user-photos'
 ): Promise<PhotoUploadResult> => {
+  // Debug alert to confirm function is called
+  console.log('[uploadImageToSupabase] Called with:', { uri, userId, bucket });
+  
+  // Create a unique error context to track this upload attempt
+  const errorContext = { uri, userId, bucket };
+  
+  // Prevent recursive error logging with WeakSet tracking
+  const logError = (message: string, error?: any) => {
+    // Check if we're already logging an error for this context
+    if (activeErrorLogs.has(errorContext)) {
+      return; // Prevent recursion
+    }
+    
+    try {
+      activeErrorLogs.add(errorContext);
+      // Use safe string conversion to prevent toString errors
+      const errorStr = error ? (error.message || error.toString?.() || 'Unknown error') : '';
+      console.log(`[uploadImageToSupabase] ${message}`, errorStr);
+    } catch (logErr) {
+      // Silently fail if logging fails to prevent infinite loops
+    } finally {
+      // Clean up after a short delay to allow for nested calls
+      setTimeout(() => activeErrorLogs.delete(errorContext), 100);
+    }
+  };
+
   try {
-    console.log('[uploadImageToSupabase] Starting upload...');
-    console.log('[uploadImageToSupabase] Bucket:', bucket);
-    console.log('[uploadImageToSupabase] User ID:', userId);
+    logError('Starting upload...');
+    logError('Bucket:', bucket);
+    logError('User ID:', userId);
+    logError('URI:', uri);
+    
+    // Ensure the URI is properly formatted
+    let imageUri = uri;
+    if (!imageUri.startsWith('file://') && !imageUri.startsWith('http') && !imageUri.startsWith('https')) {
+      // If it's a local file path, add file:// prefix
+      imageUri = `file://${imageUri}`;
+    }
+    
+    // Skip external network check - it can fail in some networks
+    // Supabase will handle network errors appropriately
     
     // Verify authentication first
+    logError('Checking authentication...');
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      console.error('[uploadImageToSupabase] Not authenticated:', authError);
+      logError('Not authenticated:', authError);
       return {
         success: false,
         error: 'Please sign in to upload photos',
       };
     }
     
-    console.log('[uploadImageToSupabase] Authenticated as:', user.email);
+    logError('Authenticated as:', user.email);
     
     // Verify user ID matches
     if (user.id !== userId) {
-      console.error('[uploadImageToSupabase] User ID mismatch:', user.id, 'vs', userId);
+      logError('User ID mismatch:', `${user.id} vs ${userId}`);
       return {
         success: false,
         error: 'Invalid user session',
       };
     }
+    
     // Get file extension
-    const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
+    const fileExt = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
     // Include user folder in the path structure
     const fileName = `${userId}/profile_${Date.now()}.${fileExt}`;
+    
+    logError('File extension:', fileExt);
+    logError('File name:', fileName);
 
     // Create upload with timeout to prevent watchdog kills
-    const uploadPromise = new Promise<PhotoUploadResult>(async (resolve, reject) => {
+    const uploadPromise = new Promise<PhotoUploadResult>(async (resolve) => {
       try {
         // Fetch with timeout to prevent blocking
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 4000);
         
-        const response = await fetch(uri, { signal: controller.signal });
+        const response = await fetch(imageUri, { signal: controller.signal });
         clearTimeout(timeout);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.status}`);
+        }
         
         // Convert to blob asynchronously
         const blob = await response.blob();
+
+        // Validate blob size (max 10MB)
+        if (blob.size > 10 * 1024 * 1024) {
+          resolve({
+            success: false,
+            error: 'Image too large. Maximum size is 10MB.',
+          });
+          return;
+        }
 
         // Yield to main thread before upload
         await new Promise(r => setTimeout(r, 0));
 
         // Upload to Supabase storage
-        console.log(`Uploading to bucket: ${bucket}, filename: ${fileName}`);
+        logError(`Uploading to bucket: ${bucket}, filename: ${fileName}`);
         const { data, error } = await supabase.storage
           .from(bucket)
           .upload(fileName, blob, {
@@ -250,23 +300,31 @@ export const uploadImageToSupabase = async (
           });
 
         if (error) {
-          console.error('[uploadImageToSupabase] Upload error:', error);
-          console.error('[uploadImageToSupabase] Error details:', {
-            message: error.message,
-            statusCode: error.statusCode,
-            error: error.error,
-            bucket: bucket,
-            fileName: fileName
-          });
+          logError('Upload error:', error);
+          
+          // Safe error details logging
+          try {
+            const errorDetails = {
+              message: error.message || 'Unknown error',
+              statusCode: (error as any).statusCode || 'N/A',
+              bucket: bucket,
+              fileName: fileName
+            };
+            logError('Error details:', JSON.stringify(errorDetails));
+          } catch (e) {
+            // Ignore JSON stringify errors
+          }
           
           // Provide more specific error messages
-          let errorMessage = error.message;
-          if (error.message?.includes('storage/object-not-found')) {
+          let errorMessage = error.message || 'Upload failed';
+          if (errorMessage.includes('storage/object-not-found')) {
             errorMessage = 'Storage bucket not found. Please contact support.';
-          } else if (error.message?.includes('storage/unauthorized')) {
+          } else if (errorMessage.includes('storage/unauthorized')) {
             errorMessage = 'You do not have permission to upload photos.';
-          } else if (error.message?.includes('Bucket not found')) {
+          } else if (errorMessage.includes('Bucket not found')) {
             errorMessage = 'Storage not properly configured. Please contact support.';
+          } else if (errorMessage.includes('Network request failed')) {
+            errorMessage = 'Network error. Please check your connection and try again.';
           }
           
           resolve({
@@ -281,18 +339,56 @@ export const uploadImageToSupabase = async (
           .from(bucket)
           .getPublicUrl(data.path);
 
+        logError('Upload successful. Path:', data.path);
+        logError('Full upload data:', JSON.stringify(data));
+        logError('Bucket name:', bucket);
+        logError('Getting public URL for path:', data.path);
+        logError('Supabase URL from config:', supabaseUrl);
+        
+        // Check if supabaseUrl is properly configured
+        if (!supabaseUrl || supabaseUrl === '') {
+          logError('ERROR: Supabase URL is not configured!');
+          resolve({
+            success: false,
+            error: 'Supabase URL not configured',
+          });
+          return;
+        }
+        
+        logError('Public URL data:', JSON.stringify(urlData));
+        logError('Final public URL:', urlData.publicUrl);
+        
+        // Verify the URL is properly formed
+        if (!urlData.publicUrl || urlData.publicUrl === '') {
+          logError('Warning: Empty public URL returned');
+          resolve({
+            success: false,
+            error: 'Failed to get public URL for uploaded image',
+          });
+          return;
+        }
+        
+        // Log the complete URL being returned
+        logError('Returning URL to app:', urlData.publicUrl);
+
         resolve({
           success: true,
           url: urlData.publicUrl,
         });
-      } catch (error) {
-        if (error.name === 'AbortError') {
+      } catch (error: any) {
+        if (error?.name === 'AbortError') {
           resolve({
             success: false,
             error: 'Image fetch timed out',
           });
         } else {
-          reject(error);
+          // Safe error handling
+          logError('Upload promise error:', error);
+          const errorMessage = error?.message || 'Upload failed';
+          resolve({
+            success: false,
+            error: errorMessage,
+          });
         }
       }
     });
@@ -311,19 +407,30 @@ export const uploadImageToSupabase = async (
     const result = await Promise.race([uploadPromise, timeoutPromise]);
     return result;
   } catch (error: any) {
-    console.error('Upload error:', error);
+    // Use safe logging to prevent infinite loops
+    logError('Outer catch error:', error);
+    
+    // Safe error message extraction
+    const errorMessage = error?.message || 'Unknown error occurred';
     
     // Handle specific storage errors
-    if (error?.message?.includes('Bucket not found')) {
+    if (errorMessage.includes('Bucket not found')) {
       return {
         success: false,
         error: 'Storage not configured. Please contact support.',
       };
     }
     
+    if (errorMessage.includes('Network request failed')) {
+      return {
+        success: false,
+        error: 'Network error. Please check your connection and try again.',
+      };
+    }
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      error: errorMessage,
     };
   }
 };
@@ -389,7 +496,17 @@ export const uploadProfilePhoto = async (
     const imageUri = result.assets[0].uri;
 
     // Upload to Supabase
-    return await uploadImageToSupabase(imageUri, userId);
+    const uploadResult = await uploadImageToSupabase(imageUri, userId);
+    
+    // If upload failed, return the local URI as a fallback
+    if (!uploadResult.success) {
+      return {
+        ...uploadResult,
+        uri: imageUri, // Include the local URI in the result
+      };
+    }
+    
+    return uploadResult;
   } catch (error) {
     console.error('Photo upload error:', error);
     return {
@@ -398,3 +515,18 @@ export const uploadProfilePhoto = async (
     };
   }
 };
+
+export interface PhotoUploadOptions {
+  quality?: number;
+  allowsEditing?: boolean;
+  aspect?: [number, number];
+  maxWidth?: number;
+  maxHeight?: number;
+}
+
+export interface PhotoUploadResult {
+  success: boolean;
+  url?: string;
+  error?: string;
+  uri?: string; // Local URI as fallback when upload fails
+}

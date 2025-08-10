@@ -8,7 +8,8 @@ import {
   Pressable, 
   Alert,
   ActivityIndicator,
-  InteractionManager
+  InteractionManager,
+  Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,14 +20,15 @@ import { Button } from '@/components/ui/buttons/Button';
 import { ShareAppModal } from '@/components/ui/modals/ShareAppModal';
 import { useSafeUser } from '@/hooks/useSafeUser';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { uploadProfilePhoto } from '@/lib/photoUpload';
+import { pickImageWithCrop } from '@/lib/photoUpload';
 import { supabase } from '@/lib/supabase';
 import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
 import { useEffect } from 'react';
 import { MiniBarChart } from '@/components/ui/charts/MiniBarChart';
 import { ProgressRing } from '@/components/ui/charts/ProgressRing';
-import { OptimizedImage } from '@/components/ui/OptimizedImage';
 import { useAppLifecycle } from '@/hooks/useAppLifecycle';
+import { logger } from '@/utils/logger';
+import { forceLog, forceError, enableForceLogging } from '@/utils/forceLog';
 
 
 
@@ -41,6 +43,28 @@ export default function ProfileScreen() {
   const loadDetailedStats = user?.loadDetailedStats;
   const isLoading = user?.isLoading || false;
   const isLoadingStats = user?.isLoadingStats || false;
+  
+  // Enable force logging for debugging
+  useEffect(() => {
+    enableForceLogging();
+    forceLog('Profile screen mounted', { 
+      hasUserProfile: !!userProfile,
+      imageUri: userProfile?.imageUri,
+      userId: userProfile?.id 
+    });
+    
+    // Prefetch image if available
+    if (userProfile?.imageUri && userProfile.imageUri.startsWith('http')) {
+      forceLog('[Profile] Prefetching image:', userProfile.imageUri);
+      Image.prefetch(userProfile.imageUri)
+        .then(() => {
+          forceLog('[Profile] Image prefetch successful');
+        })
+        .catch((error) => {
+          forceError('[Profile] Image prefetch failed:', error);
+        });
+    }
+  }, [userProfile]);
   
   const [activeTab, setActiveTab] = useState<'about' | 'stats' | 'preferences'>('about');
   const [shareModalVisible, setShareModalVisible] = useState(false);
@@ -98,7 +122,7 @@ export default function ProfileScreen() {
       // Run photo upload after interactions to prevent blocking
       InteractionManager.runAfterInteractions(async () => {
         try {
-          const result = await uploadProfilePhoto(userId, source, {
+          const result = await pickImageWithCrop(source, {
             quality: 0.8,
             allowsEditing: true,
             aspect: [1, 1],
@@ -106,12 +130,15 @@ export default function ProfileScreen() {
             maxHeight: 800,
           });
 
-          if (result.success && result.url) {
+          if (result.success && result.uri) {
+            // Use the local URI directly (same approach as roster photos)
+            const localUri = result.uri;
+            
             // For mock user, just update locally. For real users, update Supabase too
             if (userProfile!.id && userProfile!.id !== 'mock-user-id') {
               const { error } = await supabase
                 .from('users')
-                .update({ image_uri: result.url })
+                .update({ image_uri: localUri })
                 .eq('id', userProfile!.id);
 
               if (error) {
@@ -119,15 +146,16 @@ export default function ProfileScreen() {
               }
             }
 
-            // Update local profile
-            updateProfile({ imageUri: result.url });
+            // Update local profile with local URI
+            logger.info('[Profile] Updating profile with local imageUri:', localUri);
+            updateProfile({ imageUri: localUri });
 
-            Alert.alert('Success', 'Profile photo updated successfully!');
-          } else {
-            Alert.alert('Error', result.error || 'Failed to upload photo');
+            // Don't show alert - let the UI update speak for itself
+          } else if (result.error && result.error !== 'Selection cancelled') {
+            Alert.alert('Error', `Failed to pick image: ${result.error}`);
           }
         } catch (error) {
-          console.error('Photo upload error:', error);
+          logger.error('[Profile] Photo upload error:', error);
           Alert.alert('Error', 'Failed to update profile photo');
         } finally {
           setIsUploadingPhoto(false);
@@ -135,7 +163,7 @@ export default function ProfileScreen() {
       });
     } catch (error) {
       // Handle any errors setting up the interaction
-      console.error('Failed to setup photo upload:', error);
+      logger.error('[Profile] Failed to setup photo upload:', error);
       Alert.alert('Error', 'Failed to start photo upload');
       setIsUploadingPhoto(false);
     }
@@ -172,23 +200,48 @@ export default function ProfileScreen() {
       <View style={styles.profileTopSection}>
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
-          <Pressable
-            onPress={handlePhotoUpload}
-            disabled={isUploadingPhoto}
-          >
+          <View>
             {userProfile.imageUri ? (
-              <OptimizedImage 
-                source={{ uri: userProfile.imageUri }} 
-                style={styles.profileImage}
-                priority="high"
-                cachePolicy="memory-disk"
-              />
+              <>
+                {forceLog('[Profile] Loading image with React Native Image:', userProfile.imageUri)}
+                <Image 
+                  source={{ uri: userProfile.imageUri }}
+                  style={styles.profileImage}
+                  onLoadStart={() => forceLog('[Profile] Image load started')}
+                  onLoad={() => {
+                    forceLog('[Profile] Image loaded successfully!');
+                    Alert.alert('Success', 'Image loaded successfully!');
+                  }}
+                  onError={(error) => {
+                    forceError('[Profile] Image error:', error.nativeEvent);
+                    Alert.alert(
+                      'Image Error',
+                      `Failed to load image\n\nError: ${JSON.stringify(error.nativeEvent, null, 2)}`,
+                      [
+                        { text: 'Try Prefetch', onPress: () => {
+                          Image.prefetch(userProfile.imageUri)
+                            .then(() => {
+                              forceLog('[Profile] Prefetch successful');
+                              Alert.alert('Prefetch Success', 'Image prefetched, try reloading');
+                            })
+                            .catch((err) => {
+                              forceError('[Profile] Prefetch failed:', err);
+                              Alert.alert('Prefetch Failed', err.toString());
+                            });
+                        }},
+                        { text: 'OK' }
+                      ]
+                    );
+                  }}
+                  defaultSource={{ uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' }}
+                />
+              </>
             ) : (
               <View style={[styles.profileImage, { backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }]}>
                 <Ionicons name="person-outline" size={64} color={colors.textSecondary} />
               </View>
             )}
-          </Pressable>
+          </View>
           <Pressable 
             style={[styles.cameraButton, { backgroundColor: colors.primary }]}
             onPress={handlePhotoUpload}
@@ -372,8 +425,8 @@ export default function ProfileScreen() {
       );
     }
 
-    // Validate that we're showing stats for the current user
-    if (!userProfile || !user || !id || userProfile.id !== id) {
+    // Validate that we have the required data
+    if (!userProfile || !user) {
       return (
         <View style={[styles.tabContent, styles.loadingContainer]}>
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>

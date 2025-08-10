@@ -211,7 +211,9 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       tags: dbDate.tags || [],
       circles: dbDate.shared_circles || [],
       isPrivate: dbDate.is_private || false,
-      imageUri: dbDate.image_uri,
+      imageUri: dbDate.entry_type === 'roster_addition' && dbDate.roster_info?.photos?.[0] 
+        ? dbDate.roster_info.photos[0] 
+        : dbDate.image_uri,
       poll: dbDate.poll,
       userPollVote: dbDate.userPollVote,
       comments: dbDate.comments || [],

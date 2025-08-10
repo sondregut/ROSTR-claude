@@ -32,6 +32,7 @@ import { memoryMonitor } from '@/utils/memoryMonitor';
 import { SafeAnimated } from '@/utils/globalAnimationManager';
 import { thermalStateManager } from '@/utils/thermalStateManager';
 import { AppState } from 'react-native';
+import { logger } from '@/utils/logger';
 
 
 function RootLayoutNav() {
@@ -78,7 +79,7 @@ function RootLayoutNav() {
           <Stack.Screen 
             name="settings" 
             options={{ 
-              presentation: 'modal',
+              headerShown: false,
             }} 
           />
           <Stack.Screen 
@@ -102,10 +103,78 @@ export default function RootLayout() {
 
   // Initialize services on app start with non-blocking operations
   React.useEffect(() => {
+    // Set up global error handlers
+    const originalConsoleError = console.error;
+    let isLoggingError = false; // Prevent recursion
+    
+    console.error = (...args) => {
+      // Always call the original console.error
+      originalConsoleError(...args);
+      
+      // Prevent recursive logging
+      if (!isLoggingError) {
+        isLoggingError = true;
+        try {
+          // Log to our enhanced logger for production debugging
+          // Don't prefix with [Console Error] to avoid confusion
+          logger.error(...args);
+        } finally {
+          isLoggingError = false;
+        }
+      }
+    };
+
+    // Handle unhandled promise rejections
+    const handleUnhandledRejection = (event: any) => {
+      const error = event.reason || new Error('Unhandled Promise Rejection');
+      logger.critical('Unhandled Promise Rejection:', {
+        error: error.toString(),
+        stack: error.stack,
+        promise: event.promise,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Report the error
+      logger.reportError(error, {
+        type: 'unhandledRejection',
+        promise: event.promise
+      });
+    };
+
+    // Add global error handler
+    const handleGlobalError = (error: any, isFatal?: boolean) => {
+      logger.critical('Global Error:', {
+        error: error.toString(),
+        stack: error.stack,
+        isFatal,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Report the error
+      logger.reportError(error, {
+        type: 'globalError',
+        isFatal
+      });
+    };
+
+    // Set up error handlers
+    if (__DEV__ || true) { // Always enable in production for debugging
+      // @ts-ignore
+      global.onunhandledrejection = handleUnhandledRejection;
+      
+      // React Native global error handler
+      const errorHandler = ErrorUtils.getGlobalHandler();
+      ErrorUtils.setGlobalHandler((error, isFatal) => {
+        handleGlobalError(error, isFatal);
+        // Call the original handler
+        errorHandler(error, isFatal);
+      });
+    }
+
     // Cancel all animations on app state change
     const handleAppStateChange = (nextAppState: string) => {
       if (nextAppState === 'inactive' || nextAppState === 'background') {
-        console.log('[RootLayout] App going to background, cancelling all animations');
+        logger.debug('[RootLayout] App going to background, cancelling all animations');
         SafeAnimated.cancelAll();
       }
     };
@@ -114,7 +183,7 @@ export default function RootLayout() {
 
     // Monitor thermal state changes
     const thermalUnsubscribe = thermalStateManager.addListener((state) => {
-      console.log('[RootLayout] Thermal state changed:', state);
+      logger.info('[RootLayout] Thermal state changed:', state);
       if (state === 'serious' || state === 'critical') {
         // Cancel all animations when device is hot
         SafeAnimated.cancelAll();
@@ -155,6 +224,9 @@ export default function RootLayout() {
       thermalUnsubscribe();
       SafeAnimated.cancelAll();
       thermalStateManager.cleanup();
+      
+      // Restore original console.error
+      console.error = originalConsoleError;
     };
   }, []);
 

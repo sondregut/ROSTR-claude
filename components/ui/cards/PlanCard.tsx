@@ -12,7 +12,7 @@ import { PlanEntry } from '@/contexts/DateContext';
 import { InlineComments } from '../feed/InlineComments';
 import { ReactionItems, getEmojiById } from '@/constants/ReactionData';
 import * as Haptics from 'expo-haptics';
-import { OptimizedImage } from '../OptimizedImage';
+import { Image } from 'react-native';
 
 interface PlanCardProps {
   plan: PlanEntry & {
@@ -53,7 +53,7 @@ export default function PlanCard({
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={onAuthorPress}>
-          <OptimizedImage 
+          <Image 
             source={{ uri: plan.authorAvatar || '/placeholder.svg?height=40&width=40' }} 
             style={styles.avatar} 
           />
@@ -95,7 +95,7 @@ export default function PlanCard({
             <Text style={[styles.planTitle, { color: colors.text }]}>Date with</Text>
             {personPhoto && (
               <Pressable onPress={onPersonPress} style={styles.personPhotoContainer}>
-                <OptimizedImage source={{ uri: personPhoto }} style={styles.personPhoto} priority="high" />
+                <Image source={{ uri: personPhoto }} style={styles.personPhoto} />
               </Pressable>
             )}
             <Pressable onPress={onPersonPress}>

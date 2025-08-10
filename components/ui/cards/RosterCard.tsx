@@ -7,7 +7,8 @@ import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
 import { InlineComments } from '../feed/InlineComments';
 import { getEmojiById } from '@/constants/ReactionData';
 import * as Haptics from 'expo-haptics';
-import { OptimizedImage } from '../OptimizedImage';
+import { Image } from 'react-native';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 
 interface RosterCardProps {
   id: string;
@@ -88,7 +89,7 @@ export function RosterCard({
           onPress={onAuthorPress}
         >
           {authorAvatar ? (
-            <OptimizedImage source={{ uri: authorAvatar }} style={styles.avatar} />
+            <Image source={{ uri: authorAvatar }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
               <Text style={[styles.avatarInitial, { color: colors.buttonText }]}>

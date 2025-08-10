@@ -6,7 +6,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Colors } from '@/constants/Colors';
-import { OptimizedImage } from './OptimizedImage';
+import { Image } from 'react-native';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 interface AvatarProps {
@@ -88,10 +88,10 @@ export function Avatar({
   return (
     <View style={[styles.container, style]}>
       {!showPlaceholder ? (
-        <OptimizedImage
+        <Image
           source={{ uri }}
           style={styles.image}
-          contentFit="cover"
+          resizeMode="cover"
           onError={() => setImageError(true)}
         />
       ) : (

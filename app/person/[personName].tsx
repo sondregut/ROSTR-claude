@@ -25,6 +25,7 @@ import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
 import { useRoster } from '@/contexts/RosterContext';
 import { useUser } from '@/contexts/UserContext';
 import { RosterService } from '@/services/supabase/roster';
+import { Image } from 'react-native';
 import { OptimizedImage } from '@/components/ui/OptimizedImage';
 
 type TabType = 'overview' | 'plans';

@@ -19,6 +19,7 @@ try {
 import { Colors } from '@/constants/Colors';
 import { isProduction, debugMode } from '@/config/env';
 import { captureException } from '@/services/sentry';
+import { logger } from '@/utils/logger';
 
 interface Props {
   children: ReactNode;
@@ -55,10 +56,19 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log error to console in development
-    if (debugMode) {
-      console.error('ErrorBoundary caught an error:', error, errorInfo);
-    }
+    // Always log errors using our enhanced logger
+    logger.critical('ErrorBoundary caught an error:', {
+      error: error.toString(),
+      errorInfo: errorInfo.componentStack,
+      timestamp: new Date().toISOString()
+    });
+
+    // Report the error with full context
+    logger.reportError(error, {
+      componentStack: errorInfo.componentStack,
+      errorBoundary: true,
+      errorCount: this.state.errorCount + 1
+    });
 
     // Update state with error details
     this.setState({
@@ -143,19 +153,33 @@ export class ErrorBoundary extends Component<Props, State> {
 
               {/* Show error details in development */}
               {debugMode && this.state.error && (
-                <View style={styles.errorDetails}>
-                  <Text style={styles.errorDetailTitle}>Error Details (Dev Only):</Text>
-                  <Text style={styles.errorMessage}>
-                    {this.state.error.toString()}
-                  </Text>
-                  {this.state.errorInfo && (
+                <>
+                  <View style={styles.errorDetails}>
+                    <Text style={styles.errorDetailTitle}>Error Details (Dev Only):</Text>
+                    <Text style={styles.errorMessage}>
+                      {this.state.error.toString()}
+                    </Text>
+                    {this.state.errorInfo && (
+                      <ScrollView style={styles.stackTrace}>
+                        <Text style={styles.stackTraceText}>
+                          {this.state.errorInfo.componentStack}
+                        </Text>
+                      </ScrollView>
+                    )}
+                  </View>
+
+                  {/* Show recent logs */}
+                  <View style={styles.errorDetails}>
+                    <Text style={styles.errorDetailTitle}>Recent Logs:</Text>
                     <ScrollView style={styles.stackTrace}>
-                      <Text style={styles.stackTraceText}>
-                        {this.state.errorInfo.componentStack}
-                      </Text>
+                      {logger.getRecentLogs().slice(-10).map((log, index) => (
+                        <Text key={index} style={styles.logEntry}>
+                          [{log.type}] {log.timestamp.split('T')[1].split('.')[0]}: {JSON.stringify(log.args).slice(0, 200)}
+                        </Text>
+                      ))}
                     </ScrollView>
-                  )}
-                </View>
+                  </View>
+                </>
               )}
 
               <View style={styles.buttonContainer}>
@@ -305,6 +329,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     color: '#E65100',
+  },
+  logEntry: {
+    fontSize: 11,
+    color: '#856404',
+    fontFamily: 'monospace',
+    marginBottom: 4,
   },
 });
 

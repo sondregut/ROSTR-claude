@@ -8,17 +8,17 @@ export const networkConfig = {
   // Default timeout for network requests
   defaultTimeout: 30000,
   
-  // SSL/TLS configuration for development
-  development: {
-    // Allow self-signed certificates in development
+  // SSL/TLS configuration
+  ssl: {
+    // Allow self-signed certificates in development only
     allowSelfSigned: __DEV__,
     
-    // Skip certificate validation in development
+    // Skip certificate validation in development only
     skipCertificateValidation: __DEV__,
     
-    // Retry configuration for SSL errors
+    // Retry configuration for SSL errors (enabled in both dev and production)
     sslRetry: {
-      enabled: __DEV__,
+      enabled: true, // Enable retry in production too
       maxAttempts: 3,
       backoffMultiplier: 1.5,
       initialDelay: 1000,
@@ -78,12 +78,10 @@ export function createFetchOptions(options = {}) {
     },
   };
   
-  // In development, add options to help with SSL issues
-  if (__DEV__) {
-    // These options can help with certificate issues
-    fetchOptions.mode = 'cors';
-    fetchOptions.credentials = options.credentials || 'include';
-  }
+  // Add options to help with SSL and CORS issues
+  // These are safe to use in production and can prevent connection issues
+  fetchOptions.mode = options.mode || 'cors';
+  fetchOptions.credentials = options.credentials || 'include';
   
   return fetchOptions;
 }
@@ -113,7 +111,7 @@ export function isSSLError(error) {
 
 // Retry with exponential backoff for SSL errors
 export async function retryWithBackoff(fn, options = {}) {
-  const config = networkConfig.development.sslRetry;
+  const config = networkConfig.ssl.sslRetry;
   const maxAttempts = options.maxAttempts || config.maxAttempts;
   const initialDelay = options.initialDelay || config.initialDelay;
   const backoffMultiplier = options.backoffMultiplier || config.backoffMultiplier;
@@ -199,12 +197,51 @@ export async function diagnoseNetworkIssue(url) {
   return results;
 }
 
+// Wrapper for Supabase operations with SSL retry
+export async function withSSLRetry(operation, operationName = 'Operation') {
+  const config = networkConfig.ssl.sslRetry;
+  
+  if (!config.enabled) {
+    return operation();
+  }
+  
+  let lastError;
+  
+  for (let attempt = 1; attempt <= config.maxAttempts; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      
+      // Check if it's a network/SSL error
+      const errorMessage = error?.message?.toLowerCase() || '';
+      const isNetworkError = errorMessage.includes('network') || 
+                           errorMessage.includes('fetch') ||
+                           errorMessage.includes('ssl') ||
+                           errorMessage.includes('certificate') ||
+                           errorMessage.includes('unable to connect');
+      
+      if (attempt === config.maxAttempts || !isNetworkError) {
+        throw error;
+      }
+      
+      const delay = config.initialDelay * Math.pow(config.backoffMultiplier, attempt - 1);
+      console.warn(`🔄 ${operationName} retry ${attempt}/${config.maxAttempts} after ${delay}ms`);
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError;
+}
+
 export default {
   networkConfig,
   getPlatformNetworkConfig,
   createFetchOptions,
   isSSLError,
   retryWithBackoff,
+  withSSLRetry,
   testNetworkConnectivity,
   diagnoseNetworkIssue,
 };

@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useSafeUser } from '@/hooks/useSafeUser';
-import { OptimizedImage } from '../OptimizedImage';
+import { Image } from 'react-native';
 
 interface Comment {
   id?: string;
@@ -84,7 +84,7 @@ export function InlineComments({
           {comments.map((comment, index) => (
             <View key={comment.id || index} style={styles.commentItem}>
               {comment.imageUri ? (
-                <OptimizedImage source={{ uri: comment.imageUri }} style={styles.avatar} cachePolicy="memory-disk" />
+                <Image source={{ uri: comment.imageUri }} style={styles.avatar} />
               ) : (
                 <View style={[styles.avatarPlaceholder, { backgroundColor: colors.border }]}>
                   <Text style={[styles.avatarInitial, { color: colors.text }]}>
@@ -108,7 +108,7 @@ export function InlineComments({
       {/* Comment Input */}
       <View style={styles.inputContainer}>
         {userProfile?.imageUri ? (
-          <OptimizedImage source={{ uri: userProfile.imageUri }} style={styles.avatar} cachePolicy="memory-disk" />
+          <Image source={{ uri: userProfile.imageUri }} style={styles.avatar} />
         ) : (
           <View style={[styles.avatarPlaceholder, { backgroundColor: colors.border }]}>
             <Text style={[styles.avatarInitial, { color: colors.text }]}>

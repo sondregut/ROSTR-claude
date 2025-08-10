@@ -1,5 +1,5 @@
-import React from 'react';
-import { StyleSheet, View, Text, Pressable, useColorScheme as useRNColorScheme, Alert } from 'react-native';
+import React, { useRef } from 'react';
+import { StyleSheet, View, Text, Pressable, useColorScheme as useRNColorScheme, Alert, PanResponder, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,6 +33,46 @@ export default function SettingsScreen() {
     pushEnabled, 
     requestPushPermissions 
   } = useNotifications();
+
+  // Animation values for swipe down
+  const translateY = useRef(new Animated.Value(0)).current;
+  
+  // Pan responder for swipe down gesture
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: (_, gestureState) => {
+        // Allow pan responder to capture touches from the start
+        return gestureState.dy > 0;
+      },
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Only respond to downward swipes
+        return gestureState.dy > 10 && Math.abs(gestureState.dx) < Math.abs(gestureState.dy);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          translateY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 100) {
+          // If swiped down more than 100 pixels, close the screen
+          Animated.timing(translateY, {
+            toValue: 1000,
+            duration: 200,
+            useNativeDriver: true,
+          }).start(() => {
+            router.back();
+          });
+        } else {
+          // Otherwise, snap back to original position
+          Animated.spring(translateY, {
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
 
   const themeOptions = [
     { value: 'system' as const, label: 'System', icon: 'phone-portrait-outline' as const },
@@ -101,18 +141,28 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          headerTitle: 'Settings',
-          headerTitleStyle: { color: colors.text },
-          headerStyle: { backgroundColor: colors.background },
-          headerShadowVisible: false,
-        }}
-      />
-      
-      <View style={styles.content}>
+    <Animated.View 
+      style={[
+        styles.container, 
+        { 
+          backgroundColor: colors.background,
+          transform: [{ translateY }] 
+        }
+      ]}
+      {...panResponder.panHandlers}
+    >
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            headerTitle: 'Settings',
+            headerTitleStyle: { color: colors.text },
+            headerStyle: { backgroundColor: colors.background },
+            headerShadowVisible: false,
+          }}
+        />
+        
+        <View style={styles.content}>
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Appearance</Text>
           
@@ -268,6 +318,7 @@ export default function SettingsScreen() {
         </View>
       </View>
     </SafeAreaView>
+    </Animated.View>
   );
 }
 

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { OptimizedImage } from '../OptimizedImage';
+import { Image } from 'react-native';
 
 interface ProfileCardProps {
   id: string;
@@ -83,7 +83,7 @@ export function ProfileCard({
       <View style={styles.contentRow}>
         <View style={styles.avatarContainer}>
           {avatarUri ? (
-            <OptimizedImage source={{ uri: avatarUri }} style={styles.avatar} priority="high" />
+            <Image source={{ uri: avatarUri }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatarPlaceholder, { backgroundColor: colors.background }]}>
               <Text style={[styles.avatarInitial, { color: colors.textSecondary }]}>

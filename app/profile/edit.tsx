@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { pickImageWithCrop, uploadImageToSupabase } from '@/lib/photoUpload';
+import { pickImageWithCrop } from '@/lib/photoUpload';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Button } from '@/components/ui/buttons/Button';
@@ -167,27 +167,26 @@ export default function EditProfileScreen() {
       });
       
       if (result.success && result.uri) {
-        console.log('[EditProfile] Image picked, uploading to Supabase...');
+        console.log('[EditProfile] Image picked successfully:', result.uri);
         
-        // Upload to Supabase
-        const uploadResult = await uploadImageToSupabase(result.uri, userProfile.id);
+        // Use the local URI directly (same approach as roster photos)
+        setProfileData({ ...profileData, avatarUri: result.uri });
         
-        if (uploadResult.success && uploadResult.url) {
-          console.log('[EditProfile] Upload successful:', uploadResult.url);
-          setProfileData({ ...profileData, avatarUri: uploadResult.url });
-          
-          // Also update the profile immediately
-          await updateProfile({ imageUri: uploadResult.url });
-        } else {
-          console.error('[EditProfile] Upload failed:', uploadResult.error);
-          Alert.alert('Upload Failed', uploadResult.error || 'Failed to upload image');
+        // Update the profile immediately with local URI
+        try {
+          await updateProfile({ imageUri: result.uri });
+          // Don't show alert - let the UI update speak for itself
+        } catch (updateError) {
+          console.error('[EditProfile] Profile update error:', updateError);
+          Alert.alert('Error', 'Failed to update profile photo');
         }
       } else if (result.error && result.error !== 'Selection cancelled') {
         Alert.alert('Error', `Failed to pick image: ${result.error}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[EditProfile] Error:', error);
-      Alert.alert('Error', 'Failed to update profile photo. Please try again.');
+      const errorMessage = error?.message || 'Failed to update profile photo. Please try again.';
+      Alert.alert('Error', errorMessage);
     } finally {
       setIsUploadingPhoto(false);
     }
