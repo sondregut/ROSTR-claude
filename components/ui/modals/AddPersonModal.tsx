@@ -135,7 +135,10 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
       });
       
       if (result.success && result.uri) {
-        handleChange('photos', [...(formData.photos || []), result.uri]);
+        setFormData(prev => ({
+          ...prev,
+          photos: [...(prev.photos || []), result.uri]
+        }));
       } else if (result.error && result.error !== 'Selection cancelled') {
         alert(`Failed to pick image: ${result.error}`);
       }
@@ -146,8 +149,10 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
   };
 
   const removePhoto = (index: number) => {
-    const newPhotos = (formData.photos || []).filter((_, i) => i !== index);
-    handleChange('photos', newPhotos);
+    setFormData(prev => ({
+      ...prev,
+      photos: (prev.photos || []).filter((_, i) => i !== index)
+    }));
   };
 
   const validateForm = useCallback((): boolean => {
@@ -533,13 +538,11 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
                 <CircleSelector
                   selectedCircles={formData.isPrivate ? [] : formData.circles || []}
                   onCirclesChange={(circles) => {
-                    handleChange('circles', circles);
-                    // If circles are selected, it's not private
-                    if (circles.length > 0) {
-                      handleChange('isPrivate', false);
-                    } else {
-                      handleChange('isPrivate', true);
-                    }
+                    setFormData(prev => ({
+                      ...prev,
+                      circles: circles,
+                      isPrivate: circles.length === 0
+                    }));
                   }}
                   showPrivateOption={true}
                 />
