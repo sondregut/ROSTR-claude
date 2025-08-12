@@ -99,13 +99,15 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
       [field]: value
     }));
     
-    // Clear error when user types
-    if (errors[field]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: undefined
-      }));
-    }
+    // Clear error when user types - using functional update to avoid dependency
+    setErrors(prev => {
+      if (prev[field]) {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      }
+      return prev;
+    });
   };
 
   const handleRatingChange = (newRating: number) => {
@@ -344,11 +346,12 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
                     }
                   ]}
                   onPress={() => {
-                    if (isSelected) {
-                      handleChange('tags', formData.tags.filter(id => id !== tag.id));
-                    } else {
-                      handleChange('tags', [...formData.tags, tag.id]);
-                    }
+                    setFormData(prev => ({
+                      ...prev,
+                      tags: isSelected 
+                        ? prev.tags.filter(id => id !== tag.id)
+                        : [...prev.tags, tag.id]
+                    }));
                   }}
                 >
                   <Text
@@ -395,13 +398,11 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
           <CircleSelector
             selectedCircles={formData.isPrivate ? [] : formData.circles}
             onCirclesChange={(circles) => {
-              handleChange('circles', circles);
-              // If circles are selected, it's not private
-              if (circles.length > 0) {
-                handleChange('isPrivate', false);
-              } else {
-                handleChange('isPrivate', true);
-              }
+              setFormData(prev => ({
+                ...prev,
+                circles: circles,
+                isPrivate: circles.length === 0
+              }));
             }}
             showPrivateOption={true}
           />
