@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   TextInput, 
   ScrollView, 
-  KeyboardAvoidingView, 
   Platform,
   Pressable
 } from 'react-native';
@@ -92,8 +91,13 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
 
   const [errors, setErrors] = useState<Partial<Record<keyof DateEntryFormData, string>>>({});
   const [showAddPersonModal, setShowAddPersonModal] = useState(false);
+  
+  // Stable input styles
+  const inputStyle = useMemo(() => styles.input, []);
+  const textAreaStyle = useMemo(() => styles.textArea, []);
+  const locationInputStyle = useMemo(() => styles.locationInput, []);
 
-  const handleChange = (field: keyof DateEntryFormData, value: any) => {
+  const handleChange = useCallback((field: keyof DateEntryFormData, value: any) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -108,7 +112,7 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
       }
       return prev;
     });
-  };
+  }, []);
 
   const handleRatingChange = (newRating: number) => {
     handleChange('rating', newRating);
@@ -233,17 +237,12 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
 
   return (
     <>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardAvoid}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      <ScrollView 
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.contentContainer}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <ScrollView 
-          style={[styles.container, { backgroundColor: colors.background }]}
-          contentContainerStyle={styles.contentContainer}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
         <View style={styles.formGroup}>
           <Text style={[styles.label, { color: colors.text }]}>
             Who was your date with? <Text style={{ color: colors.error }}>*</Text>
@@ -269,7 +268,7 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
             />
             <TextInput
               style={[
-                styles.locationInput,
+                locationInputStyle,
                 {
                   color: colors.text,
                   backgroundColor: colors.card,
@@ -308,7 +307,7 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
           </Text>
           <TextInput
             style={[
-              styles.textArea, 
+              textAreaStyle, 
               { 
                 color: colors.text,
                 backgroundColor: colors.card,
@@ -432,7 +431,6 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
           />
         </View>
       </ScrollView>
-      </KeyboardAvoidingView>
       
       <AddPersonModal
         visible={showAddPersonModal}
@@ -444,9 +442,6 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
 }
 
 const styles = StyleSheet.create({
-  keyboardAvoid: {
-    flex: 1,
-  },
   container: {
     flex: 1,
   },

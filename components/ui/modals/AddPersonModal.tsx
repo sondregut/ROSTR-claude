@@ -76,24 +76,22 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
   
   // Removed debouncing to fix performance issues
   
-  // Memoized styles to prevent recalculation on every render
-  const inputStyle = useMemo(() => [
-    styles.input,
-    {
-      color: colors.text,
-      backgroundColor: colors.card,
-      borderColor: colors.border
-    }
-  ], [colors]);
+  // Stable styles without color dependencies
+  const inputStyle = useMemo(() => styles.input, []);
+  const textAreaStyle = useMemo(() => styles.textArea, []);
   
-  const textAreaStyle = useMemo(() => [
-    styles.textArea,
-    {
-      color: colors.text,
-      backgroundColor: colors.card,
-      borderColor: colors.border
-    }
-  ], [colors]);
+  // Dynamic color styles (not memoized to avoid stale closures)
+  const inputColorStyle = {
+    color: colors.text,
+    backgroundColor: colors.card,
+    borderColor: colors.border
+  };
+  
+  const textAreaColorStyle = {
+    color: colors.text,
+    backgroundColor: colors.card,
+    borderColor: colors.border
+  };
 
   // Initialize form data when initialData is provided (for editing)
   useEffect(() => {
@@ -388,7 +386,7 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
               <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Name</Text>
                 <TextInput
-                  style={inputStyle}
+                  style={[inputStyle, inputColorStyle]}
                   placeholder="Enter name"
                   placeholderTextColor={colors.textSecondary}
                   value={formData.name}
@@ -402,7 +400,7 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
                 <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
                   <Text style={[styles.label, { color: colors.text }]}>Age</Text>
                   <TextInput
-                    style={inputStyle}
+                    style={[inputStyle, inputColorStyle]}
                     placeholder="Age"
                     placeholderTextColor={colors.textSecondary}
                     value={formData.age}
@@ -415,7 +413,7 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
                 <View style={[styles.formGroup, { flex: 2 }]}>
                   <Text style={[styles.label, { color: colors.text }]}>Occupation</Text>
                   <TextInput
-                    style={inputStyle}
+                    style={[inputStyle, inputColorStyle]}
                     placeholder="Job title"
                     placeholderTextColor={colors.textSecondary}
                     value={formData.occupation}
@@ -428,7 +426,7 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
               <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Location</Text>
                 <TextInput
-                  style={inputStyle}
+                  style={[inputStyle, inputColorStyle]}
                   placeholder="City or neighborhood"
                   placeholderTextColor={colors.textSecondary}
                   value={formData.location}
@@ -488,7 +486,7 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
               <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Interests</Text>
                 <TextInput
-                  style={textAreaStyle}
+                  style={[textAreaStyle, textAreaColorStyle]}
                   placeholder="Hobbies, interests, things they like..."
                   placeholderTextColor={colors.textSecondary}
                   value={formData.interests}
@@ -503,7 +501,7 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
               <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Instagram</Text>
                 <TextInput
-                  style={inputStyle}
+                  style={[inputStyle, inputColorStyle]}
                   placeholder="@username"
                   placeholderTextColor={colors.textSecondary}
                   value={formData.instagram}
@@ -517,7 +515,7 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
               <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Notes</Text>
                 <TextInput
-                  style={textAreaStyle}
+                  style={[textAreaStyle, textAreaColorStyle]}
                   placeholder="Any additional notes..."
                   placeholderTextColor={colors.textSecondary}
                   value={formData.notes}
