@@ -95,7 +95,8 @@ export default function CircleSettingsScreen() {
         is_private: isPrivate,
         group_photo_url: groupPhotoUri,
       });
-      Alert.alert('Success', 'Circle settings updated');
+      // Navigate back to the circle detail screen after successful save
+      router.back();
     } catch (error) {
       console.error('Failed to update circle:', error);
       Alert.alert('Error', 'Failed to update circle settings');
