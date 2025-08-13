@@ -114,11 +114,11 @@ export default function RosterScreen() {
           onPress: () => {
             Alert.alert(
               'Delete Entry',
-              `Are you sure you want to delete ${item.name} from your roster?`,
+              `Are you sure you want to delete ${item.name} from your roster?\n\nThis will also delete all date posts with ${item.name}.`,
               [
                 { text: 'Cancel', style: 'cancel' },
                 {
-                  text: 'Delete',
+                  text: 'Delete Everything',
                   style: 'destructive',
                   onPress: async () => {
                     try {

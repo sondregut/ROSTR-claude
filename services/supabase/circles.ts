@@ -256,7 +256,7 @@ export const CircleService = {
       const filePath = `circles/${fileName}`;
       
       const { data, error } = await supabase.storage
-        .from('photos')
+        .from('user-photos')
         .upload(filePath, blob, {
           contentType: 'image/jpeg',
           upsert: true
@@ -265,7 +265,7 @@ export const CircleService = {
       if (error) throw error;
       
       const { data: { publicUrl } } = supabase.storage
-        .from('photos')
+        .from('user-photos')
         .getPublicUrl(filePath);
       
       return publicUrl;

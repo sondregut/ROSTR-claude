@@ -89,17 +89,32 @@ export default function CircleSettingsScreen() {
     
     setIsSaving(true);
     try {
+      console.log('[CircleSettings] Saving changes:', {
+        name: name.trim(),
+        description: description.trim(),
+        is_private: isPrivate,
+        hasPhoto: !!groupPhotoUri,
+        photoUri: groupPhotoUri?.substring(0, 50) + '...'
+      });
+      
       await CircleService.updateCircle(circle.id, {
         name: name.trim(),
         description: description.trim(),
         is_private: isPrivate,
         group_photo_url: groupPhotoUri,
       });
-      // Navigate back to the circle detail screen after successful save
-      router.back();
-    } catch (error) {
-      console.error('Failed to update circle:', error);
-      Alert.alert('Error', 'Failed to update circle settings');
+      
+      Alert.alert('Success', 'Circle settings updated successfully', [
+        { text: 'OK', onPress: () => router.back() }
+      ]);
+    } catch (error: any) {
+      console.error('[CircleSettings] Failed to update circle:', error);
+      console.error('[CircleSettings] Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details
+      });
+      Alert.alert('Error', 'Failed to update circle settings: ' + (error.message || 'Unknown error'));
     } finally {
       setIsSaving(false);
     }

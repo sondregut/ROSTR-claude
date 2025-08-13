@@ -277,23 +277,25 @@ export function RosterProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const deleteEntry = async (id: string, options?: { deleteAllDates?: boolean }) => {
+  const deleteEntry = async (id: string) => {
+    if (!user) throw new Error('No user logged in');
+    
     try {
       // Find the entry to get the person's name
       const entry = [...entries].find(e => e.id === id);
       if (!entry) throw new Error('Entry not found');
       
-      // Delete the roster entry (trigger will handle feed cleanup)
-      await RosterService.deleteRosterEntry(id);
+      // Delete all date entries for this person first
+      await DateService.deleteDateEntriesForPerson(user.id, entry.name);
       
-      // Optionally delete all date entries if requested
-      if (options?.deleteAllDates) {
-        // This would require a separate service method to delete all dates
-        console.log('Option to delete all dates not yet implemented');
-      }
+      // Then delete the roster entry
+      await RosterService.deleteRosterEntry(id);
       
       // Refresh roster after deleting
       await loadRoster();
+      
+      // Also refresh dates in the DateContext
+      await refreshDates();
     } catch (err) {
       console.error('Error deleting entry:', err);
       setError('Failed to delete entry');

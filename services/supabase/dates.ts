@@ -1044,4 +1044,24 @@ export const DateService = {
       throw error;
     }
   },
+
+  // Delete all date entries for a specific person
+  async deleteDateEntriesForPerson(userId: string, personName: string) {
+    try {
+      console.log('[DateService] Deleting all date entries for person:', { userId, personName });
+      
+      const { error } = await supabase
+        .from('date_entries')
+        .delete()
+        .eq('user_id', userId)
+        .eq('person_name', personName);
+
+      if (error) throw error;
+      
+      console.log('[DateService] Successfully deleted date entries for:', personName);
+    } catch (error) {
+      console.error('Error deleting date entries for person:', error);
+      throw error;
+    }
+  },
 };
