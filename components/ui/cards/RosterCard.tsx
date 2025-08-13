@@ -135,8 +135,8 @@ export function RosterCard({
       {/* Roster Info Card */}
       <View style={[styles.personCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
         <View style={styles.personHeader}>
-          {imageUri ? (
-            <OptimizedImage source={{ uri: imageUri }} style={styles.personImage} priority="high" />
+          {rosterInfo?.photos?.[0] ? (
+            <OptimizedImage source={{ uri: rosterInfo.photos[0] }} style={styles.personImage} priority="high" />
           ) : (
             <View style={[styles.personImagePlaceholder, { backgroundColor: colors.primary }]}>
               <Text style={[styles.personInitial, { color: colors.buttonText }]}>
