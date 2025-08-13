@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useCircles } from '@/contexts/CircleContext';
+import { useRouter } from 'expo-router';
 
 interface Circle {
   id: string;
@@ -42,6 +43,7 @@ export function CircleSelector({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { circles } = useCircles();
+  const router = useRouter();
   
   const [modalVisible, setModalVisible] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
@@ -273,8 +275,8 @@ export function CircleSelector({
                 style={[styles.createCircleButton, { borderColor: colors.border }]}
                 onPress={() => {
                   setModalVisible(false);
-                  // Navigate to create circle
-                  console.log('Create new circle');
+                  // Navigate to circles tab to create new circle
+                  router.push('/(tabs)/circles');
                 }}
               >
                 <Ionicons name="add-circle-outline" size={24} color={colors.primary} />

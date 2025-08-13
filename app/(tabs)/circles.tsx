@@ -11,6 +11,7 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { CircleService } from '@/services/supabase/circles';
 import { useSafeAuth } from '@/hooks/useSafeAuth';
+import { useCircles } from '@/contexts/CircleContext';
 
 export default function CirclesScreen() {
   const colorScheme = useColorScheme();
@@ -18,44 +19,25 @@ export default function CirclesScreen() {
   const router = useRouter();
   const auth = useSafeAuth();
   const user = auth?.user;
+  const { circles, isLoading, error, createCircle, refreshCircles } = useCircles();
   
-  const [circles, setCircles] = useState<any[]>([]);
   const [friends, setFriends] = useState<any[]>([]);
   const [allFriends, setAllFriends] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'circles' | 'friends'>('circles');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isContactModalVisible, setIsContactModalVisible] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoadingFriends, setIsLoadingFriends] = useState(true);
   
-  // Load circles from Supabase
-  const loadCircles = async () => {
-    if (!user) return;
+  // Load friends from circles
+  const loadFriends = async () => {
+    if (!user || !circles) return;
     
     try {
-      setIsLoading(true);
-      setError(null);
-      
-      // Get user's circles
-      const userCircles = await CircleService.getUserCircles(user.id);
-      
-      // Transform circles data for display
-      const transformedCircles = userCircles.map(circle => ({
-        id: circle.id,
-        name: circle.name,
-        description: circle.description,
-        memberCount: circle.member_count,
-        members: circle.members?.map((m: any) => m.user).filter(Boolean) || [],
-        isActive: circle.is_active,
-        groupPhotoUri: circle.group_photo_url,
-        joinCode: circle.join_code,
-      }));
-      
-      setCircles(transformedCircles);
+      setIsLoadingFriends(true);
       
       // Extract unique friends from all circles with enhanced data structure
       const friendsMap = new Map();
-      userCircles.forEach(circle => {
+      circles.forEach(circle => {
         circle.members?.forEach((member: any) => {
           if (member.user && member.user.id !== user.id) {
             const existingFriend = friendsMap.get(member.user.id);
@@ -85,35 +67,39 @@ export default function CirclesScreen() {
       setFriends(Array.from(friendsMap.values())); // For circle creation modal
       setAllFriends(allFriendsArray); // For All Friends tab
     } catch (err) {
-      console.error('Error loading circles:', err);
-      setError('Failed to load circles');
+      console.error('Error loading friends:', err);
     } finally {
-      setIsLoading(false);
+      setIsLoadingFriends(false);
     }
   };
 
   useEffect(() => {
-    loadCircles();
-  }, [user]);
+    if (circles.length > 0) {
+      loadFriends();
+    }
+  }, [circles, user]);
   
   const handleCreateCircle = async (circleName: string, description: string, friendIds: string[], groupPhotoUri?: string) => {
     if (!user) return;
     
     try {
-      // Create the circle
-      const newCircle = await CircleService.createCircle(circleName, description, user.id, groupPhotoUri);
+      // Use the context's createCircle method which will automatically refresh the circles
+      const newCircle = await createCircle({
+        name: circleName,
+        description: description,
+        isPrivate: false,
+        groupPhotoUrl: groupPhotoUri
+      });
       
       // Add friends to the circle if any were selected
       if (friendIds.length > 0) {
         await CircleService.addMembers(newCircle.id, friendIds);
       }
       
-      // Refresh circles after creating
-      await loadCircles();
       setIsModalVisible(false);
     } catch (err) {
       console.error('Error creating circle:', err);
-      setError('Failed to create circle');
+      Alert.alert('Error', 'Failed to create circle');
     }
   };
   
@@ -150,13 +136,25 @@ export default function CirclesScreen() {
     }
   };
 
+  // Transform circles for display
+  const transformedCircles = circles.map(circle => ({
+    id: circle.id,
+    name: circle.name,
+    description: circle.description,
+    memberCount: circle.member_count,
+    members: circle.members?.map((m: any) => m.user).filter(Boolean) || [],
+    isActive: circle.is_active,
+    groupPhotoUri: circle.group_photo_url,
+    joinCode: circle.join_code,
+  }));
+
   // Helper functions for friend statistics
   const getTotalFriendCount = () => allFriends.length;
   
   const getOnlineFriendCount = () => allFriends.filter(friend => friend.isOnline).length;
   
   const estimateTotalReach = () => {
-    const totalMembers = circles.reduce((sum, circle) => sum + circle.memberCount, 0);
+    const totalMembers = circles.reduce((sum, circle) => sum + (circle.member_count || 0), 0);
     // Estimate 30% overlap between circles
     const estimatedOverlap = Math.floor(totalMembers * 0.3);
     return Math.max(totalMembers - estimatedOverlap, allFriends.length);
@@ -311,7 +309,7 @@ export default function CirclesScreen() {
               </Pressable>
             </View>
             
-            {circles.length === 0 ? (
+            {transformedCircles.length === 0 ? (
               <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
                 <Ionicons name="people-outline" size={48} color={colors.icon} />
                 <Text style={[styles.emptyStateTitle, { color: colors.text }]}>No circles yet</Text>
@@ -327,7 +325,7 @@ export default function CirclesScreen() {
               </View>
             ) : (
               <FlatList
-                data={circles}
+                data={transformedCircles}
                 renderItem={renderCircleItem}
                 keyExtractor={(item) => item.id}
                 scrollEnabled={false}
