@@ -28,7 +28,6 @@ import { MiniBarChart } from '@/components/ui/charts/MiniBarChart';
 import { ProgressRing } from '@/components/ui/charts/ProgressRing';
 import { useAppLifecycle } from '@/hooks/useAppLifecycle';
 import { logger } from '@/utils/logger';
-import { forceLog, forceError, enableForceLogging } from '@/utils/forceLog';
 
 
 
@@ -44,24 +43,13 @@ export default function ProfileScreen() {
   const isLoading = user?.isLoading || false;
   const isLoadingStats = user?.isLoadingStats || false;
   
-  // Enable force logging for debugging
+  // Prefetch image if available
   useEffect(() => {
-    enableForceLogging();
-    forceLog('Profile screen mounted', { 
-      hasUserProfile: !!userProfile,
-      imageUri: userProfile?.imageUri,
-      userId: userProfile?.id 
-    });
-    
-    // Prefetch image if available
     if (userProfile?.imageUri && userProfile.imageUri.startsWith('http')) {
-      forceLog('[Profile] Prefetching image:', userProfile.imageUri);
+      logger.debug('[Profile] Prefetching image:', userProfile.imageUri);
       Image.prefetch(userProfile.imageUri)
-        .then(() => {
-          forceLog('[Profile] Image prefetch successful');
-        })
         .catch((error) => {
-          forceError('[Profile] Image prefetch failed:', error);
+          logger.error('[Profile] Image prefetch failed:', error);
         });
     }
   }, [userProfile]);
@@ -203,17 +191,14 @@ export default function ProfileScreen() {
           <View>
             {userProfile.imageUri ? (
               <>
-                {forceLog('[Profile] Loading image with React Native Image:', userProfile.imageUri)}
                 <Image 
                   source={{ uri: userProfile.imageUri }}
                   style={styles.profileImage}
-                  onLoadStart={() => forceLog('[Profile] Image load started')}
                   onLoad={() => {
-                    forceLog('[Profile] Image loaded successfully!');
-                    Alert.alert('Success', 'Image loaded successfully!');
+                    logger.debug('[Profile] Image loaded successfully');
                   }}
                   onError={(error) => {
-                    forceError('[Profile] Image error:', error.nativeEvent);
+                    logger.error('[Profile] Image error:', error.nativeEvent);
                     Alert.alert(
                       'Image Error',
                       `Failed to load image\n\nError: ${JSON.stringify(error.nativeEvent, null, 2)}`,
@@ -221,11 +206,10 @@ export default function ProfileScreen() {
                         { text: 'Try Prefetch', onPress: () => {
                           Image.prefetch(userProfile.imageUri)
                             .then(() => {
-                              forceLog('[Profile] Prefetch successful');
-                              Alert.alert('Prefetch Success', 'Image prefetched, try reloading');
+                              logger.debug('[Profile] Prefetch successful');
                             })
                             .catch((err) => {
-                              forceError('[Profile] Prefetch failed:', err);
+                              logger.error('[Profile] Prefetch failed:', err);
                               Alert.alert('Prefetch Failed', err.toString());
                             });
                         }},
@@ -276,13 +260,6 @@ export default function ProfileScreen() {
             >
               <Ionicons name="share-outline" size={12} color={colors.text} />
               <Text style={[styles.compactButtonText, { color: colors.text }]}>Share App</Text>
-            </Pressable>
-            <Pressable 
-              style={[styles.compactButton, { borderColor: colors.border }]}
-              onPress={() => router.push('/settings')}
-            >
-              <Ionicons name="settings-outline" size={12} color={colors.text} />
-              <Text style={[styles.compactButtonText, { color: colors.text }]}>Settings</Text>
             </Pressable>
           </View>
         </View>
@@ -787,6 +764,12 @@ export default function ProfileScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
+          <Pressable 
+            style={styles.settingsIcon}
+            onPress={() => router.push('/settings')}
+          >
+            <Ionicons name="settings-outline" size={24} color={colors.text} />
+          </Pressable>
           <Text style={[styles.headerTitle, { color: colors.text }]}>My Profile</Text>
         </View>
 
@@ -821,12 +804,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
+    marginRight: 24, // Balance the settings icon
+  },
+  settingsIcon: {
+    padding: 4,
   },
   profileHeader: {
     padding: 16,
