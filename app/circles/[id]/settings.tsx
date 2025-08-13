@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { pickImageWithCrop } from '@/lib/photoUpload';
+import { pickImageWithCrop, uploadImageToSupabase } from '@/lib/photoUpload';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useCirclePermissions } from '@/hooks/useCirclePermissions';
@@ -89,19 +89,48 @@ export default function CircleSettingsScreen() {
     
     setIsSaving(true);
     try {
+      let finalPhotoUrl = groupPhotoUri;
+      
+      // If there's a new local photo URI, upload it to Supabase
+      if (groupPhotoUri && groupPhotoUri.startsWith('file://')) {
+        console.log('[CircleSettings] Uploading new photo to Supabase...');
+        const uploadResult = await uploadImageToSupabase(
+          groupPhotoUri,
+          circle.id,
+          'circle-photos'
+        );
+        
+        if (uploadResult.success && uploadResult.url) {
+          console.log('[CircleSettings] Photo uploaded successfully:', uploadResult.url);
+          finalPhotoUrl = uploadResult.url;
+        } else {
+          console.error('[CircleSettings] Photo upload failed:', uploadResult.error);
+          Alert.alert(
+            'Upload Warning',
+            'Photo could not be uploaded to cloud storage. It may be lost if the app is reinstalled.',
+            [{ text: 'Continue Anyway', onPress: () => {} }, { text: 'Cancel', style: 'cancel' }]
+          );
+          // Don't proceed if user cancels
+          if (!finalPhotoUrl) {
+            setIsSaving(false);
+            return;
+          }
+        }
+      }
+      
       console.log('[CircleSettings] Saving changes:', {
         name: name.trim(),
         description: description.trim(),
         is_private: isPrivate,
-        hasPhoto: !!groupPhotoUri,
-        photoUri: groupPhotoUri?.substring(0, 50) + '...'
+        hasPhoto: !!finalPhotoUrl,
+        photoUrl: finalPhotoUrl?.substring(0, 50) + '...'
       });
       
       await CircleService.updateCircle(circle.id, {
         name: name.trim(),
         description: description.trim(),
         is_private: isPrivate,
-        group_photo_url: groupPhotoUri,
+        group_photo_url: finalPhotoUrl,
       });
       
       Alert.alert('Success', 'Circle settings updated successfully', [

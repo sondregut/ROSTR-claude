@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/buttons/Button';
 import { ShareAppModal } from '@/components/ui/modals/ShareAppModal';
 import { useSafeUser } from '@/hooks/useSafeUser';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { pickImageWithCrop } from '@/lib/photoUpload';
+import { pickImageWithCrop, uploadImageToSupabase } from '@/lib/photoUpload';
 import { supabase } from '@/lib/supabase';
 import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
 import { useEffect } from 'react';
@@ -119,26 +119,57 @@ export default function ProfileScreen() {
           });
 
           if (result.success && result.uri) {
-            // Use the local URI directly (same approach as roster photos)
             const localUri = result.uri;
             
-            // For mock user, just update locally. For real users, update Supabase too
+            // For real users, upload to Supabase storage
             if (userProfile!.id && userProfile!.id !== 'mock-user-id') {
-              const { error } = await supabase
-                .from('users')
-                .update({ image_uri: localUri })
-                .eq('id', userProfile!.id);
+              // Show loading immediately with local URI
+              updateProfile({ imageUri: localUri });
+              
+              // Upload to Supabase storage
+              const uploadResult = await uploadImageToSupabase(
+                localUri,
+                userProfile!.id,
+                'user-photos'
+              );
 
-              if (error) {
-                throw error;
+              if (uploadResult.success && uploadResult.url) {
+                // Update database with Supabase URL
+                const { error } = await supabase
+                  .from('users')
+                  .update({ image_uri: uploadResult.url })
+                  .eq('id', userProfile!.id);
+
+                if (error) {
+                  throw error;
+                }
+
+                // Update local profile with Supabase URL
+                logger.info('[Profile] Updating profile with Supabase URL:', uploadResult.url);
+                updateProfile({ imageUri: uploadResult.url });
+              } else {
+                // Upload failed, keep using local URI as fallback
+                logger.error('[Profile] Upload to Supabase failed:', uploadResult.error);
+                Alert.alert(
+                  'Upload Warning',
+                  'Photo saved locally but could not upload to cloud. It may be lost if you reinstall the app.',
+                  [{ text: 'OK' }]
+                );
+                
+                // Still update database with local URI as fallback
+                const { error } = await supabase
+                  .from('users')
+                  .update({ image_uri: localUri })
+                  .eq('id', userProfile!.id);
+
+                if (error) {
+                  throw error;
+                }
               }
+            } else {
+              // Mock user - just use local URI
+              updateProfile({ imageUri: localUri });
             }
-
-            // Update local profile with local URI
-            logger.info('[Profile] Updating profile with local imageUri:', localUri);
-            updateProfile({ imageUri: localUri });
-
-            // Don't show alert - let the UI update speak for itself
           } else if (result.error && result.error !== 'Selection cancelled') {
             Alert.alert('Error', `Failed to pick image: ${result.error}`);
           }

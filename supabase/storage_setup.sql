@@ -101,6 +101,44 @@ CREATE POLICY "Users can delete their own chat media" ON storage.objects
     auth.uid()::text = (storage.foldername(name))[1]
   );
 
+-- Storage policies for circle-photos bucket
+CREATE POLICY "Circle admins can upload circle photos" ON storage.objects
+  FOR INSERT WITH CHECK (
+    bucket_id = 'circle-photos' AND
+    (storage.extension(name)) IN ('jpg', 'jpeg', 'png', 'webp', 'gif') AND
+    EXISTS (
+      SELECT 1 FROM public.circle_members cm
+      WHERE cm.circle_id::text = (storage.foldername(name))[1]
+      AND cm.user_id = auth.uid()
+      AND cm.role IN ('owner', 'admin')
+    )
+  );
+
+CREATE POLICY "Anyone can view circle photos" ON storage.objects
+  FOR SELECT USING (bucket_id = 'circle-photos');
+
+CREATE POLICY "Circle admins can update circle photos" ON storage.objects
+  FOR UPDATE USING (
+    bucket_id = 'circle-photos' AND
+    EXISTS (
+      SELECT 1 FROM public.circle_members cm
+      WHERE cm.circle_id::text = (storage.foldername(name))[1]
+      AND cm.user_id = auth.uid()
+      AND cm.role IN ('owner', 'admin')
+    )
+  );
+
+CREATE POLICY "Circle admins can delete circle photos" ON storage.objects
+  FOR DELETE USING (
+    bucket_id = 'circle-photos' AND
+    EXISTS (
+      SELECT 1 FROM public.circle_members cm
+      WHERE cm.circle_id::text = (storage.foldername(name))[1]
+      AND cm.user_id = auth.uid()
+      AND cm.role IN ('owner', 'admin')
+    )
+  );
+
 -- Function to generate unique filename
 CREATE OR REPLACE FUNCTION generate_unique_filename(user_id UUID, original_name TEXT, bucket_type TEXT)
 RETURNS TEXT AS $$
@@ -174,6 +212,20 @@ BEGIN
       WHERE media_url LIKE '%' || file_record.name || '%'
     ) THEN
       DELETE FROM storage.objects WHERE name = file_record.name AND bucket_id = 'chat-media';
+      orphaned_count := orphaned_count + 1;
+    END IF;
+  END LOOP;
+  
+  -- Clean up circle photos not referenced in circles table
+  FOR file_record IN 
+    SELECT name FROM storage.objects 
+    WHERE bucket_id = 'circle-photos'
+  LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM public.circles 
+      WHERE group_photo_url LIKE '%' || file_record.name || '%'
+    ) THEN
+      DELETE FROM storage.objects WHERE name = file_record.name AND bucket_id = 'circle-photos';
       orphaned_count := orphaned_count + 1;
     END IF;
   END LOOP;

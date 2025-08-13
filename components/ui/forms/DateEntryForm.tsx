@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { pickImageWithCrop } from '@/lib/photoUpload';
+import { pickImageWithCrop, uploadImageToSupabase } from '@/lib/photoUpload';
 import { Button } from '../buttons/Button';
 import { PersonSelector } from './PersonSelector';
 import { TagSelector } from './TagSelector';

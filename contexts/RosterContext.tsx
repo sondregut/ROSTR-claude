@@ -4,6 +4,7 @@ import { DateService } from '@/services/supabase/dates';
 import { useSafeAuth } from '@/hooks/useSafeAuth';
 import { useDates } from '@/contexts/DateContext';
 import { cleanupStaleImagePaths } from '@/utils/imageValidation';
+import { uploadImageToSupabase } from '@/lib/photoUpload';
 
 // UI-friendly roster entry type
 export interface RosterEntry {
@@ -169,6 +170,43 @@ export function RosterProvider({ children }: { children: React.ReactNode }) {
       const entry = typeof personData === 'string' 
         ? { name, notes: personData }
         : { name, ...personData };
+      
+      // Upload photos to Supabase if they are local file URIs
+      if (entry.photos && Array.isArray(entry.photos)) {
+        const uploadedPhotos: string[] = [];
+        
+        for (const photo of entry.photos) {
+          if (photo && photo.startsWith('file://')) {
+            try {
+              console.log('[RosterContext] Uploading roster photo to Supabase...');
+              const uploadResult = await uploadImageToSupabase(
+                photo,
+                user.id,
+                'user-photos' // Using user-photos bucket for roster photos
+              );
+              
+              if (uploadResult.success && uploadResult.url) {
+                console.log('[RosterContext] Photo uploaded successfully:', uploadResult.url);
+                uploadedPhotos.push(uploadResult.url);
+              } else {
+                console.error('[RosterContext] Photo upload failed:', uploadResult.error);
+                // Keep the local URI as fallback
+                uploadedPhotos.push(photo);
+              }
+            } catch (error) {
+              console.error('[RosterContext] Error uploading photo:', error);
+              // Keep the local URI as fallback
+              uploadedPhotos.push(photo);
+            }
+          } else {
+            // Already a URL or empty, keep as is
+            uploadedPhotos.push(photo);
+          }
+        }
+        
+        // Update entry with uploaded photo URLs
+        entry.photos = uploadedPhotos;
+      }
         
       await RosterService.addRosterEntry(user.id, entry);
       
@@ -247,7 +285,40 @@ export function RosterProvider({ children }: { children: React.ReactNode }) {
       if (updates.interests !== undefined) dbUpdates.interests = updates.interests;
       if (updates.instagram !== undefined) dbUpdates.instagram = updates.instagram;
       if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
-      if (updates.photos !== undefined) dbUpdates.photos = updates.photos;
+      
+      // Handle photo uploads
+      if (updates.photos !== undefined) {
+        const uploadedPhotos: string[] = [];
+        
+        for (const photo of updates.photos) {
+          if (photo && photo.startsWith('file://')) {
+            try {
+              console.log('[RosterContext] Uploading updated roster photo to Supabase...');
+              const uploadResult = await uploadImageToSupabase(
+                photo,
+                user.id,
+                'user-photos'
+              );
+              
+              if (uploadResult.success && uploadResult.url) {
+                console.log('[RosterContext] Photo uploaded successfully:', uploadResult.url);
+                uploadedPhotos.push(uploadResult.url);
+              } else {
+                console.error('[RosterContext] Photo upload failed:', uploadResult.error);
+                uploadedPhotos.push(photo); // Keep local URI as fallback
+              }
+            } catch (error) {
+              console.error('[RosterContext] Error uploading photo:', error);
+              uploadedPhotos.push(photo); // Keep local URI as fallback
+            }
+          } else {
+            // Already a URL or empty, keep as is
+            uploadedPhotos.push(photo);
+          }
+        }
+        
+        dbUpdates.photos = uploadedPhotos;
+      }
       // Note: lastDate and nextDate would need special handling to convert back to ISO format
       
       // Update the roster entry
