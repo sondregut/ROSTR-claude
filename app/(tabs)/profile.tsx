@@ -802,6 +802,7 @@ export default function ProfileScreen() {
             <Ionicons name="settings-outline" size={24} color={colors.text} />
           </Pressable>
           <Text style={[styles.headerTitle, { color: colors.text }]}>My Profile</Text>
+          <View style={{ width: 24 }} />
         </View>
 
         {/* Profile Header */}
@@ -845,7 +846,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     flex: 1,
     textAlign: 'center',
-    marginRight: 24, // Balance the settings icon
   },
   settingsIcon: {
     padding: 4,

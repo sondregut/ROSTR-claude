@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, Text, FlatList, Pressable, Platform, ScrollView, ActivityIndicator, Alert, Share, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,12 +29,12 @@ export default function CirclesScreen() {
   const [isLoadingFriends, setIsLoadingFriends] = useState(true);
   
   // Load friends from circles
-  const loadFriends = async () => {
-    if (!user || !circles) return;
+  const loadFriends = useCallback(() => {
+    if (!user || !circles || circles.length === 0) return;
+    
+    setIsLoadingFriends(true);
     
     try {
-      setIsLoadingFriends(true);
-      
       // Extract unique friends from all circles with enhanced data structure
       const friendsMap = new Map();
       circles.forEach(circle => {
@@ -71,13 +71,11 @@ export default function CirclesScreen() {
     } finally {
       setIsLoadingFriends(false);
     }
-  };
+  }, [circles, user]);
 
   useEffect(() => {
-    if (circles.length > 0) {
-      loadFriends();
-    }
-  }, [circles, user]);
+    loadFriends();
+  }, [loadFriends]);
   
   const handleCreateCircle = async (circleName: string, description: string, friendIds: string[], groupPhotoUri?: string) => {
     if (!user) return;
