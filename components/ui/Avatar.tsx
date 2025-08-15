@@ -8,6 +8,7 @@ import {
 import { Colors } from '@/constants/Colors';
 import { Image } from 'react-native';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 
 interface AvatarProps {
   uri?: string | null;
@@ -88,10 +89,10 @@ export function Avatar({
   return (
     <View style={[styles.container, style]}>
       {!showPlaceholder ? (
-        <Image
+        <OptimizedImage
           source={{ uri }}
           style={styles.image}
-          resizeMode="cover"
+          priority="high"
           onError={() => setImageError(true)}
         />
       ) : (

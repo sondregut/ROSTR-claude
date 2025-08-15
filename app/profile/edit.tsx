@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { pickImageWithCrop } from '@/lib/photoUpload';
+import { pickImageWithCrop, uploadImageToSupabase } from '@/lib/photoUpload';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Button } from '@/components/ui/buttons/Button';
@@ -169,13 +169,37 @@ export default function EditProfileScreen() {
       if (result.success && result.uri) {
         console.log('[EditProfile] Image picked successfully:', result.uri);
         
-        // Use the local URI directly (same approach as roster photos)
+        // Show local image immediately for better UX
         setProfileData({ ...profileData, avatarUri: result.uri });
         
-        // Update the profile immediately with local URI
         try {
-          await updateProfile({ imageUri: result.uri });
-          // Don't show alert - let the UI update speak for itself
+          // Upload to Supabase if user has a real ID
+          if (userProfile.id && userProfile.id !== 'mock-user-id') {
+            console.log('[EditProfile] Uploading to Supabase...');
+            const uploadResult = await uploadImageToSupabase(
+              result.uri,
+              userProfile.id,
+              'user-photos'
+            );
+            
+            if (uploadResult.success && uploadResult.url) {
+              console.log('[EditProfile] Upload successful:', uploadResult.url);
+              // Update with Supabase URL
+              setProfileData({ ...profileData, avatarUri: uploadResult.url });
+              await updateProfile({ imageUri: uploadResult.url });
+            } else {
+              console.error('[EditProfile] Upload failed:', uploadResult.error);
+              // Still update with local URI as fallback
+              await updateProfile({ imageUri: result.uri });
+              Alert.alert(
+                'Upload Warning',
+                'Photo saved locally but could not upload to cloud. It may be lost if you reinstall the app.'
+              );
+            }
+          } else {
+            // Mock user - just use local URI
+            await updateProfile({ imageUri: result.uri });
+          }
         } catch (updateError) {
           console.error('[EditProfile] Profile update error:', updateError);
           Alert.alert('Error', 'Failed to update profile photo');

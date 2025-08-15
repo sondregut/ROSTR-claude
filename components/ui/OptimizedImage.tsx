@@ -6,6 +6,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import { logger } from '@/utils/logger';
 import { diagnoseNetworkIssue } from '@/utils/networkConfig';
+import { validateLocalImageUri, isStaleImagePath } from '@/utils/imageValidation';
 
 
 interface OptimizedImageProps {
@@ -49,6 +50,34 @@ export function OptimizedImage({
   const [retryCount, setRetryCount] = useState(0);
   const retryTimeoutRef = useRef<NodeJS.Timeout>();
   const isMountedRef = useRef(true);
+  
+  // Validate image URI
+  const sourceUri = typeof source === 'object' && 'uri' in source ? source.uri : null;
+  const [isValidUri, setIsValidUri] = useState(true);
+  
+  // Check for stale image paths on mount and source changes
+  React.useEffect(() => {
+    if (sourceUri) {
+      // Check if it's a stale iOS container path
+      if (isStaleImagePath(sourceUri)) {
+        logger.warn('[OptimizedImage] Detected stale image path:', sourceUri);
+        setIsValidUri(false);
+        setHasError(true);
+        return;
+      }
+      
+      // Validate local URIs
+      if (sourceUri.startsWith('file://')) {
+        validateLocalImageUri(sourceUri).then(isValid => {
+          if (!isValid && isMountedRef.current) {
+            logger.warn('[OptimizedImage] Local image not found:', sourceUri);
+            setIsValidUri(false);
+            setHasError(true);
+          }
+        });
+      }
+    }
+  }, [sourceUri]);
 
   // Clean up on unmount
   React.useEffect(() => {
@@ -127,16 +156,21 @@ export function OptimizedImage({
     setIsLoading(true);
   }, []);
 
-  // Show error fallback if image failed to load and retries exhausted
-  if (hasError && retryCount >= maxRetries && showFallback) {
+  // Show error fallback if image failed to load and retries exhausted or invalid URI
+  if ((hasError && retryCount >= maxRetries && showFallback) || (!isValidUri && showFallback)) {
     return (
       <Pressable 
         style={[style, styles.errorContainer, { backgroundColor: colors.card }]}
-        onPress={handleRetryPress}
+        onPress={isValidUri ? handleRetryPress : undefined}
+        disabled={!isValidUri}
       >
         <Ionicons name="image-outline" size={32} color={colors.textSecondary} />
-        <Text style={[styles.errorText, { color: colors.textSecondary }]}>Failed to load image</Text>
-        <Text style={[styles.retryText, { color: colors.primary }]}>Tap to retry</Text>
+        <Text style={[styles.errorText, { color: colors.textSecondary }]}>
+          {!isValidUri ? 'Image not found' : 'Failed to load image'}
+        </Text>
+        {isValidUri && (
+          <Text style={[styles.retryText, { color: colors.primary }]}>Tap to retry</Text>
+        )}
       </Pressable>
     );
   }

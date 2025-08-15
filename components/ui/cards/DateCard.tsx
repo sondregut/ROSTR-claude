@@ -9,6 +9,7 @@ import { InlineComments } from '../feed/InlineComments';
 import { getEmojiById } from '@/constants/ReactionData';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'react-native';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 
 interface DateCardProps {
   id: string;
@@ -108,7 +109,7 @@ export function DateCard({
           onPress={authorName ? onAuthorPress : onPersonPress}
         >
           {authorAvatar ? (
-            <Image source={{ uri: authorAvatar }} style={styles.avatar} />
+            <OptimizedImage source={{ uri: authorAvatar }} style={styles.avatar} priority="high" />
           ) : (
             <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
               <Text style={[styles.avatarInitial, { color: colors.buttonText }]}>
@@ -155,7 +156,7 @@ export function DateCard({
             {/* Person photo */}
             {personPhoto && (
               <Pressable onPress={onPersonHistoryPress} style={styles.personPhotoContainer}>
-                <Image source={{ uri: personPhoto }} style={styles.personPhoto} />
+                <OptimizedImage source={{ uri: personPhoto }} style={styles.personPhoto} priority="high" />
               </Pressable>
             )}
             
@@ -205,10 +206,10 @@ export function DateCard({
       
       {imageUri && (
         <View style={styles.imageContainer}>
-          <Image 
+          <OptimizedImage 
             source={{ uri: imageUri }} 
             style={styles.dateImage}
-            resizeMode="cover"
+            priority="normal"
           />
         </View>
       )}
