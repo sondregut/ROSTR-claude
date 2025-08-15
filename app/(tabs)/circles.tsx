@@ -54,9 +54,7 @@ export default function CirclesScreen() {
                 circles: [{
                   id: circle.id,
                   name: circle.name
-                }],
-                isOnline: Math.random() > 0.7, // Mock online status - replace with real data
-                lastSeen: new Date(Date.now() - Math.random() * 86400000).toISOString() // Mock last seen
+                }]
               });
             }
           }
@@ -95,6 +93,9 @@ export default function CirclesScreen() {
       }
       
       setIsModalVisible(false);
+      
+      // Navigate to the newly created circle
+      router.push(`/circles/${newCircle.id}`);
     } catch (err) {
       console.error('Error creating circle:', err);
       Alert.alert('Error', 'Failed to create circle');
@@ -149,8 +150,6 @@ export default function CirclesScreen() {
   // Helper functions for friend statistics
   const getTotalFriendCount = () => allFriends.length;
   
-  const getOnlineFriendCount = () => allFriends.filter(friend => friend.isOnline).length;
-  
   const estimateTotalReach = () => {
     const totalMembers = circles.reduce((sum, circle) => sum + (circle.member_count || 0), 0);
     // Estimate 30% overlap between circles
@@ -193,17 +192,11 @@ export default function CirclesScreen() {
               </Text>
             </View>
           )}
-          {item.isOnline && <View style={[styles.onlineIndicator, { backgroundColor: '#4CAF50' }]} />}
         </View>
         
         <View style={styles.friendDetails}>
           <View style={styles.friendNameRow}>
             <Text style={[styles.friendName, { color: colors.text }]}>{item.name}</Text>
-            {item.isOnline && (
-              <View style={[styles.onlineBadge, { backgroundColor: '#4CAF50' + '20' }]}>
-                <Text style={[styles.onlineBadgeText, { color: '#4CAF50' }]}>Online</Text>
-              </View>
-            )}
           </View>
           <Text style={[styles.friendUsername, { color: colors.textSecondary }]}>
             @{item.username}
@@ -591,16 +584,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: 'white',
   },
-  onlineIndicator: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: 'white',
-  },
   friendDetails: {
     flex: 1,
   },
@@ -613,15 +596,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginRight: 8,
-  },
-  onlineBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-  },
-  onlineBadgeText: {
-    fontSize: 12,
-    fontWeight: '500',
   },
   friendUsername: {
     fontSize: 14,

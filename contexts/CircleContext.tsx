@@ -184,6 +184,23 @@ export function CircleProvider({ children }: { children: React.ReactNode }) {
             .eq('user_id', user?.id || '');
 
           const likedPlanIds = new Set(planLikes?.map(l => l.date_plan_id) || []);
+          
+          // Get like counts for plans
+          const { data: planLikeCounts } = await supabase
+            .from('plan_likes')
+            .select('date_plan_id, count')
+            .in('date_plan_id', planIds)
+            .order('date_plan_id');
+          
+          // Create a map of plan id to like count
+          const planLikeCountMap = new Map();
+          if (planLikeCounts) {
+            // Group by date_plan_id and count
+            planIds.forEach(planId => {
+              const likeCount = planLikeCounts.filter(l => l.date_plan_id === planId).length;
+              planLikeCountMap.set(planId, likeCount);
+            });
+          }
 
           // Get comments for these plans
           const { data: planComments } = await supabase
@@ -226,7 +243,7 @@ export function CircleProvider({ children }: { children: React.ReactNode }) {
             authorAvatar: plan.user?.image_uri,
             createdAt: plan.created_at,
             isCompleted: plan.is_completed,
-            likeCount: 0, // TODO: Add like count to plans table
+            likeCount: planLikeCountMap.get(plan.id) || 0,
             commentCount: commentsByPlan[plan.id]?.length || 0,
             isLiked: likedPlanIds.has(plan.id),
             comments: commentsByPlan[plan.id] || [],

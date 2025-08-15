@@ -1,9 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { Image } from 'react-native';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 
 interface ProfileCardProps {
   id: string;
@@ -83,7 +83,14 @@ export function ProfileCard({
       <View style={styles.contentRow}>
         <View style={styles.avatarContainer}>
           {avatarUri ? (
-            <Image source={{ uri: avatarUri }} style={styles.avatar} />
+            <OptimizedImage 
+              source={{ uri: avatarUri }} 
+              style={styles.avatar} 
+              priority="high"
+              onError={() => {
+                console.log('[ProfileCard] Failed to load avatar:', avatarUri);
+              }}
+            />
           ) : (
             <View style={[styles.avatarPlaceholder, { backgroundColor: colors.background }]}>
               <Text style={[styles.avatarInitial, { color: colors.textSecondary }]}>

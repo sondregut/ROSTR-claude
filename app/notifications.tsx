@@ -54,7 +54,7 @@ export default function NotificationsScreen() {
       case 'reaction':
       case 'comment':
         if (data?.dateId) {
-          // TODO: Navigate to specific date in feed
+          // Navigate to feed tab - could enhance to scroll to specific date
           router.push('/(tabs)');
         }
         break;
@@ -63,8 +63,8 @@ export default function NotificationsScreen() {
       case 'friend_roster':
       case 'friend_plan':
         if (data?.friendUsername) {
-          // TODO: Navigate to friend's profile
-          router.push('/(tabs)');
+          // Navigate to friend's profile
+          router.push(`/profile/${data.friendUsername}`);
         }
         break;
       

@@ -85,9 +85,46 @@ export default function NameSetupScreen() {
 
       console.log('✅ Auth metadata updated');
 
-      // TODO: Profile creation is temporarily disabled due to schema issues
-      // Will be re-enabled after database migration in production
-      console.log('⏭️ Skipping profile creation, proceeding to birthday setup');
+      // Create or update user profile in the users table
+      try {
+        const { UserService } = await import('@/services/supabase/users');
+        const userProfile = await UserService.getCurrentUser();
+        
+        if (!userProfile) {
+          // Create new profile
+          await UserService.createProfile({
+            id: user.id,
+            email: user.email || '',
+            name: fullName,
+            username: '', // Will be set later
+            bio: '',
+            location: '',
+            occupation: '',
+            age: 0,
+            image_uri: '',
+            instagram_username: '',
+            total_dates: 0,
+            active_connections: 0,
+            avg_rating: 0,
+            gender: '',
+            date_of_birth: '',
+            phone: user.phone || '',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        } else {
+          // Update existing profile with name
+          await UserService.updateProfile({ name: fullName });
+        }
+        
+        console.log('✅ User profile created/updated');
+      } catch (profileError: any) {
+        console.error('❌ Profile creation error:', profileError);
+        // Don't block onboarding if profile already exists
+        if (!profileError?.code?.includes('23505') && !profileError?.message?.includes('duplicate')) {
+          throw profileError;
+        }
+      }
 
       // Navigate to birthday setup
       router.push('/(auth)/birthday-setup');

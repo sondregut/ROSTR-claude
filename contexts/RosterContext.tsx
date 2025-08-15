@@ -3,7 +3,6 @@ import { RosterService, RosterEntry as DbRosterEntry } from '@/services/supabase
 import { DateService } from '@/services/supabase/dates';
 import { useSafeAuth } from '@/hooks/useSafeAuth';
 import { useDates } from '@/contexts/DateContext';
-import { cleanupStaleImagePaths } from '@/utils/imageValidation';
 import { uploadImageToSupabase } from '@/lib/photoUpload';
 
 // UI-friendly roster entry type
@@ -99,7 +98,7 @@ const transformRosterEntry = (dbEntry: DbRosterEntry): RosterEntry => {
     phone: dbEntry.phone,
     instagram: dbEntry.instagram,
     notes: dbEntry.notes,
-    photos: cleanupStaleImagePaths(dbEntry.photos || []),
+    photos: dbEntry.photos || [],
   };
 };
 

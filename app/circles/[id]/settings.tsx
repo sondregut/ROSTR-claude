@@ -20,6 +20,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useCirclePermissions } from '@/hooks/useCirclePermissions';
 import { CircleService, type Circle, type CircleMember } from '@/services/supabase/circles';
 import { useAuth } from '@/contexts/SimpleAuthContext';
+import { useCircles } from '@/contexts/CircleContext';
 
 export default function CircleSettingsScreen() {
   const { id } = useLocalSearchParams();
@@ -28,6 +29,7 @@ export default function CircleSettingsScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const { user } = useAuth();
   const permissions = useCirclePermissions(id as string);
+  const { deleteCircle } = useCircles();
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -203,8 +205,8 @@ export default function CircleSettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await CircleService.deleteCircle(circle!.id);
-              router.replace('/circles');
+              await deleteCircle(circle!.id);
+              router.replace('/(tabs)/circles');
             } catch (error) {
               console.error('Failed to delete circle:', error);
               Alert.alert('Error', 'Failed to delete circle');
