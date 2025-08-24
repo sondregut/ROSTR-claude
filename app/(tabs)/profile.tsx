@@ -28,6 +28,7 @@ import { MiniBarChart } from '@/components/ui/charts/MiniBarChart';
 import { ProgressRing } from '@/components/ui/charts/ProgressRing';
 import { useAppLifecycle } from '@/hooks/useAppLifecycle';
 import { logger } from '@/utils/logger';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 
 
 
@@ -45,7 +46,7 @@ export default function ProfileScreen() {
   
   // Prefetch image if available
   useEffect(() => {
-    if (userProfile?.imageUri && userProfile.imageUri.startsWith('http')) {
+    if (userProfile?.imageUri && userProfile.imageUri.trim() !== '' && userProfile.imageUri.startsWith('http')) {
       logger.debug('[Profile] Prefetching image:', userProfile.imageUri);
       Image.prefetch(userProfile.imageUri)
         .catch((error) => {
@@ -220,37 +221,21 @@ export default function ProfileScreen() {
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
           <View>
-            {userProfile.imageUri ? (
-              <>
-                <Image 
-                  source={{ uri: userProfile.imageUri }}
-                  style={styles.profileImage}
-                  onLoad={() => {
-                    logger.debug('[Profile] Image loaded successfully');
-                  }}
-                  onError={(error) => {
-                    logger.error('[Profile] Image error:', error.nativeEvent);
-                    Alert.alert(
-                      'Image Error',
-                      `Failed to load image\n\nError: ${JSON.stringify(error.nativeEvent, null, 2)}`,
-                      [
-                        { text: 'Try Prefetch', onPress: () => {
-                          Image.prefetch(userProfile.imageUri)
-                            .then(() => {
-                              logger.debug('[Profile] Prefetch successful');
-                            })
-                            .catch((err) => {
-                              logger.error('[Profile] Prefetch failed:', err);
-                              Alert.alert('Prefetch Failed', err.toString());
-                            });
-                        }},
-                        { text: 'OK' }
-                      ]
-                    );
-                  }}
-                  defaultSource={{ uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' }}
-                />
-              </>
+            {userProfile.imageUri && userProfile.imageUri.trim() !== '' ? (
+              <OptimizedImage 
+                source={{ uri: userProfile.imageUri }}
+                style={styles.profileImage}
+                priority="high"
+                enableRetry={true}
+                maxRetries={3}
+                showFallback={true}
+                onLoad={() => {
+                  logger.debug('[Profile] Image loaded successfully');
+                }}
+                onError={(error: any) => {
+                  logger.error('[Profile] Image error:', error);
+                }}
+              />
             ) : (
               <View style={[styles.profileImage, { backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }]}>
                 <Ionicons name="person-outline" size={64} color={colors.textSecondary} />
@@ -373,6 +358,10 @@ export default function ProfileScreen() {
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Basic Info</Text>
+        </View>
+        <View style={styles.infoItem}>
+          <Ionicons name="mail-outline" size={20} color={colors.textSecondary} />
+          <Text style={[styles.infoText, { color: colors.text }]}>{userProfile.email}</Text>
         </View>
         <View style={styles.infoItem}>
           <Ionicons name="location-outline" size={20} color={colors.textSecondary} />

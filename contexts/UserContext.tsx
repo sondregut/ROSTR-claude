@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/SimpleAuthContext';
 export interface UserProfile {
   id: string;
   name: string;
+  email: string;
   username: string;
   bio: string;
   location: string;
@@ -124,6 +125,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     return {
       id: dbProfile.id,
       name: dbProfile.name || '',
+      email: dbProfile.email || '',
       username: dbProfile.username || '',
       bio: dbProfile.bio || '',
       location: dbProfile.location || '',

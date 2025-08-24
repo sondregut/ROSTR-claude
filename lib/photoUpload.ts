@@ -1,6 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from './supabase';
 import { supabaseUrl } from '@/config/env';
+import { decode } from 'base64-arraybuffer';
 
 // Dynamically import ImageCropPicker to handle cases where it's not available
 let ImageCropPicker: any = null;
@@ -254,8 +255,10 @@ export const uploadImageToSupabase = async (
     
     // Get file extension
     const fileExt = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
-    // Include user folder in the path structure
-    const fileName = `${userId}/profile_${Date.now()}.${fileExt}`;
+    // Include user folder and timestamp in the path for unique filenames
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(7);
+    const fileName = `${userId}/profile_${timestamp}_${randomStr}.${fileExt}`;
     
     logError('File extension:', fileExt);
     logError('File name:', fileName);
@@ -277,6 +280,15 @@ export const uploadImageToSupabase = async (
         // Convert to blob asynchronously
         const blob = await response.blob();
 
+        // Validate blob
+        if (!blob || blob.size === 0) {
+          resolve({
+            success: false,
+            error: 'Invalid image data',
+          });
+          return;
+        }
+
         // Validate blob size (max 10MB)
         if (blob.size > 10 * 1024 * 1024) {
           resolve({
@@ -285,96 +297,185 @@ export const uploadImageToSupabase = async (
           });
           return;
         }
-
-        // Yield to main thread before upload
-        await new Promise(r => setTimeout(r, 0));
-
-        // Upload to Supabase storage
-        logError(`Uploading to bucket: ${bucket}, filename: ${fileName}`);
-        const { data, error } = await supabase.storage
-          .from(bucket)
-          .upload(fileName, blob, {
-            cacheControl: '3600',
-            upsert: false,
-            contentType: `image/${fileExt}`,
+        
+        // Validate content type
+        const validImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/heic'];
+        if (!validImageTypes.includes(blob.type.toLowerCase())) {
+          resolve({
+            success: false,
+            error: `Invalid image format. Supported formats: ${validImageTypes.join(', ')}`,
           });
+          return;
+        }
 
-        if (error) {
-          logError('Upload error:', error);
-          
-          // Safe error details logging
+        // Convert blob to base64 then to ArrayBuffer for Supabase
+        // This is the recommended approach per Supabase documentation
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        
+        reader.onloadend = async () => {
           try {
-            const errorDetails = {
-              message: error.message || 'Unknown error',
-              statusCode: (error as any).statusCode || 'N/A',
-              bucket: bucket,
-              fileName: fileName
-            };
-            logError('Error details:', JSON.stringify(errorDetails));
-          } catch (e) {
-            // Ignore JSON stringify errors
+            const base64data = reader.result as string;
+            const base64 = base64data.split(',')[1];
+            
+            // Convert base64 to ArrayBuffer using base64-arraybuffer
+            const arrayBuffer = decode(base64);
+            
+            // Yield to main thread before upload
+            await new Promise(r => setTimeout(r, 0));
+
+            // Upload to Supabase storage with ArrayBuffer
+            logError(`Uploading to bucket: ${bucket}, filename: ${fileName}`);
+            const { data, error } = await supabase.storage
+              .from(bucket)
+              .upload(fileName, arrayBuffer, {
+                cacheControl: 'no-cache', // Disable caching to avoid CDN issues
+                upsert: true, // Allow overwriting in case of retries
+                contentType: `image/${fileExt}`,
+              });
+
+            if (error) {
+              logError('Upload error:', error);
+              
+              // Safe error details logging
+              try {
+                const errorDetails = {
+                  message: error.message || 'Unknown error',
+                  statusCode: (error as any).statusCode || 'N/A',
+                  bucket: bucket,
+                  fileName: fileName
+                };
+                logError('Error details:', JSON.stringify(errorDetails));
+              } catch (e) {
+                // Ignore JSON stringify errors
+              }
+              
+              // Provide more specific error messages
+              let errorMessage = error.message || 'Upload failed';
+              if (errorMessage.includes('storage/object-not-found')) {
+                errorMessage = 'Storage bucket not found. Please contact support.';
+              } else if (errorMessage.includes('storage/unauthorized')) {
+                errorMessage = 'You do not have permission to upload photos.';
+              } else if (errorMessage.includes('Bucket not found')) {
+                errorMessage = 'Storage not properly configured. Please contact support.';
+              } else if (errorMessage.includes('Network request failed')) {
+                errorMessage = 'Network error. Please check your connection and try again.';
+              }
+              
+              resolve({
+                success: false,
+                error: errorMessage,
+              });
+              return;
+            }
+
+            // Get public URL
+            const { data: urlData } = supabase.storage
+              .from(bucket)
+              .getPublicUrl(data.path);
+
+            logError('Upload successful. Path:', data.path);
+            logError('Full upload data:', JSON.stringify(data));
+            logError('Bucket name:', bucket);
+            logError('Getting public URL for path:', data.path);
+            logError('Supabase URL from config:', supabaseUrl);
+            
+            // Check if supabaseUrl is properly configured
+            if (!supabaseUrl || supabaseUrl === '') {
+              logError('ERROR: Supabase URL is not configured!');
+              resolve({
+                success: false,
+                error: 'Supabase URL not configured',
+              });
+              return;
+            }
+            
+            logError('Public URL data:', JSON.stringify(urlData));
+            logError('Final public URL:', urlData.publicUrl);
+            
+            // Verify the URL is properly formed
+            if (!urlData.publicUrl || urlData.publicUrl === '') {
+              logError('Warning: Empty public URL returned');
+              resolve({
+                success: false,
+                error: 'Failed to get public URL for uploaded image',
+              });
+              return;
+            }
+            
+            // Add a small delay to allow CDN propagation
+            logError('Waiting for CDN propagation...');
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Increased to 2s for better reliability
+            
+            // Construct both URLs for flexibility
+            const cdnUrl = urlData.publicUrl;
+            const directUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${data.path}`;
+            
+            // Since we're using unique filenames now, prefer direct URL to avoid CDN caching issues
+            let verifiedUrl = directUrl;
+            
+            try {
+              logError('Verifying image accessibility at direct URL:', directUrl);
+              
+              const verifyController = new AbortController();
+              const verifyTimeout = setTimeout(() => verifyController.abort(), 3000);
+              
+              const verifyResponse = await fetch(directUrl, {
+                method: 'HEAD',
+                signal: verifyController.signal,
+                headers: {
+                  'Cache-Control': 'no-cache',
+                  'Pragma': 'no-cache',
+                },
+              });
+              
+              clearTimeout(verifyTimeout);
+              
+              const contentType = verifyResponse.headers.get('content-type');
+              logError('Direct URL verification response:', {
+                status: verifyResponse.status,
+                contentType: contentType,
+              });
+              
+              // Check if response is not an image
+              if (!contentType || !contentType.startsWith('image/')) {
+                logError('Warning: Direct URL does not return image. Trying CDN URL.');
+                verifiedUrl = cdnUrl;
+                
+                // Add timestamp to CDN URL to bypass cache
+                verifiedUrl = `${cdnUrl}${cdnUrl.includes('?') ? '&' : '?'}t=${timestamp}`;
+              }
+              
+              logError('Using verified URL:', verifiedUrl);
+            } catch (verifyError: any) {
+              logError('Verification failed, using CDN URL with timestamp:', verifyError.message);
+              verifiedUrl = `${cdnUrl}${cdnUrl.includes('?') ? '&' : '?'}t=${timestamp}`;
+            }
+            
+            // Log the complete URL being returned
+            logError('Returning verified URL to app:', verifiedUrl);
+
+            resolve({
+              success: true,
+              url: verifiedUrl,
+            });
+          } catch (error: any) {
+            // Error in reader.onloadend
+            logError('Reader onloadend error:', error);
+            resolve({
+              success: false,
+              error: error?.message || 'Failed to process image',
+            });
           }
-          
-          // Provide more specific error messages
-          let errorMessage = error.message || 'Upload failed';
-          if (errorMessage.includes('storage/object-not-found')) {
-            errorMessage = 'Storage bucket not found. Please contact support.';
-          } else if (errorMessage.includes('storage/unauthorized')) {
-            errorMessage = 'You do not have permission to upload photos.';
-          } else if (errorMessage.includes('Bucket not found')) {
-            errorMessage = 'Storage not properly configured. Please contact support.';
-          } else if (errorMessage.includes('Network request failed')) {
-            errorMessage = 'Network error. Please check your connection and try again.';
-          }
-          
+        };
+        
+        reader.onerror = () => {
+          logError('FileReader error');
           resolve({
             success: false,
-            error: errorMessage,
+            error: 'Failed to read image file',
           });
-          return;
-        }
-
-        // Get public URL
-        const { data: urlData } = supabase.storage
-          .from(bucket)
-          .getPublicUrl(data.path);
-
-        logError('Upload successful. Path:', data.path);
-        logError('Full upload data:', JSON.stringify(data));
-        logError('Bucket name:', bucket);
-        logError('Getting public URL for path:', data.path);
-        logError('Supabase URL from config:', supabaseUrl);
-        
-        // Check if supabaseUrl is properly configured
-        if (!supabaseUrl || supabaseUrl === '') {
-          logError('ERROR: Supabase URL is not configured!');
-          resolve({
-            success: false,
-            error: 'Supabase URL not configured',
-          });
-          return;
-        }
-        
-        logError('Public URL data:', JSON.stringify(urlData));
-        logError('Final public URL:', urlData.publicUrl);
-        
-        // Verify the URL is properly formed
-        if (!urlData.publicUrl || urlData.publicUrl === '') {
-          logError('Warning: Empty public URL returned');
-          resolve({
-            success: false,
-            error: 'Failed to get public URL for uploaded image',
-          });
-          return;
-        }
-        
-        // Log the complete URL being returned
-        logError('Returning URL to app:', urlData.publicUrl);
-
-        resolve({
-          success: true,
-          url: urlData.publicUrl,
-        });
+        };
       } catch (error: any) {
         if (error?.name === 'AbortError') {
           resolve({

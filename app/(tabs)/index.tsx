@@ -287,19 +287,19 @@ export default function FeedScreen() {
         onPersonPress={(personName, authorName) => {
           if (authorName && authorName !== 'You') {
             // This is a friend's date - navigate to friend's view of this person
-            router.push(`/person/${personName.toLowerCase()}?friendUsername=${authorName.toLowerCase()}&isOwnRoster=false`);
+            router.push(`/person/${encodeURIComponent(personName)}?friendUsername=${encodeURIComponent(authorName)}&isOwnRoster=false`);
           } else {
             // This is your own date
-            router.push(`/person/${personName.toLowerCase()}?isOwnRoster=true`);
+            router.push(`/person/${encodeURIComponent(personName)}?isOwnRoster=true`);
           }
         }}
         onPersonHistoryPress={(personName, authorName) => {
           if (authorName && authorName !== 'You') {
             // Navigate to friend's date profile
-            router.push(`/person/${personName.toLowerCase()}?friendUsername=${authorName.toLowerCase()}&isOwnRoster=false`);
+            router.push(`/person/${encodeURIComponent(personName)}?friendUsername=${encodeURIComponent(authorName)}&isOwnRoster=false`);
           } else {
             // Navigate to your own roster
-            router.push(`/person/${personName.toLowerCase()}?isOwnRoster=true`);
+            router.push(`/person/${encodeURIComponent(personName)}?isOwnRoster=true`);
           }
         }}
         onAuthorPress={handleAuthorPress}

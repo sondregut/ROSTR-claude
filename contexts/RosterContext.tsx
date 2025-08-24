@@ -205,12 +205,20 @@ export function RosterProvider({ children }: { children: React.ReactNode }) {
         
         // Update entry with uploaded photo URLs
         entry.photos = uploadedPhotos;
+        console.log('[RosterContext] Updated entry photos:', uploadedPhotos);
       }
+      
+      console.log('[RosterContext] Final entry before saving:', {
+        name: entry.name,
+        photos: entry.photos,
+        firstPhoto: entry.photos?.[0],
+      });
         
       await RosterService.addRosterEntry(user.id, entry);
       
       // Create a feed entry for the roster addition
       try {
+        console.log('[RosterContext] Creating feed entry with photos:', entry.photos);
         await addRosterAddition(name, entry, entry.circles || [], entry.isPrivate || false);
       } catch (feedError) {
         console.error('Failed to create feed entry:', feedError);
@@ -317,14 +325,18 @@ export function RosterProvider({ children }: { children: React.ReactNode }) {
         }
         
         dbUpdates.photos = uploadedPhotos;
+        console.log('[RosterContext] Updated photos for roster entry:', uploadedPhotos);
       }
       // Note: lastDate and nextDate would need special handling to convert back to ISO format
+      
+      console.log('[RosterContext] Updating roster entry with:', dbUpdates);
       
       // Update the roster entry
       await RosterService.updateRosterEntry(id, dbUpdates);
       
       // Sync changes to any corresponding feed entries
       try {
+        console.log('[RosterContext] Syncing to feed entries with photos:', dbUpdates.photos);
         await DateService.syncRosterToFeedEntries(user.id, currentEntry.name, dbUpdates);
       } catch (syncError) {
         console.error('Failed to sync roster changes to feed:', syncError);

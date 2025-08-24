@@ -93,6 +93,9 @@ export function Avatar({
           source={{ uri }}
           style={styles.image}
           priority="high"
+          enableRetry={true}
+          maxRetries={3}
+          showFallback={false}
           onError={() => setImageError(true)}
         />
       ) : (

@@ -25,6 +25,7 @@ interface DateCardProps {
   authorName?: string;
   authorAvatar?: string;
   isOwnPost?: boolean;
+  entryType?: string;
   poll?: {
     question: string;
     options: {
@@ -74,6 +75,7 @@ export function DateCard({
   authorName,
   authorAvatar,
   isOwnPost = false,
+  entryType,
   poll,
   userPollVote = null,
   comments = [],
@@ -156,7 +158,14 @@ export function DateCard({
             {/* Person photo */}
             {personPhoto && (
               <Pressable onPress={onPersonHistoryPress} style={styles.personPhotoContainer}>
-                <OptimizedImage source={{ uri: personPhoto }} style={styles.personPhoto} priority="high" />
+                <OptimizedImage 
+                  source={{ uri: personPhoto }} 
+                  style={styles.personPhoto} 
+                  priority="high"
+                  enableRetry={true}
+                  maxRetries={3}
+                  showFallback={false}
+                />
               </Pressable>
             )}
             
@@ -210,6 +219,17 @@ export function DateCard({
             source={{ uri: imageUri }} 
             style={styles.dateImage}
             priority="normal"
+            enableRetry={true}
+            maxRetries={3}
+            showFallback={true}
+            onError={(e: any) => {
+              console.log('[DateCard] Image failed to load:', imageUri);
+              console.log('[DateCard] Error:', e);
+              console.log('[DateCard] Is roster addition?', entryType === 'roster_addition');
+            }}
+            onLoad={() => {
+              console.log('[DateCard] Image loaded successfully:', imageUri);
+            }}
           />
         </View>
       )}

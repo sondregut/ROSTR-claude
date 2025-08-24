@@ -8,7 +8,7 @@ if (typeof URL === 'undefined' && __DEV__) {
 
 
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Platform } from 'react-native';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -46,8 +46,14 @@ function RootLayoutNav() {
       <AuthenticatedApp>
         <Stack
           screenOptions={{
-            gestureEnabled: false, // Disabled to prevent gesture conflicts during transitions
-            animation: 'none', // No animation - screens just pop
+            gestureEnabled: true, // Enable swipe gestures
+            animation: Platform.OS === 'ios' ? 'ios' : 'fade', // Native animations
+            gestureDirection: 'horizontal',
+            gestureResponseDistance: {
+              horizontal: 50, // Start swipe from edge
+            },
+            customAnimationOnGesture: true,
+            fullScreenGestureEnabled: true,
           }}
         >
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />

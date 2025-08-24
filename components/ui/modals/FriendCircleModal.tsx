@@ -3,7 +3,6 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  Modal, 
   Pressable, 
   FlatList, 
   TextInput,
@@ -16,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { SwipeableModal } from '@/components/navigation/SwipeableModal';
 import { pickImageWithCrop } from '@/lib/photoUpload';
 import { Button } from '../buttons/Button';
 import { Colors } from '../../../constants/Colors';
@@ -59,6 +59,7 @@ export function FriendCircleModal({
   const [activeTab, setActiveTab] = useState<'create' | 'manage'>('create');
   const [searchQuery, setSearchQuery] = useState('');
   const [groupPhotoUri, setGroupPhotoUri] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
   
   const toggleFriendSelection = (friend: Friend) => {
     const isAlreadySelected = selectedFriends.some(f => f.id === friend.id);
@@ -93,15 +94,21 @@ export function FriendCircleModal({
     setGroupPhotoUri(null);
   };
 
-  const handleCreateCircle = () => {
-    if (circleName.trim()) {
-      onCreateCircle(
-        circleName,
-        circleDescription,
-        selectedFriends.map(friend => friend.id),
-        groupPhotoUri || undefined
-      );
-      resetForm();
+  const handleCreateCircle = async () => {
+    if (circleName.trim() && !isCreating) {
+      setIsCreating(true);
+      try {
+        await onCreateCircle(
+          circleName,
+          circleDescription,
+          selectedFriends.map(friend => friend.id),
+          groupPhotoUri || undefined
+        );
+        resetForm();
+      } catch (error) {
+        console.error('Error creating circle:', error);
+        setIsCreating(false);
+      }
     }
   };
   
@@ -111,6 +118,7 @@ export function FriendCircleModal({
     setSelectedFriends([]);
     setSearchQuery('');
     setGroupPhotoUri(null);
+    setIsCreating(false);
   };
   
   const filteredFriends = friends.filter(friend => 
@@ -211,82 +219,82 @@ export function FriendCircleModal({
   );
 
   return (
-    <Modal
+    <SwipeableModal
       visible={visible}
-      animationType="none"
-      transparent={true}
+      animationType="slide"
+      presentationStyle="pageSheet"
       onRequestClose={onClose}
+      onSwipeDown={onClose}
+      swipeToCloseEnabled={true}
     >
-      <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <Text style={[styles.title, { color: colors.text }]}>Friend Circles</Text>
+          <Pressable
+            onPress={onClose}
+            style={({ pressed }) => [
+              styles.closeButton,
+              pressed && styles.pressed
+            ]}
+            accessibilityLabel="Close"
+            accessibilityRole="button"
+          >
+            <Ionicons name="close" size={24} color={colors.text} />
+          </Pressable>
+        </View>
+        
+        <View style={[styles.tabs, { borderBottomColor: colors.border }]}>
+          <Pressable
+            style={[
+              styles.tab,
+              activeTab === 'create' && [styles.activeTab, { borderBottomColor: colors.primary }]
+            ]}
+            onPress={() => setActiveTab('create')}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === 'create' }}
+          >
+            <Text 
+              style={[
+                styles.tabText, 
+                { color: activeTab === 'create' ? colors.primary : colors.textSecondary }
+              ]}
+            >
+              Create New
+            </Text>
+          </Pressable>
+          
+          <Pressable
+            style={[
+              styles.tab,
+              activeTab === 'manage' && [styles.activeTab, { borderBottomColor: colors.primary }]
+            ]}
+            onPress={() => setActiveTab('manage')}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === 'manage' }}
+          >
+            <Text 
+              style={[
+                styles.tabText, 
+                { color: activeTab === 'manage' ? colors.primary : colors.textSecondary }
+              ]}
+            >
+              Manage Existing
+            </Text>
+          </Pressable>
+        </View>
+        
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardAvoid}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <SafeAreaView 
-              style={[styles.container, { backgroundColor: colors.background }]}
-              edges={['top', 'bottom']}
+          {activeTab === 'create' ? (
+            <ScrollView 
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
             >
-              <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.title, { color: colors.text }]}>Friend Circles</Text>
-            <Pressable
-              onPress={onClose}
-              style={({ pressed }) => [
-                styles.closeButton,
-                pressed && styles.pressed
-              ]}
-              accessibilityLabel="Close"
-              accessibilityRole="button"
-            >
-              <Ionicons name="close" size={24} color={colors.text} />
-            </Pressable>
-          </View>
-          
-              <View style={[styles.tabs, { borderBottomColor: colors.border }]}>
-            <Pressable
-              style={[
-                styles.tab,
-                activeTab === 'create' && [styles.activeTab, { borderBottomColor: colors.primary }]
-              ]}
-              onPress={() => setActiveTab('create')}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: activeTab === 'create' }}
-            >
-              <Text 
-                style={[
-                  styles.tabText, 
-                  { color: activeTab === 'create' ? colors.primary : colors.textSecondary }
-                ]}
-              >
-                Create New
-              </Text>
-            </Pressable>
-            
-            <Pressable
-              style={[
-                styles.tab,
-                activeTab === 'manage' && [styles.activeTab, { borderBottomColor: colors.primary }]
-              ]}
-              onPress={() => setActiveTab('manage')}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: activeTab === 'manage' }}
-            >
-              <Text 
-                style={[
-                  styles.tabText, 
-                  { color: activeTab === 'manage' ? colors.primary : colors.textSecondary }
-                ]}
-              >
-                Manage Existing
-              </Text>
-              </Pressable>
-              </View>
-              
-              {/* Content Area */}
-              <View style={styles.contentContainer}>
-                {activeTab === 'create' ? (
-                  <View style={styles.createContent}>
                 <View style={styles.formGroup}>
                   <View style={styles.labelRow}>
                     <Text style={[styles.label, { color: colors.text }]}>Circle Name</Text>
@@ -434,68 +442,63 @@ export function FriendCircleModal({
                         style={styles.footerButton}
                       />
                       <Button 
-                        title="Create Circle" 
+                        title={isCreating ? "Creating..." : "Create Circle"} 
                         variant="primary" 
                         onPress={handleCreateCircle} 
                         style={styles.footerButton}
-                        disabled={!circleName.trim()}
+                        disabled={!circleName.trim() || isCreating}
+                        loading={isCreating}
                       />
                     </View>
-                  </View>
-                ) : (
-                  <View style={styles.content}>
-              {existingCircles.length > 0 ? (
-                <FlatList
-                  data={existingCircles}
-                  renderItem={renderCircleItem}
-                  keyExtractor={item => item.id}
-                  style={styles.circlesList}
-                  contentContainerStyle={styles.circlesListContent}
-                />
+                </ScrollView>
               ) : (
-                <View style={styles.emptyState}>
-                  <Ionicons 
-                    name="people-outline" 
-                    size={64} 
-                    color={colors.textSecondary} 
-                  />
-                  <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
-                    You haven't created any friend circles yet
-                  </Text>
-                  <Button 
-                    title="Create Your First Circle" 
-                    variant="primary" 
-                    onPress={() => setActiveTab('create')} 
-                    style={styles.emptyStateButton}
-                  />
+                <View style={styles.content}>
+                  {existingCircles.length > 0 ? (
+                    <FlatList
+                      data={existingCircles}
+                      renderItem={renderCircleItem}
+                      keyExtractor={item => item.id}
+                      style={styles.circlesList}
+                      contentContainerStyle={styles.circlesListContent}
+                    />
+                  ) : (
+                    <View style={styles.emptyState}>
+                      <Ionicons 
+                        name="people-outline" 
+                        size={64} 
+                        color={colors.textSecondary} 
+                      />
+                      <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
+                        You haven't created any friend circles yet
+                      </Text>
+                      <Button 
+                        title="Create Your First Circle" 
+                        variant="primary" 
+                        onPress={() => setActiveTab('create')} 
+                        style={styles.emptyStateButton}
+                      />
                     </View>
                   )}
-                  </View>
-                )}
-              </View>
-            </SafeAreaView>
-          </TouchableWithoutFeedback>
-        </KeyboardAvoidingView>
-      </View>
-    </Modal>
+                </View>
+              )}
+            </KeyboardAvoidingView>
+      </SafeAreaView>
+    </SwipeableModal>
   );
 }
 
 const styles = StyleSheet.create({
-  modalContainer: {
+  container: {
     flex: 1,
-    justifyContent: 'flex-end',
   },
   keyboardAvoid: {
     flex: 1,
-    justifyContent: 'flex-end',
   },
-  container: {
+  scrollView: {
     flex: 1,
-    maxHeight: '90%',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    overflow: 'hidden',
+  },
+  scrollContent: {
+    paddingBottom: 100, // Space for footer
   },
   header: {
     flexDirection: 'row',
@@ -504,13 +507,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  contentContainer: {
-    flex: 1,
-  },
-  createContent: {
-    flex: 1,
-    paddingBottom: 80, // Space for fixed footer
   },
   title: {
     fontSize: 18,
@@ -698,10 +694,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
     gap: 12,
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    backgroundColor: 'transparent',
   },
   footerButton: {
     flex: 1,

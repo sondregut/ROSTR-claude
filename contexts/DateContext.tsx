@@ -182,6 +182,16 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
 
   // Transform database dates to DateEntry format
   const transformDate = (dbDate: any): DateEntry => {
+    // Log roster addition images for debugging
+    if (dbDate.entry_type === 'roster_addition') {
+      console.log('[DateContext] Transforming roster addition:', {
+        personName: dbDate.person_name,
+        image_uri: dbDate.image_uri,
+        roster_photos: dbDate.roster_info?.photos,
+        firstPhoto: dbDate.roster_info?.photos?.[0],
+      });
+    }
+    
     // Calculate relative time
     const createdAt = new Date(dbDate.created_at);
     const now = new Date();

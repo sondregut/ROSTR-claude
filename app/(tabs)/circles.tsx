@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StyleSheet, View, Text, FlatList, Pressable, Platform, ScrollView, ActivityIndicator, Alert, Share, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 
 import { FriendCircleModal } from '@/components/ui/modals/FriendCircleModal';
 import { ContactImportModal } from '@/components/ui/modals/ContactImportModal';
@@ -27,56 +27,88 @@ export default function CirclesScreen() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isContactModalVisible, setIsContactModalVisible] = useState(false);
   const [isLoadingFriends, setIsLoadingFriends] = useState(true);
+  const [isCreatingCircle, setIsCreatingCircle] = useState(false);
+  const friendsLoadedRef = useRef(false);
+  const lastCirclesLengthRef = useRef(0);
   
-  // Load friends from circles
-  const loadFriends = useCallback(() => {
-    if (!user || !circles || circles.length === 0) return;
+  // Load friends when circles change - simplified to match other screens
+  useEffect(() => {
+    if (!user || !circles) {
+      setIsLoadingFriends(false);
+      return;
+    }
+    
+    // Only process if circles actually changed
+    if (circles.length === lastCirclesLengthRef.current && friendsLoadedRef.current) {
+      return;
+    }
+    
+    lastCirclesLengthRef.current = circles.length;
+    
+    if (circles.length === 0) {
+      setFriends([]);
+      setAllFriends([]);
+      setIsLoadingFriends(false);
+      return;
+    }
     
     setIsLoadingFriends(true);
     
     try {
       // Extract unique friends from all circles with enhanced data structure
       const friendsMap = new Map();
-      circles.forEach(circle => {
-        circle.members?.forEach((member: any) => {
-          if (member.user && member.user.id !== user.id) {
-            const existingFriend = friendsMap.get(member.user.id);
-            if (existingFriend) {
-              // Add this circle to the friend's circles array
-              existingFriend.circles.push({
-                id: circle.id,
-                name: circle.name
-              });
-            } else {
-              // Create new friend entry
-              friendsMap.set(member.user.id, {
-                ...member.user,
-                circles: [{
+      
+      for (const circle of circles) {
+        if (circle.members) {
+          for (const member of circle.members) {
+            if (member.user && member.user.id !== user.id) {
+              const existingFriend = friendsMap.get(member.user.id);
+              if (existingFriend) {
+                // Add this circle to the friend's circles array
+                existingFriend.circles.push({
                   id: circle.id,
                   name: circle.name
-                }]
-              });
+                });
+              } else {
+                // Create new friend entry
+                friendsMap.set(member.user.id, {
+                  ...member.user,
+                  circles: [{
+                    id: circle.id,
+                    name: circle.name
+                  }]
+                });
+              }
             }
           }
-        });
-      });
+        }
+      }
       
       const allFriendsArray = Array.from(friendsMap.values());
-      setFriends(Array.from(friendsMap.values())); // For circle creation modal
+      setFriends(allFriendsArray); // For circle creation modal
       setAllFriends(allFriendsArray); // For All Friends tab
+      friendsLoadedRef.current = true;
     } catch (err) {
       console.error('Error loading friends:', err);
     } finally {
       setIsLoadingFriends(false);
     }
-  }, [circles, user]);
-
-  useEffect(() => {
-    loadFriends();
-  }, [loadFriends]);
+  }, [circles, user]); // Simplified dependencies
+  
+  // Handle screen focus to prevent freezing when navigating back
+  useFocusEffect(
+    useCallback(() => {
+      // Component is focused
+      return () => {
+        // Component is unfocused - cleanup if needed
+      };
+    }, [])
+  );
   
   const handleCreateCircle = async (circleName: string, description: string, friendIds: string[], groupPhotoUri?: string) => {
-    if (!user) return;
+    if (!user || isCreatingCircle) return;
+    
+    setIsCreatingCircle(true);
     
     try {
       // Use the context's createCircle method which will automatically refresh the circles
@@ -94,11 +126,24 @@ export default function CirclesScreen() {
       
       setIsModalVisible(false);
       
-      // Navigate to the newly created circle
-      router.push(`/circles/${newCircle.id}`);
+      // Reset refs to force friend reload when circles update
+      friendsLoadedRef.current = false;
+      lastCirclesLengthRef.current = 0;
+      
+      // Wait for context to refresh before navigating
+      // This ensures the new circle is available in the navigation target
+      await refreshCircles();
+      
+      // Add a longer delay to ensure all state updates are complete
+      setTimeout(() => {
+        setIsCreatingCircle(false);
+        // Navigate to the newly created circle
+        router.push(`/circles/${newCircle.id}`);
+      }, 300); // Increased delay
     } catch (err) {
       console.error('Error creating circle:', err);
       Alert.alert('Error', 'Failed to create circle');
+      setIsCreatingCircle(false);
     }
   };
   

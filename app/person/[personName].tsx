@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
+import { SwipeableScreen } from '@/components/navigation/SwipeableScreen';
 import { Button } from '@/components/ui/buttons/Button';
 import { DateCard } from '@/components/ui/cards/DateCard';
 import PlanCard from '@/components/ui/cards/PlanCard';
@@ -31,7 +32,13 @@ import { OptimizedImage } from '@/components/ui/OptimizedImage';
 type TabType = 'overview' | 'plans';
 
 export default function UnifiedPersonDetailScreen() {
-  const { personName, friendUsername, isOwnRoster, rosterId, showEditOptions } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const personName = typeof params.personName === 'string' ? decodeURIComponent(params.personName) : '';
+  const friendUsername = typeof params.friendUsername === 'string' ? decodeURIComponent(params.friendUsername) : undefined;
+  const isOwnRoster = params.isOwnRoster === 'true';
+  const rosterId = typeof params.rosterId === 'string' ? decodeURIComponent(params.rosterId) : undefined;
+  const showEditOptions = params.showEditOptions === 'true';
+  
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -261,15 +268,17 @@ export default function UnifiedPersonDetailScreen() {
       : 'Person not found';
     
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-        <View style={styles.errorContainer}>
-          <Ionicons name="person-outline" size={64} color={colors.textSecondary} />
-          <Text style={[styles.errorText, { color: colors.text }]}>{errorMessage}</Text>
-          <Pressable onPress={() => router.back()} style={[styles.backToFeedButton, { backgroundColor: colors.primary }]}>
-            <Text style={styles.backToFeedText}>Go Back</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
+      <SwipeableScreen swipeBackEnabled={true}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+          <View style={styles.errorContainer}>
+            <Ionicons name="person-outline" size={64} color={colors.textSecondary} />
+            <Text style={[styles.errorText, { color: colors.text }]}>{errorMessage}</Text>
+            <Pressable onPress={() => router.back()} style={[styles.backToFeedButton, { backgroundColor: colors.primary }]}>
+              <Text style={styles.backToFeedText}>Go Back</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </SwipeableScreen>
     );
   }
 
@@ -451,12 +460,13 @@ export default function UnifiedPersonDetailScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <ScrollView 
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={true}
-        contentInsetAdjustmentBehavior="automatic"
-      >
+    <SwipeableScreen swipeBackEnabled={true}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+        <ScrollView 
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={true}
+          contentInsetAdjustmentBehavior="automatic"
+        >
         {/* Header */}
         <View style={[styles.header, { backgroundColor: colors.background }]}>
           <Pressable onPress={() => router.back()} style={styles.backButton}>
@@ -798,7 +808,8 @@ export default function UnifiedPersonDetailScreen() {
         onSave={handleSaveEdit}
         onDelete={handleDeleteDate}
       />
-    </SafeAreaView>
+      </SafeAreaView>
+    </SwipeableScreen>
   );
 }
 

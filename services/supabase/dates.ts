@@ -406,6 +406,12 @@ export const DateService = {
   // Create a roster addition entry for the feed
   async createRosterAddition(personName: string, rosterInfo: any, userId: string, circles: string[] = [], isPrivate: boolean = false) {
     try {
+      console.log('[DateService] Creating roster addition with:', {
+        personName,
+        photos: rosterInfo.photos,
+        firstPhoto: rosterInfo.photos?.[0],
+      });
+      
       // Handle "ALL_FRIENDS" special case - convert to actual circle UUIDs or filter out
       let validCircles: string[] = [];
       
@@ -446,7 +452,7 @@ export const DateService = {
             interests: rosterInfo.interests,
             instagram: rosterInfo.instagram,
             phone: rosterInfo.phone,
-            photos: rosterInfo.photos,
+            photos: rosterInfo.photos || [],
           },
         })
         .select()
@@ -819,6 +825,12 @@ export const DateService = {
   // Sync roster changes to all corresponding feed entries
   async syncRosterToFeedEntries(userId: string, originalPersonName: string, rosterData: any) {
     try {
+      console.log('[DateService] Syncing roster to feed entries:', {
+        originalPersonName,
+        photos: rosterData.photos,
+        firstPhoto: rosterData.photos?.[0],
+      });
+      
       // Build the update object, only including fields that have values
       const updateData: any = {
         updated_at: new Date().toISOString(),

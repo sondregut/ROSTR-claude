@@ -110,16 +110,97 @@ export function OptimizedImage({
       return;
     }
     
+    // Check if this might be a Cloudflare/CDN error
+    const isSupabaseUrl = sourceUri && sourceUri.includes('.supabase.co/');
+    const isCdnError = isSupabaseUrl && 
+                       (error?.message?.includes('Unable to decode') || 
+                        error?.message?.includes('Invalid image data') ||
+                        error?.message?.includes('Network request failed'));
+    
+    if (isCdnError) {
+      logger.warn('[OptimizedImage] Detected possible CDN/Cloudflare error for:', sourceUri);
+      
+      // Try to switch to direct storage URL if it's a CDN URL
+      if (sourceUri.includes('/storage/v1/object/public/')) {
+        // Already a direct URL, add cache buster
+        if (enableRetry && retryCount < 1) {
+          const cacheBustUrl = sourceUri.includes('?') 
+            ? `${sourceUri}&cb=${Date.now()}`
+            : `${sourceUri}?cb=${Date.now()}`;
+          
+          logger.info('[OptimizedImage] Retrying direct URL with cache buster:', cacheBustUrl);
+          
+          // Update source to use cache-busted URL
+          if (typeof source === 'object' && 'uri' in source) {
+            source.uri = cacheBustUrl;
+          }
+          
+          setRetryCount(prev => prev + 1);
+          setHasError(false);
+          setIsLoading(true);
+          return;
+        }
+      } else {
+        // Try to construct direct URL from CDN URL
+        const urlMatch = sourceUri.match(/https:\/\/([^.]+)\.supabase\.co\/storage\/v1\/object\/public\/(.+)/);
+        if (urlMatch && enableRetry && retryCount < 1) {
+          const [_, projectId, path] = urlMatch;
+          const directUrl = `https://${projectId}.supabase.co/storage/v1/object/public/${path}`;
+          
+          logger.info('[OptimizedImage] Switching from CDN to direct URL:', directUrl);
+          
+          // Update source to use direct URL
+          if (typeof source === 'object' && 'uri' in source) {
+            source.uri = directUrl;
+          }
+          
+          setRetryCount(prev => prev + 1);
+          setHasError(false);
+          setIsLoading(true);
+          return;
+        }
+      }
+      
+      // Try to verify if URL returns HTML instead of image
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2000);
+        
+        const response = await fetch(sourceUri, {
+          method: 'HEAD',
+          signal: controller.signal,
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+          },
+        });
+        
+        clearTimeout(timeout);
+        
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          logger.error('[OptimizedImage] URL returns HTML instead of image:', {
+            uri: sourceUri,
+            contentType,
+            status: response.status,
+          });
+        }
+      } catch (verifyError) {
+        logger.error('[OptimizedImage] Failed to verify image URL:', verifyError);
+      }
+    }
+    
     // Log detailed error information
     logger.error('[OptimizedImage] Failed to load image:', {
       uri: sourceUri,
       error: error?.toString() || 'Unknown error',
       retryCount,
       maxRetries,
+      isCloudflareError,
     });
     
     // Diagnose network issues for URLs
-    if (sourceUri && sourceUri.startsWith('http')) {
+    if (sourceUri && sourceUri.startsWith('http') && !isCloudflareError) {
       try {
         const diagnosis = await diagnoseNetworkIssue(sourceUri);
         logger.error('[OptimizedImage] Network diagnosis:', diagnosis);
@@ -131,7 +212,7 @@ export function OptimizedImage({
     setHasError(true);
     
     // Attempt retry if enabled and within retry limit
-    if (enableRetry && retryCount < maxRetries && sourceUri && !isTempFile) {
+    if (enableRetry && retryCount < maxRetries && sourceUri && !isTempFile && !isCdnError) {
       const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff with max 10s
       logger.info(`[OptimizedImage] Retrying in ${delay}ms (attempt ${retryCount + 1}/${maxRetries})`);
       
@@ -175,11 +256,14 @@ export function OptimizedImage({
     );
   }
 
+  // Use source directly - cache busting is now handled at upload time
+  const processedSource = source;
+
   return (
     <View style={[style, styles.container]}>
       <Image
-        key={`${source}-${retryCount}`} // Force re-render on retry
-        source={source}
+        key={`${JSON.stringify(processedSource)}-${retryCount}`} // Force re-render on retry
+        source={processedSource}
         style={[StyleSheet.absoluteFill, style]}
         contentFit={contentFit}
         placeholder={placeholder}

@@ -24,6 +24,7 @@ export default function SettingsScreen() {
   const { themeMode, setThemeMode } = useTheme();
   const auth = useSafeAuth();
   const signOut = auth?.signOut;
+  const deleteAccount = auth?.deleteAccount;
   const router = useRouter();
   const user = useSafeUser();
   const userProfile = user?.userProfile;
@@ -101,6 +102,49 @@ export default function SettingsScreen() {
               console.error('Sign out error:', error);
               Alert.alert('Error', 'Failed to sign out. Please try again.');
             }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you absolutely sure? This action cannot be undone and will permanently delete all your data including:\n\n• Your profile\n• All dates and ratings\n• Your roster\n• Friend circles\n• All photos and content',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: () => {
+            // Second confirmation
+            Alert.alert(
+              'Final Confirmation',
+              'This is your last chance. Your account will be permanently deleted.',
+              [
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                },
+                {
+                  text: 'Delete Forever',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await deleteAccount();
+                      // Navigation handled automatically by auth context
+                    } catch (error) {
+                      console.error('Delete account error:', error);
+                      Alert.alert('Error', 'Failed to delete account. Please contact support.');
+                    }
+                  },
+                },
+              ]
+            );
           },
         },
       ]
@@ -316,6 +360,20 @@ export default function SettingsScreen() {
             <Text style={styles.signOutButtonText}>Sign Out</Text>
           </Pressable>
         </View>
+
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Account Management</Text>
+          <Pressable
+            style={[styles.deleteAccountButton, { borderColor: colors.error }]}
+            onPress={handleDeleteAccount}
+          >
+            <Ionicons name="trash-outline" size={20} color={colors.error} />
+            <Text style={[styles.deleteAccountButtonText, { color: colors.error }]}>Delete Account</Text>
+          </Pressable>
+          <Text style={[styles.deleteAccountWarning, { color: colors.textSecondary }]}>
+            Permanently delete your account and all associated data
+          </Text>
+        </View>
       </View>
     </SafeAreaView>
     </Animated.View>
@@ -435,5 +493,24 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     backgroundColor: 'white',
     position: 'absolute',
+  },
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+    marginBottom: 8,
+  },
+  deleteAccountButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deleteAccountWarning: {
+    fontSize: 12,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });

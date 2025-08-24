@@ -287,6 +287,7 @@ export function DateFeed({
           authorName={item.authorName}
           authorAvatar={item.authorAvatar}
           isOwnPost={item.isOwnPost}
+          entryType={item.entryType}
           poll={item.poll}
           userPollVote={item.userPollVote}
           comments={item.comments}

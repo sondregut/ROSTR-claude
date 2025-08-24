@@ -660,7 +660,7 @@ export class UserService {
   static async getUserRoster(userId: string) {
     try {
       const { data, error } = await supabase
-        .from('roster')
+        .from('roster_entries')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
@@ -736,6 +736,29 @@ export class UserService {
     } catch (error) {
       console.error('Get user future dates error:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Delete user account and all associated data
+   * This permanently removes all user data from the system
+   */
+  static async deleteAccount(userId: string): Promise<void> {
+    try {
+      // Call the database function that handles all deletions with proper permissions
+      const { error } = await supabase.rpc('delete_user_account', {
+        user_id: userId
+      });
+
+      if (error) {
+        console.error('Delete account error:', error);
+        throw error;
+      }
+
+      console.log('User account deleted successfully:', userId);
+    } catch (error) {
+      console.error('Delete account error:', error);
+      throw new Error('Failed to delete account. Please contact support.');
     }
   }
 

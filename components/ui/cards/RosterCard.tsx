@@ -136,7 +136,22 @@ export function RosterCard({
       <View style={[styles.personCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
         <View style={styles.personHeader}>
           {rosterInfo?.photos?.[0] ? (
-            <OptimizedImage source={{ uri: rosterInfo.photos[0] }} style={styles.personImage} priority="high" />
+            <OptimizedImage 
+              source={{ uri: rosterInfo.photos[0] }} 
+              style={styles.personImage} 
+              priority="high"
+              enableRetry={true}
+              maxRetries={3}
+              showFallback={true}
+              onError={(e: any) => {
+                console.log('[RosterCard] Image failed to load:', rosterInfo.photos[0]);
+                console.log('[RosterCard] Error:', e);
+                console.log('[RosterCard] All photos:', rosterInfo.photos);
+              }}
+              onLoad={() => {
+                console.log('[RosterCard] Image loaded successfully:', rosterInfo.photos[0]);
+              }}
+            />
           ) : (
             <View style={[styles.personImagePlaceholder, { backgroundColor: colors.primary }]}>
               <Text style={[styles.personInitial, { color: colors.buttonText }]}>

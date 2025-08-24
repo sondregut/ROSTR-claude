@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
-  Modal,
   View,
   Text,
   StyleSheet,
@@ -14,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { SwipeableModal } from '@/components/navigation/SwipeableModal';
 import { pickImageWithCrop } from '@/lib/photoUpload';
 import { Button } from '../buttons/Button';
 import { CircleSelector } from '../forms/CircleSelector';
@@ -321,11 +321,13 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
   }, [onClose]);
 
   return (
-    <Modal
+    <SwipeableModal
       visible={visible}
-      animationType="none"
+      animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={handleClose}
+      onSwipeDown={handleClose}
+      swipeToCloseEnabled={true}
     >
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
@@ -362,6 +364,11 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
                         onError={(e) => {
                           console.log('[AddPersonModal] Image failed to load:', photo);
                           console.log('[AddPersonModal] Error details:', e.nativeEvent.error);
+                          console.log('[AddPersonModal] Is local file?', photo.startsWith('file://'));
+                          console.log('[AddPersonModal] Is Supabase URL?', photo.includes('supabase'));
+                        }}
+                        onLoad={() => {
+                          console.log('[AddPersonModal] Image loaded successfully:', photo);
                         }}
                       />
                       <Pressable
@@ -567,7 +574,7 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </Modal>
+    </SwipeableModal>
   );
 }
 

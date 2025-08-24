@@ -15,6 +15,7 @@ interface SimpleAuthContextType {
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signInWithApple: (authData: any) => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   error: string | null;
   clearError: () => void;
@@ -172,6 +173,43 @@ export function SimpleAuthProvider({ children }: { children: React.ReactNode }) 
     }
   };
 
+  const deleteAccount = async () => {
+    setError(null);
+    setIsLoading(true);
+    
+    try {
+      if (!user?.id) {
+        throw new Error('No user logged in');
+      }
+
+      // Import UserService to delete all user data
+      const { UserService } = await import('@/services/supabase/users');
+      
+      // Delete all user data and account
+      await UserService.deleteAccount(user.id);
+      
+      // Clear all local data
+      const keys = await AsyncStorage.getAllKeys();
+      await AsyncStorage.multiRemove(keys);
+      console.log('🧹 Cleared all local data');
+      
+      // Reset onboarding state
+      await onboardingService.resetOnboarding();
+      
+      // Clear auth state
+      setUser(null);
+      setSession(null);
+      
+      // Navigate to onboarding
+      router.replace('/(auth)/onboarding-welcome');
+    } catch (error: any) {
+      setError(error.message || 'Failed to delete account');
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const resetPassword = async (email: string) => {
     setError(null);
     setIsLoading(true);
@@ -203,6 +241,7 @@ export function SimpleAuthProvider({ children }: { children: React.ReactNode }) 
     signUp,
     signInWithApple,
     signOut,
+    deleteAccount,
     resetPassword,
     error,
     clearError,

@@ -60,6 +60,8 @@ export class RosterService {
     }
   ): Promise<RosterEntry> {
     try {
+      console.log('[RosterService] Adding roster entry with photos:', entry.photos);
+      
       const { data, error } = await supabase
         .from('roster_entries')
         .insert({
@@ -98,6 +100,11 @@ export class RosterService {
     updates: Partial<Omit<RosterEntry, 'id' | 'user_id' | 'created_at' | 'updated_at'>>
   ): Promise<RosterEntry> {
     try {
+      console.log('[RosterService] Updating roster entry:', {
+        entryId,
+        photos: updates.photos,
+      });
+      
       const { data, error } = await supabase
         .from('roster_entries')
         .update({
