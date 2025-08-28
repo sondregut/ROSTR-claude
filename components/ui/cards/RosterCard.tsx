@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable , Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -7,7 +7,6 @@ import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
 import { InlineComments } from '../feed/InlineComments';
 import { getEmojiById } from '@/constants/ReactionData';
 import * as Haptics from 'expo-haptics';
-import { Image } from 'react-native';
 import { OptimizedImage } from '@/components/ui/OptimizedImage';
 
 interface RosterCardProps {

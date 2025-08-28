@@ -7,6 +7,7 @@ interface InviteParams {
   circle?: string;
   invited_by?: string;
   ref?: string;
+  username?: string;
 }
 
 export function useDeepLinks() {
@@ -35,6 +36,10 @@ export function useDeepLinks() {
             },
           ]
         );
+      } else if (params.username) {
+        // Handle profile deep link
+        console.log('Opening profile:', params.username);
+        router.push(`/profile/${params.username}`);
       } else if (params.ref) {
         // Handle general app referral
         const referrerName = params.invited_by ? decodeURIComponent(params.invited_by) : 'a friend';
@@ -62,13 +67,31 @@ export function useDeepLinks() {
 
       console.log('Processing deep link:', url);
 
-      const parsedUrl = Linking.parse(url);
-      
-      if (parsedUrl.scheme === 'rostrdating') {
+      // Handle both custom scheme and universal links
+      if (url.startsWith('rostrdating://') || url.startsWith('rostr://')) {
+        const parsedUrl = Linking.parse(url);
         const { hostname, queryParams } = parsedUrl;
         
         if (hostname === 'invite') {
           await handleInviteLink(queryParams as InviteParams);
+        } else if (hostname === 'profile') {
+          const username = parsedUrl.path?.replace('/', '');
+          if (username) {
+            await handleInviteLink({ username });
+          }
+        }
+      } else if (url.startsWith('https://rostrdating.com')) {
+        // Handle universal links
+        const urlObj = new URL(url);
+        const pathParts = urlObj.pathname.split('/').filter(Boolean);
+        
+        if (pathParts[0] === 'invite' && pathParts[1]) {
+          // Handle invite links
+          await handleInviteLink({ circle: pathParts[1] });
+        } else if (pathParts[0]?.startsWith('@')) {
+          // Handle profile links like rostrdating.com/@username
+          const username = pathParts[0].substring(1);
+          await handleInviteLink({ username });
         }
       }
     } catch (error) {

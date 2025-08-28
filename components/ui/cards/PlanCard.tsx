@@ -4,7 +4,7 @@ import {
   View,
   Text,
   Pressable,
-} from 'react-native';
+ Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -12,7 +12,6 @@ import { PlanEntry } from '@/contexts/DateContext';
 import { InlineComments } from '../feed/InlineComments';
 import { ReactionItems, getEmojiById } from '@/constants/ReactionData';
 import * as Haptics from 'expo-haptics';
-import { Image } from 'react-native';
 
 interface PlanCardProps {
   plan: PlanEntry & {

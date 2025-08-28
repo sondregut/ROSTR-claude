@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { notificationService } from '@/services/notifications/NotificationService';
 
 export interface Circle {
   id: string;
@@ -44,7 +45,7 @@ export const CircleService = {
       .from('circle_members')
       .select(`
         *,
-        user:users (
+        user:users!circle_members_user_id_fkey (
           id,
           name,
           username,
@@ -205,7 +206,7 @@ export const CircleService = {
         circle:circles (
           *,
           members:circle_members (
-            user:users (
+            user:users!circle_members_user_id_fkey (
               id,
               name,
               username,
@@ -225,7 +226,7 @@ export const CircleService = {
         .select(`
           *,
           members:circle_members (
-            user:users (
+            user:users!circle_members_user_id_fkey (
               id,
               name,
               username,
@@ -337,7 +338,33 @@ export const CircleService = {
 
   // Add members to circle
   async addMembers(circleId: string, userIds: string[]) {
-    const members = userIds.map(userId => ({
+    // Get current authenticated user for permission check
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      throw new Error('User not authenticated');
+    }
+
+    // Check if user has admin permissions for this circle
+    const hasPermission = await this.hasAdminPermissions(circleId, user.id);
+    if (!hasPermission) {
+      throw new Error('Insufficient permissions to add members to this circle');
+    }
+
+    // Check for duplicate memberships
+    const { data: existingMembers } = await supabase
+      .from('circle_members')
+      .select('user_id')
+      .eq('circle_id', circleId)
+      .in('user_id', userIds);
+
+    const existingIds = new Set(existingMembers?.map(m => m.user_id) || []);
+    const newUserIds = userIds.filter(id => !existingIds.has(id));
+
+    if (newUserIds.length === 0) {
+      throw new Error('All selected users are already members of this circle');
+    }
+
+    const members = newUserIds.map(userId => ({
       circle_id: circleId,
       user_id: userId,
       role: 'member' as const
@@ -352,7 +379,75 @@ export const CircleService = {
     // Update member count
     await supabase.rpc('increment_circle_member_count', { 
       circle_id: circleId, 
-      increment_by: userIds.length 
+      increment_by: newUserIds.length 
     });
+
+    // Get circle details for notifications
+    const { data: circle } = await supabase
+      .from('circles')
+      .select('name, owner_id')
+      .eq('id', circleId)
+      .single();
+
+    if (circle) {
+      // Send notifications to added members
+      const notifications = newUserIds.map(userId => ({
+        user_id: userId,
+        type: 'circle_invite' as const,
+        title: 'Added to Circle',
+        body: `You've been added to the circle "${circle.name}"`,
+        data: { circleId, circleName: circle.name },
+        read: false
+      }));
+
+      // Send notifications in parallel
+      await Promise.all(
+        notifications.map(notification =>
+          notificationService.createNotification(notification)
+        )
+      );
+    }
+
+    return newUserIds.length; // Return number of members actually added
+  },
+
+  // Get friends who can be invited to a circle (not already members)
+  async getInviteableFriends(circleId: string, userId: string) {
+    // Get user's friends
+    const { data: friends, error: friendsError } = await supabase
+      .from('friendships')
+      .select(`
+        friend_id,
+        friend:users!friendships_friend_id_fkey (
+          id,
+          name,
+          username,
+          image_uri
+        )
+      `)
+      .eq('user_id', userId)
+      .eq('status', 'active');
+
+    if (friendsError) throw friendsError;
+
+    // Get current circle members
+    const { data: members, error: membersError } = await supabase
+      .from('circle_members')
+      .select('user_id')
+      .eq('circle_id', circleId);
+
+    if (membersError) throw membersError;
+
+    const memberIds = new Set(members?.map(m => m.user_id) || []);
+
+    // Filter out friends who are already members
+    return (friends || [])
+      .filter(f => f.friend && !memberIds.has(f.friend_id))
+      .map(f => ({
+        id: f.friend_id,
+        name: f.friend.name,
+        username: f.friend.username,
+        image_uri: f.friend.image_uri,
+      }));
   }
 };

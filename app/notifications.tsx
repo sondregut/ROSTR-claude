@@ -74,6 +74,17 @@ export default function NotificationsScreen() {
         }
         break;
       
+      case 'message':
+        // Navigate to direct message - would need to implement DM screen
+        // For now, just mark as read
+        break;
+      
+      case 'circle_message':
+        if (data?.circleId) {
+          router.push(`/circles/${data.circleId}`);
+        }
+        break;
+      
       default:
         // Just mark as read, no navigation
         break;

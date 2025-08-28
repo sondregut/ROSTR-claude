@@ -19,11 +19,13 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Button } from '@/components/ui/buttons/Button';
 import { ContactService, PhoneContact } from '@/services/contacts/ContactService';
 import { useSafeAuth } from '@/hooks/useSafeAuth';
+import { supabase } from '@/lib/supabase';
 
 interface ContactImportModalProps {
   visible: boolean;
   onClose: () => void;
   onInvitesSent?: (count: number) => void;
+  onFriendsAdded?: (count: number) => void;
   joinCode?: string;
 }
 
@@ -32,7 +34,7 @@ interface ContactSection {
   data: PhoneContact[];
 }
 
-export function ContactImportModal({ visible, onClose, onInvitesSent, joinCode }: ContactImportModalProps) {
+export function ContactImportModal({ visible, onClose, onInvitesSent, onFriendsAdded, joinCode }: ContactImportModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const auth = useSafeAuth();
@@ -41,8 +43,10 @@ export function ContactImportModal({ visible, onClose, onInvitesSent, joinCode }
   const [isLoading, setIsLoading] = useState(true);
   const [contacts, setContacts] = useState<PhoneContact[]>([]);
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
+  const [selectedFriends, setSelectedFriends] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isAddingFriends, setIsAddingFriends] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -71,26 +75,45 @@ export function ContactImportModal({ visible, onClose, onInvitesSent, joinCode }
     }
   };
 
-  const toggleContactSelection = (contactId: string) => {
-    const newSelected = new Set(selectedContacts);
-    if (newSelected.has(contactId)) {
-      newSelected.delete(contactId);
+  const toggleContactSelection = (contactId: string, isRegistered: boolean) => {
+    if (isRegistered) {
+      const newSelected = new Set(selectedFriends);
+      if (newSelected.has(contactId)) {
+        newSelected.delete(contactId);
+      } else {
+        newSelected.add(contactId);
+      }
+      setSelectedFriends(newSelected);
     } else {
-      newSelected.add(contactId);
+      const newSelected = new Set(selectedContacts);
+      if (newSelected.has(contactId)) {
+        newSelected.delete(contactId);
+      } else {
+        newSelected.add(contactId);
+      }
+      setSelectedContacts(newSelected);
     }
-    setSelectedContacts(newSelected);
   };
 
   const selectAll = (registered: boolean) => {
-    const newSelected = new Set(selectedContacts);
-    contacts
-      .filter(c => c.isRegistered === registered)
-      .forEach(c => newSelected.add(c.id));
-    setSelectedContacts(newSelected);
+    if (registered) {
+      const newSelected = new Set(selectedFriends);
+      contacts
+        .filter(c => c.isRegistered === registered)
+        .forEach(c => newSelected.add(c.id));
+      setSelectedFriends(newSelected);
+    } else {
+      const newSelected = new Set(selectedContacts);
+      contacts
+        .filter(c => c.isRegistered === registered)
+        .forEach(c => newSelected.add(c.id));
+      setSelectedContacts(newSelected);
+    }
   };
 
   const deselectAll = () => {
     setSelectedContacts(new Set());
+    setSelectedFriends(new Set());
   };
 
   const sendInvites = async () => {

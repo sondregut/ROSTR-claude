@@ -5,12 +5,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 
 import { FriendCircleModal } from '@/components/ui/modals/FriendCircleModal';
-import { ContactImportModal } from '@/components/ui/modals/ContactImportModal';
+import { EnhancedContactModal } from '@/components/ui/modals/EnhancedContactModal';
+import { UserSearchModal } from '@/components/ui/search/UserSearchModal';
+import { CircleInviteModal } from '@/components/ui/modals/CircleInviteModal';
 import { SimpleCircleCard } from '@/components/ui/cards/SimpleCircleCard';
+import { FriendCard } from '@/components/ui/cards/FriendCard';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { CircleService } from '@/services/supabase/circles';
+import { FriendsService, Friend } from '@/services/supabase/friends';
 import { useSafeAuth } from '@/hooks/useSafeAuth';
+import { useSafeUser } from '@/hooks/useSafeUser';
 import { useCircles } from '@/contexts/CircleContext';
 
 export default function CirclesScreen() {
@@ -19,81 +24,79 @@ export default function CirclesScreen() {
   const router = useRouter();
   const auth = useSafeAuth();
   const user = auth?.user;
+  const safeUser = useSafeUser();
+  const userProfile = safeUser?.userProfile;
   const { circles, isLoading, error, createCircle, refreshCircles } = useCircles();
   
   const [friends, setFriends] = useState<any[]>([]);
-  const [allFriends, setAllFriends] = useState<any[]>([]);
+  const [actualFriends, setActualFriends] = useState<Friend[]>([]);
   const [activeTab, setActiveTab] = useState<'circles' | 'friends'>('circles');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isContactModalVisible, setIsContactModalVisible] = useState(false);
+  const [isSearchModalVisible, setIsSearchModalVisible] = useState(false);
+  const [isCircleInviteModalVisible, setIsCircleInviteModalVisible] = useState(false);
+  const [selectedCircle, setSelectedCircle] = useState<{ id: string; name: string; joinCode: string } | null>(null);
   const [isLoadingFriends, setIsLoadingFriends] = useState(true);
   const [isCreatingCircle, setIsCreatingCircle] = useState(false);
   const friendsLoadedRef = useRef(false);
   const lastCirclesLengthRef = useRef(0);
   
-  // Load friends when circles change - simplified to match other screens
+  // Load friends from circles (for circle creation) and actual friends (for All Friends tab)
   useEffect(() => {
-    if (!user || !circles) {
+    if (!user) {
       setIsLoadingFriends(false);
       return;
     }
     
-    // Only process if circles actually changed
-    if (circles.length === lastCirclesLengthRef.current && friendsLoadedRef.current) {
-      return;
-    }
-    
-    lastCirclesLengthRef.current = circles.length;
-    
-    if (circles.length === 0) {
-      setFriends([]);
-      setAllFriends([]);
-      setIsLoadingFriends(false);
-      return;
-    }
-    
-    setIsLoadingFriends(true);
-    
-    try {
-      // Extract unique friends from all circles with enhanced data structure
-      const friendsMap = new Map();
+    const loadAllData = async () => {
+      setIsLoadingFriends(true);
       
-      for (const circle of circles) {
-        if (circle.members) {
-          for (const member of circle.members) {
-            if (member.user && member.user.id !== user.id) {
-              const existingFriend = friendsMap.get(member.user.id);
-              if (existingFriend) {
-                // Add this circle to the friend's circles array
-                existingFriend.circles.push({
-                  id: circle.id,
-                  name: circle.name
-                });
-              } else {
-                // Create new friend entry
-                friendsMap.set(member.user.id, {
-                  ...member.user,
-                  circles: [{
-                    id: circle.id,
-                    name: circle.name
-                  }]
-                });
+      try {
+        // Load actual friends from friendships table
+        const userFriends = await FriendsService.getUserFriends(user.id);
+        setActualFriends(userFriends);
+        
+        // Also maintain circle-based friends for circle creation modal
+        if (circles && circles.length > 0) {
+          const friendsMap = new Map();
+          
+          for (const circle of circles) {
+            if (circle.members) {
+              for (const member of circle.members) {
+                if (member.user && member.user.id !== user.id) {
+                  const existingFriend = friendsMap.get(member.user.id);
+                  if (existingFriend) {
+                    existingFriend.circles.push({
+                      id: circle.id,
+                      name: circle.name
+                    });
+                  } else {
+                    friendsMap.set(member.user.id, {
+                      ...member.user,
+                      circles: [{
+                        id: circle.id,
+                        name: circle.name
+                      }]
+                    });
+                  }
+                }
               }
             }
           }
+          
+          setFriends(Array.from(friendsMap.values()));
+        } else {
+          setFriends([]);
         }
+      } catch (err) {
+        console.error('Error loading friends:', err);
+      } finally {
+        setIsLoadingFriends(false);
       }
-      
-      const allFriendsArray = Array.from(friendsMap.values());
-      setFriends(allFriendsArray); // For circle creation modal
-      setAllFriends(allFriendsArray); // For All Friends tab
-      friendsLoadedRef.current = true;
-    } catch (err) {
-      console.error('Error loading friends:', err);
-    } finally {
-      setIsLoadingFriends(false);
-    }
-  }, [circles, user]); // Simplified dependencies
+    };
+    
+    loadAllData();
+  }, [circles, user]);
   
   // Handle screen focus to prevent freezing when navigating back
   useFocusEffect(
@@ -147,37 +150,9 @@ export default function CirclesScreen() {
     }
   };
   
-  const handleInvitePress = async (circleId: string, circleName: string, joinCode: string) => {
-    try {
-      const inviteMessage = `Join my "${circleName}" circle on RostrDating!\n\nUse code: ${joinCode}`;
-      
-      if (Platform.OS === 'ios' || Platform.OS === 'android') {
-        // Use native share functionality
-        await Share.share({
-          message: inviteMessage,
-          title: `Join ${circleName}`,
-        });
-      } else {
-        // For web/desktop, copy to clipboard or show alert
-        Alert.alert(
-          'Circle Invite',
-          `Share this invite code with friends:\n\n${joinCode}`,
-          [
-            { text: 'OK' }
-          ]
-        );
-      }
-    } catch (error) {
-      console.error('Error sharing invite:', error);
-      // Fallback to showing the join code
-      Alert.alert(
-        'Circle Invite',
-        `Share this invite code with friends:\n\n${joinCode}`,
-        [
-          { text: 'OK' }
-        ]
-      );
-    }
+  const handleInvitePress = (circleId: string, circleName: string, joinCode: string) => {
+    setSelectedCircle({ id: circleId, name: circleName, joinCode });
+    setIsCircleInviteModalVisible(true);
   };
 
   // Transform circles for display
@@ -193,7 +168,29 @@ export default function CirclesScreen() {
   }));
 
   // Helper functions for friend statistics
-  const getTotalFriendCount = () => allFriends.length;
+  const getTotalFriendCount = () => actualFriends.length;
+
+  const handleRemoveFriend = async (friendId: string) => {
+    if (!user) return;
+
+    try {
+      await FriendsService.removeFriend(user.id, friendId);
+      setActualFriends(prev => prev.filter(friend => friend.id !== friendId));
+      Alert.alert('Success', 'Friend removed successfully');
+    } catch (error) {
+      console.error('Error removing friend:', error);
+      Alert.alert('Error', 'Failed to remove friend');
+    }
+  };
+
+  const handleFriendAdded = () => {
+    // Reload actual friends when a new friend is added
+    if (user) {
+      FriendsService.getUserFriends(user.id)
+        .then(userFriends => setActualFriends(userFriends))
+        .catch(error => console.error('Error reloading friends:', error));
+    }
+  };
   
   const estimateTotalReach = () => {
     const totalMembers = circles.reduce((sum, circle) => sum + (circle.member_count || 0), 0);
@@ -210,6 +207,7 @@ export default function CirclesScreen() {
       members={item.members || []}
       isActive={item.isActive}
       groupPhotoUri={item.groupPhotoUri}
+      joinCode={item.joinCode}
       onPress={() => {
         // Navigate to circle detail
         router.push(`/circles/${item.id}`);
@@ -372,37 +370,97 @@ export default function CirclesScreen() {
         ) : (
           /* All Friends Tab Content */
           <View style={styles.section}>
-            {/* Friends List */}
+            {/* Header */}
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                All Friends ({getTotalFriendCount()})
+              </Text>
+            </View>
+            
+            {/* Your Friends List - TOP SECTION */}
             <View style={styles.friendsSection}>
               <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                  All Friends ({getTotalFriendCount()})
+                <Text style={[styles.sectionSubtitle, { color: colors.text }]}>
+                  Your Friends
                 </Text>
-                <Pressable
-                  style={[styles.importButton, { backgroundColor: colors.primary }]}
-                  onPress={() => setIsContactModalVisible(true)}
-                >
-                  <Ionicons name="person-add" size={16} color="white" />
-                  <Text style={styles.importButtonText}>Import</Text>
-                </Pressable>
               </View>
               
-              {allFriends.length === 0 ? (
+              {actualFriends.length === 0 ? (
                 <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
-                  <Ionicons name="person-outline" size={48} color={colors.icon} />
+                  <Ionicons name="heart-outline" size={48} color={colors.icon} />
                   <Text style={[styles.emptyStateTitle, { color: colors.text }]}>No friends yet</Text>
                   <Text style={[styles.emptyStateText, { color: colors.secondaryText }]}>
-                    Create circles and add friends to start building your network
+                    Find friends using the options below
                   </Text>
                 </View>
               ) : (
                 <FlatList
-                  data={allFriends}
-                  renderItem={renderFriendItem}
+                  data={actualFriends}
+                  renderItem={({ item }) => (
+                    <FriendCard
+                      friend={item}
+                      onRemoveFriend={handleRemoveFriend}
+                      showActions={true}
+                    />
+                  )}
                   keyExtractor={item => item.id}
                   scrollEnabled={false}
+                  ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
                 />
               )}
+            </View>
+
+            {/* Find Friends Section - BOTTOM SECTION */}
+            <View style={styles.quickActionsContainer}>
+              <Text style={[styles.sectionSubtitle, { color: colors.text }]}>
+                Find Friends
+              </Text>
+              <View style={styles.quickActions}>
+                <Pressable
+                  style={[styles.quickActionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => setIsContactModalVisible(true)}
+                >
+                  <View style={[styles.quickActionIcon, { backgroundColor: colors.primary + '20' }]}>
+                    <Ionicons name="people" size={24} color={colors.primary} />
+                  </View>
+                  <Text style={[styles.quickActionTitle, { color: colors.text }]}>Find from Contacts</Text>
+                  <Text style={[styles.quickActionSubtitle, { color: colors.textSecondary }]}>
+                    Discover friends already on Rostr
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.quickActionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => setIsSearchModalVisible(true)}
+                >
+                  <View style={[styles.quickActionIcon, { backgroundColor: colors.primary + '20' }]}>
+                    <Ionicons name="search" size={24} color={colors.primary} />
+                  </View>
+                  <Text style={[styles.quickActionTitle, { color: colors.text }]}>Search Username</Text>
+                  <Text style={[styles.quickActionSubtitle, { color: colors.textSecondary }]}>
+                    Find friends by @username
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.quickActionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={async () => {
+                    const profileUrl = `https://rostrdating.com/@${userProfile?.username || 'user'}`;
+                    await Share.share({
+                      message: `Connect with me on RostrDating! ${profileUrl}`,
+                      title: 'Share My Profile',
+                    });
+                  }}
+                >
+                  <View style={[styles.quickActionIcon, { backgroundColor: colors.primary + '20' }]}>
+                    <Ionicons name="share-outline" size={24} color={colors.primary} />
+                  </View>
+                  <Text style={[styles.quickActionTitle, { color: colors.text }]}>Share Profile</Text>
+                  <Text style={[styles.quickActionSubtitle, { color: colors.textSecondary }]}>
+                    Invite friends with your link
+                  </Text>
+                </Pressable>
+              </View>
             </View>
           </View>
         )}
@@ -432,18 +490,53 @@ export default function CirclesScreen() {
         visible={isModalVisible}
         onClose={() => setIsModalVisible(false)}
         onCreateCircle={handleCreateCircle}
-        friends={friends}
+        friends={actualFriends.map(friend => ({
+          id: friend.id,
+          name: friend.name,
+          username: friend.username,
+          avatarUri: friend.image_uri,
+          isSelected: false
+        }))}
       />
 
-      {/* Contact Import Modal */}
-      <ContactImportModal
+      {/* Enhanced Contact Modal */}
+      <EnhancedContactModal
         visible={isContactModalVisible}
         onClose={() => setIsContactModalVisible(false)}
         onInvitesSent={(count) => {
           console.log(`Sent invites to ${count} contacts`);
-          // Optionally refresh friends list or show a success message
+        }}
+        onFriendsAdded={(count) => {
+          console.log(`Added ${count} friends`);
+          handleFriendAdded();
         }}
       />
+
+      {/* User Search Modal */}
+      <UserSearchModal
+        visible={isSearchModalVisible}
+        onClose={() => setIsSearchModalVisible(false)}
+        onFriendAdded={handleFriendAdded}
+      />
+
+      {/* Circle Invite Modal */}
+      {selectedCircle && (
+        <CircleInviteModal
+          visible={isCircleInviteModalVisible}
+          onClose={() => {
+            setIsCircleInviteModalVisible(false);
+            setSelectedCircle(null);
+          }}
+          circleId={selectedCircle.id}
+          circleName={selectedCircle.name}
+          joinCode={selectedCircle.joinCode}
+          onMembersAdded={(count) => {
+            console.log(`Added ${count} members to circle`);
+            // Refresh circles to update member counts
+            refreshCircles();
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -494,18 +587,49 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  importButton: {
+  actionButtons: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 4,
+    gap: 8,
   },
-  importButtonText: {
-    color: 'white',
+  actionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickActionsContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  quickActions: {
+    marginTop: 16,
+    gap: 12,
+  },
+  quickActionCard: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  quickActionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  quickActionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  quickActionSubtitle: {
     fontSize: 14,
-    fontWeight: '500',
+  },
+  sectionSubtitle: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   circlesList: {
     gap: 12,

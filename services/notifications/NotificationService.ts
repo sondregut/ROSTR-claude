@@ -11,6 +11,8 @@ export type NotificationType =
   | 'friend_plan'
   | 'circle_invite'
   | 'circle_activity'
+  | 'message'
+  | 'circle_message'
   | 'reminder'
   | 'achievement'
   | 'system';
@@ -252,6 +254,9 @@ class NotificationService {
       case 'comment':
       case 'mention':
         return preferences.comments;
+      case 'message':
+      case 'circle_message':
+        return preferences.comments; // Use comments preference for messages
       case 'friend_date':
       case 'friend_roster':
       case 'friend_plan':

@@ -2,13 +2,12 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { getDisplayUsername, openInstagramProfile } from '@/lib/instagramUtils';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View , Image } from 'react-native';
 import { Colors } from '../../../constants/Colors';
 import { PollVoting } from '../feed/PollVoting';
 import { InlineComments } from '../feed/InlineComments';
 import { getEmojiById } from '@/constants/ReactionData';
 import * as Haptics from 'expo-haptics';
-import { Image } from 'react-native';
 import { OptimizedImage } from '@/components/ui/OptimizedImage';
 
 interface DateCardProps {

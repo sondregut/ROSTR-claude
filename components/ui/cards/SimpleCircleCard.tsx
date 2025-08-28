@@ -24,6 +24,7 @@ interface SimpleCircleCardProps {
   members: Friend[];
   isActive?: boolean;
   groupPhotoUri?: string;
+  joinCode?: string;
   onPress: () => void;
   onInvitePress?: () => void;
 }
@@ -34,6 +35,7 @@ export function SimpleCircleCard({
   members,
   isActive = true,
   groupPhotoUri,
+  joinCode,
   onPress,
   onInvitePress,
 }: SimpleCircleCardProps) {
@@ -145,7 +147,7 @@ export function SimpleCircleCard({
             onPress={onInvitePress}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="share-outline" size={20} color={colors.primary} />
+            <Ionicons name="person-add-outline" size={20} color={colors.primary} />
           </Pressable>
         )}
         <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />

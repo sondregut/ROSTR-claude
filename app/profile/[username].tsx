@@ -19,6 +19,8 @@ import { DateCard } from '@/components/ui/cards/DateCard';
 import PlanCard from '@/components/ui/cards/PlanCard';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { UserService } from '@/services/supabase/users';
+import { FriendsService } from '@/services/supabase/friends';
+import { FriendRequestService } from '@/services/FriendRequestService';
 import { useAuth } from '@/contexts/SimpleAuthContext';
 
 interface ProfileData {
@@ -52,6 +54,8 @@ export default function MemberProfileScreen() {
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFriend, setIsFriend] = useState(false);
+  const [friendshipStatus, setFriendshipStatus] = useState<'friends' | 'pending_sent' | 'pending_received' | 'none'>('none');
   
   // Load profile data from database
   useEffect(() => {
@@ -75,7 +79,50 @@ export default function MemberProfileScreen() {
           return;
         }
 
-        // Load roster data
+        // Check friendship status FIRST if user is logged in
+        let currentFriendshipStatus: 'friends' | 'pending_sent' | 'pending_received' | 'none' = 'none';
+        let areActualFriends = false;
+        
+        if (user?.id && user.id !== userProfile.id) {
+          currentFriendshipStatus = await FriendRequestService.getFriendshipStatus(userProfile.id);
+          areActualFriends = currentFriendshipStatus === 'friends';
+        } else if (user?.id === userProfile.id) {
+          // User viewing their own profile - allow full access
+          areActualFriends = true;
+          currentFriendshipStatus = 'friends';
+        }
+        
+        setFriendshipStatus(currentFriendshipStatus);
+        setIsFriend(areActualFriends);
+
+        // Create minimal profile with only name and username for non-friends
+        if (!areActualFriends) {
+          const minimalProfile: ProfileData = {
+            id: userProfile.id,
+            name: userProfile.name,
+            username: userProfile.username,
+            avatar: undefined, // Hide avatar for non-friends
+            bio: '', // Hide bio
+            location: '', // Hide location
+            joinedDate: '', // Hide join date
+            mutualCircles: [], // Hide mutual circles
+            stats: {
+              totalDates: 0,
+              activeDates: 0,
+              averageRating: 0,
+              datesThisMonth: 0,
+            },
+            datingRoster: [],
+            dateHistory: [],
+            futureDates: [],
+          };
+          
+          setProfileData(minimalProfile);
+          setIsLoading(false);
+          return;
+        }
+
+        // Only load full data for friends
         const roster = await UserService.getUserRoster(userProfile.id);
         const dateHistory = await UserService.getUserDateHistory(userProfile.id);
         const futureDates = await UserService.getUserFutureDates(userProfile.id);
@@ -134,17 +181,101 @@ export default function MemberProfileScreen() {
     loadProfileData();
   }, [username]);
 
+  const handleUnfriend = async () => {
+    if (!profileData || !user?.id) return;
+    
+    Alert.alert(
+      'Remove Friend',
+      `Are you sure you want to remove ${profileData.name} from your friends?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove Friend',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await FriendsService.removeFriend(user.id, profileData.id);
+              setIsFriend(false);
+              Alert.alert('Success', `${profileData.name} has been removed from your friends`);
+            } catch (error) {
+              console.error('Error removing friend:', error);
+              Alert.alert('Error', 'Failed to remove friend');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleAddFriend = async () => {
+    if (!profileData || !user?.id) return;
+    
+    try {
+      await FriendRequestService.sendFriendRequest(profileData.id);
+      setFriendshipStatus('pending_sent');
+      Alert.alert('Success', `Friend request sent to ${profileData.name}`);
+    } catch (error) {
+      console.error('Error sending friend request:', error);
+      Alert.alert('Error', 'Failed to send friend request');
+    }
+  };
+
+  const handleAcceptRequest = async () => {
+    if (!profileData || !user?.id) return;
+    
+    try {
+      await FriendRequestService.acceptFriendRequest(profileData.id);
+      setFriendshipStatus('friends');
+      setIsFriend(true);
+      Alert.alert('Success', `You are now friends with ${profileData.name}`, [
+        { text: 'OK', onPress: () => router.back() }
+      ]);
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+      Alert.alert('Error', 'Failed to accept friend request');
+    }
+  };
+
+  const handleDeclineRequest = async () => {
+    if (!profileData || !user?.id) return;
+    
+    Alert.alert(
+      'Decline Friend Request',
+      `Are you sure you want to decline ${profileData.name}'s friend request?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Decline',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await FriendRequestService.rejectFriendRequest(profileData.id);
+              setFriendshipStatus('none');
+              Alert.alert('Request declined');
+            } catch (error) {
+              console.error('Error declining friend request:', error);
+              Alert.alert('Error', 'Failed to decline friend request');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleMoreOptions = () => {
     if (!profileData) return;
+    
+    const options = [
+      ...(isFriend ? [{ text: 'Unfriend', onPress: handleUnfriend, style: 'destructive' as const }] : []),
+      { text: 'Block User', style: 'destructive' as const },
+      { text: 'Report User', style: 'destructive' as const },
+      { text: 'Cancel', style: 'cancel' as const },
+    ];
     
     Alert.alert(
       profileData.name,
       'Choose an action',
-      [
-        { text: 'Block User', style: 'destructive' },
-        { text: 'Report User', style: 'destructive' },
-        { text: 'Cancel', style: 'cancel' },
-      ]
+      options
     );
   };
 
@@ -200,17 +331,25 @@ export default function MemberProfileScreen() {
         </View>
 
         {/* Profile Header */}
-        <View style={[styles.profileHeader, { backgroundColor: colors.card }]}>
+        <View style={[styles.profileHeader, { 
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+        }]}>
           <View style={styles.profileInfo}>
-            <Avatar
-              uri={profileData.avatar}
-              name={profileData.name}
-              size={80}
-            />
+            {isFriend ? (
+              <Avatar
+                uri={profileData.avatar}
+                name={profileData.name}
+                size={80}
+              />
+            ) : (
+              <View style={[styles.restrictedAvatar, { backgroundColor: colors.textSecondary }]}>
+                <Ionicons name="person" size={40} color="white" />
+              </View>
+            )}
             
             <View style={styles.profileDetails}>
-              {/* Mutual Circles */}
-              {profileData.mutualCircles.length > 0 && (
+              {isFriend && profileData.mutualCircles.length > 0 && (
                 <View style={[styles.mutualCircles, styles.mutualCirclesTop]}>
                   {profileData.mutualCircles.map((circle, index) => (
                     <View key={index} style={[styles.circleTag, { backgroundColor: colors.tagBackground }]}>
@@ -222,40 +361,99 @@ export default function MemberProfileScreen() {
                 </View>
               )}
               
-              {/* Bio */}
-              {profileData.bio && (
+              {isFriend && profileData.bio && (
                 <Text style={[styles.bio, { color: colors.text }]}>
                   {profileData.bio}
                 </Text>
               )}
               
-              {/* Location and join date */}
-              <View style={styles.metadata}>
-                {profileData.location && (
-                  <View style={styles.metadataItem}>
-                    <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
-                    <Text style={[styles.metadataText, { color: colors.textSecondary }]}>
-                      {profileData.location}
-                    </Text>
-                  </View>
-                )}
-                <View style={styles.metadataItem}>
-                  <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
-                  <Text style={[styles.metadataText, { color: colors.textSecondary }]}>
-                    Joined {profileData.joinedDate}
+              {!isFriend && (
+                <View style={styles.privacyNotice}>
+                  <Text style={[styles.privacyText, { color: colors.textSecondary }]}>
+                    {friendshipStatus === 'pending_sent' && 'Friend request sent'}
+                    {friendshipStatus === 'pending_received' && 'Wants to be your friend'}
+                    {friendshipStatus === 'none' && 'Connect to view profile'}
                   </Text>
                 </View>
-              </View>
+              )}
+              
+              {isFriend && (
+                <View style={styles.metadata}>
+                  {profileData.location && (
+                    <View style={styles.metadataItem}>
+                      <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
+                      <Text style={[styles.metadataText, { color: colors.textSecondary }]}>
+                        {profileData.location}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.metadataItem}>
+                    <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
+                    <Text style={[styles.metadataText, { color: colors.textSecondary }]}>
+                      Joined {profileData.joinedDate}
+                    </Text>
+                  </View>
+                </View>
+              )}
             </View>
           </View>
           
+          {/* Friendship Action Buttons */}
+          {!isFriend && user?.id && user.id !== profileData.id && (
+            <View style={styles.friendshipActions}>
+              {friendshipStatus === 'none' && (
+                <Pressable
+                  style={[styles.friendshipButton, { backgroundColor: colors.primary }]}
+                  onPress={handleAddFriend}
+                >
+                  <Ionicons name="person-add" size={18} color="white" />
+                  <Text style={styles.friendshipButtonText}>Add Friend</Text>
+                </Pressable>
+              )}
+              
+              {friendshipStatus === 'pending_sent' && (
+                <View style={[styles.friendshipButton, styles.pendingButton, { backgroundColor: colors.textSecondary }]}>
+                  <Ionicons name="time" size={18} color="white" />
+                  <Text style={styles.friendshipButtonText}>Request Sent</Text>
+                </View>
+              )}
+              
+              {friendshipStatus === 'pending_received' && (
+                <View style={styles.friendshipButtonGroup}>
+                  <Pressable
+                    style={[styles.friendshipButton, styles.acceptButton, { backgroundColor: colors.primary }]}
+                    onPress={handleAcceptRequest}
+                  >
+                    <Ionicons name="checkmark" size={18} color="white" />
+                    <Text style={styles.friendshipButtonText}>Accept</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.friendshipButton, styles.declineButton, { backgroundColor: colors.textSecondary }]}
+                    onPress={handleDeclineRequest}
+                  >
+                    <Ionicons name="close" size={18} color="white" />
+                    <Text style={styles.friendshipButtonText}>Decline</Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
-        {/* Member Stats */}
-        <MemberStatsCard stats={profileData.stats} />
+        {/* Member Stats - Only for friends */}
+        {isFriend && <MemberStatsCard stats={profileData.stats} />}
 
-        {/* Tabs */}
-        <View style={[styles.tabs, { backgroundColor: colors.border }]}>
+        {/* Tabs - Only for friends */}
+        {isFriend && (
+        <>
+        <View style={[styles.tabs, { 
+          backgroundColor: colors.border,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.05,
+          shadowRadius: 4,
+          elevation: 2,
+        }]}>
           <Pressable
             style={[
               styles.tab,
@@ -265,9 +463,10 @@ export default function MemberProfileScreen() {
           >
             <Text style={[
               styles.tabText,
-              { color: activeTab === 'roster' ? colors.text : colors.textSecondary }
-            ]}>
-              Dating Roster ({profileData.datingRoster.length})
+              { color: activeTab === 'roster' ? colors.text : colors.textSecondary },
+              styles.tabTextEllipsis
+            ]} numberOfLines={1}>
+              Roster ({profileData.datingRoster.length})
             </Text>
           </Pressable>
           <Pressable
@@ -279,9 +478,10 @@ export default function MemberProfileScreen() {
           >
             <Text style={[
               styles.tabText,
-              { color: activeTab === 'dates' ? colors.text : colors.textSecondary }
-            ]}>
-              Recent Dates ({profileData.dateHistory.length})
+              { color: activeTab === 'dates' ? colors.text : colors.textSecondary },
+              styles.tabTextEllipsis
+            ]} numberOfLines={1}>
+              Recent ({profileData.dateHistory.length})
             </Text>
           </Pressable>
           <Pressable
@@ -293,13 +493,14 @@ export default function MemberProfileScreen() {
           >
             <Text style={[
               styles.tabText,
-              { color: activeTab === 'future' ? colors.text : colors.textSecondary }
-            ]}>
-              Future Dates ({profileData.futureDates.length})
+              { color: activeTab === 'future' ? colors.text : colors.textSecondary },
+              styles.tabTextEllipsis
+            ]} numberOfLines={1}>
+              Future ({profileData.futureDates.length})
             </Text>
           </Pressable>
         </View>
-
+        
         {/* Tab Content */}
         <View style={styles.tabContent}>
           {activeTab === 'roster' ? (
@@ -410,6 +611,19 @@ export default function MemberProfileScreen() {
             </View>
           )}
         </View>
+        </>
+        )}
+
+        {/* Privacy Notice for Non-Friends */}
+        {!isFriend && (
+          <View style={[styles.privacyContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Ionicons name="lock-closed" size={32} color={colors.textSecondary} />
+            <Text style={[styles.privacyTitle, { color: colors.text }]}>Profile Protected</Text>
+            <Text style={[styles.privacyDescription, { color: colors.textSecondary }]}>
+              This user's profile is private. Connect as friends to view their dating activity, roster, and stats.
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -454,12 +668,16 @@ const styles = StyleSheet.create({
   },
   profileHeader: {
     marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 16,
-    padding: 20,
-    borderRadius: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    padding: 24,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: Colors.light.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   profileInfo: {
     flexDirection: 'row',
@@ -506,15 +724,18 @@ const styles = StyleSheet.create({
   tabs: {
     flexDirection: 'row',
     marginHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 20,
     padding: 4,
     borderRadius: 12,
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     alignItems: 'center',
     borderRadius: 8,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   activeTab: {
     shadowColor: '#000',
@@ -524,8 +745,12 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   tabText: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  tabTextEllipsis: {
+    flexShrink: 1,
   },
   tabContent: {
     paddingHorizontal: 16,
@@ -577,5 +802,70 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  restrictedAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  privacyNotice: {
+    marginTop: 8,
+  },
+  privacyText: {
+    fontSize: 14,
+    fontStyle: 'italic',
+  },
+  friendshipActions: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  friendshipButtonGroup: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  friendshipButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    gap: 6,
+    minWidth: 100,
+    justifyContent: 'center',
+  },
+  friendshipButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  acceptButton: {
+    flex: 1,
+  },
+  declineButton: {
+    flex: 1,
+  },
+  pendingButton: {
+    opacity: 0.7,
+  },
+  privacyContainer: {
+    marginHorizontal: 16,
+    marginTop: 24,
+    padding: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  privacyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  privacyDescription: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

@@ -4,9 +4,8 @@ import {
   Text,
   StyleSheet,
   ViewStyle,
-} from 'react-native';
+ Image } from 'react-native';
 import { Colors } from '@/constants/Colors';
-import { Image } from 'react-native';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { OptimizedImage } from '@/components/ui/OptimizedImage';
 

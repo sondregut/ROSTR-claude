@@ -8,12 +8,11 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-} from 'react-native';
+ Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useSafeUser } from '@/hooks/useSafeUser';
-import { Image } from 'react-native';
 
 interface Comment {
   id?: string;

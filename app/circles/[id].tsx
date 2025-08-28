@@ -27,6 +27,7 @@ import { useAuth } from '@/contexts/SimpleAuthContext';
 import { useCircles } from '@/contexts/CircleContext';
 import { shareCircleInvite } from '@/lib/inviteUtils';
 import { useUser } from '@/contexts/UserContext';
+import { CircleInviteModal } from '@/components/ui/modals/CircleInviteModal';
 
 
 export default function CircleDetailScreen() {
@@ -45,6 +46,7 @@ export default function CircleDetailScreen() {
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedUpdateId, setSelectedUpdateId] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isInviteModalVisible, setIsInviteModalVisible] = useState(false);
   
   // Load circle data when component mounts
   useEffect(() => {
@@ -515,13 +517,28 @@ export default function CircleDetailScreen() {
                 }
               />
             ) : activeTab === 'members' ? (
-              <FlatList
-                data={currentCircle.members}
-                renderItem={renderMember}
-                keyExtractor={item => item.id}
-                scrollEnabled={false}
-                ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-              />
+              <View>
+                {/* Add Members Button */}
+                {permissions.canEditCircle && (
+                  <View style={styles.addMembersButtonContainer}>
+                    <Pressable
+                      style={[styles.addMembersButton, { backgroundColor: colors.primary }]}
+                      onPress={() => setIsInviteModalVisible(true)}
+                    >
+                      <Ionicons name="person-add" size={20} color="white" />
+                      <Text style={styles.addMembersButtonText}>Add Members</Text>
+                    </Pressable>
+                  </View>
+                )}
+                
+                <FlatList
+                  data={currentCircle.members}
+                  renderItem={renderMember}
+                  keyExtractor={item => item.id}
+                  scrollEnabled={false}
+                  ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                />
+              </View>
             ) : (
               <View>
                 <CircleStatsCard
@@ -565,6 +582,22 @@ export default function CircleDetailScreen() {
           })) || []}
         />
       )}
+      
+      {/* Circle Invite Modal for Adding Members */}
+      <CircleInviteModal
+        visible={isInviteModalVisible}
+        onClose={() => setIsInviteModalVisible(false)}
+        circleId={currentCircle?.id || ''}
+        circleName={currentCircle?.name || ''}
+        joinCode={currentCircle?.join_code || ''}
+        onMembersAdded={(count) => {
+          console.log(`Added ${count} members to circle`);
+          // Refresh circle data
+          if (id) {
+            loadCircle(id as string);
+          }
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -813,9 +846,27 @@ const styles = StyleSheet.create({
   moreButton: {
     padding: 8,
   },
+  addMembersButtonContainer: {
+    marginBottom: 16,
+    alignItems: 'center',
+  },
   addMembersButton: {
-    marginTop: 16,
-    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  addMembersButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   emptyState: {
     padding: 32,

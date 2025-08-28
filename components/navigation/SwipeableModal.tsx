@@ -115,6 +115,7 @@ export function SwipeableModal({
       onRequestClose={onRequestClose}
       animationType={finalAnimationType}
       transparent
+      presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
       {...modalProps}
     >
       <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>

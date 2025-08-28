@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { notificationService } from '@/services/notifications/NotificationService';
 
 export interface CircleMessage {
   id: string;
@@ -86,6 +87,60 @@ export class CircleChatService {
       if (error) {
         console.error('❌ Failed to send message to both tables:', error);
         throw error;
+      }
+
+      // Send notifications to other circle members (exclude sender)
+      try {
+        const { data: circleMembers } = await supabase
+          .from('circle_members')
+          .select(`
+            user_id,
+            user:users!circle_members_user_id_fkey (
+              id,
+              name
+            )
+          `)
+          .eq('circle_id', circleId)
+          .neq('user_id', senderId);
+
+        if (circleMembers && circleMembers.length > 0) {
+          // Get circle name for notification
+          const { data: circle } = await supabase
+            .from('circles')
+            .select('name')
+            .eq('id', circleId)
+            .single();
+
+          const circleName = circle?.name || 'Circle';
+          
+          // Create notifications for all other members
+          const notifications = circleMembers.map(member => ({
+            user_id: member.user_id,
+            type: 'circle_message' as const,
+            title: `New message in ${circleName}`,
+            body: `${senderName}: ${content}`,
+            data: { 
+              circleId,
+              circleName,
+              messageId: message.id,
+              senderId,
+              senderName 
+            },
+            read: false
+          }));
+
+          // Send notifications in parallel (don't await to avoid slowing down message sending)
+          Promise.all(
+            notifications.map(notification =>
+              notificationService.createNotification(notification)
+            )
+          ).catch(error => {
+            console.error('Failed to send message notifications:', error);
+          });
+        }
+      } catch (notificationError) {
+        console.error('Error creating circle message notifications:', notificationError);
+        // Don't throw error since message was sent successfully
       }
 
       // Ensure we return the expected format

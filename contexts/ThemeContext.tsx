@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useColorScheme as useDeviceColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-type ThemeMode = 'light' | 'dark' | 'system';
+type ThemeMode = 'light' | 'dark';
 
 interface ThemeContextType {
   themeMode: ThemeMode;
@@ -15,8 +14,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 const THEME_STORAGE_KEY = '@theme_mode';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const deviceColorScheme = useDeviceColorScheme();
-  const [themeMode, setThemeModeState] = useState<ThemeMode>('system');
+  const [themeMode, setThemeModeState] = useState<ThemeMode>('light');
 
   useEffect(() => {
     loadThemeMode();
@@ -25,8 +23,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const loadThemeMode = async () => {
     try {
       const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
-      if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system')) {
+      if (savedTheme === 'light' || savedTheme === 'dark') {
         setThemeModeState(savedTheme as ThemeMode);
+      } else {
+        // Default to light if invalid or 'system' was saved
+        setThemeModeState('light');
       }
     } catch (error) {
       console.error('Error loading theme mode:', error);
@@ -42,9 +43,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const colorScheme = themeMode === 'system' 
-    ? (deviceColorScheme ?? 'light')
-    : themeMode;
+  const colorScheme = themeMode;
 
   return (
     <ThemeContext.Provider value={{ themeMode, setThemeMode, colorScheme }}>

@@ -33,7 +33,7 @@ export function ProfileCard({
   const colors = Colors[colorScheme ?? 'light'];
 
   // Define the status cycle order
-  const statusCycle: Array<'new' | 'active' | 'fading' | 'ended' | 'ghosted'> = ['new', 'active', 'fading', 'ended', 'ghosted'];
+  const statusCycle: ('new' | 'active' | 'fading' | 'ended' | 'ghosted')[] = ['new', 'active', 'fading', 'ended', 'ghosted'];
   
   const handleStatusPress = () => {
     if (!onStatusPress || !status) return;

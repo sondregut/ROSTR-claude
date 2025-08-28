@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState , useEffect } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -23,7 +23,6 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { pickImageWithCrop, uploadImageToSupabase } from '@/lib/photoUpload';
 import { supabase } from '@/lib/supabase';
 import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
-import { useEffect } from 'react';
 import { MiniBarChart } from '@/components/ui/charts/MiniBarChart';
 import { ProgressRing } from '@/components/ui/charts/ProgressRing';
 import { useAppLifecycle } from '@/hooks/useAppLifecycle';

@@ -23,6 +23,7 @@ const MAPPING = {
   'plus.circle.fill': 'add-circle',
   'person.3.fill': 'groups',
   'person.fill': 'person',
+  'heart.circle': 'favorite',
 } as IconMapping;
 
 /**

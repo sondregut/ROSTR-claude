@@ -5,6 +5,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 interface MemberStatsData {
   totalDates: number;
@@ -18,31 +19,37 @@ interface MemberStatsCardProps {
 }
 
 export function MemberStatsCard({ stats }: MemberStatsCardProps) {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  
   const formatRating = (rating: number) => {
     return rating > 0 ? rating.toFixed(1) : '—';
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { 
+      backgroundColor: colors.card,
+      borderColor: colors.border,
+    }]}>
       <View style={styles.statsGrid}>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{stats.totalDates}</Text>
-          <Text style={styles.statLabel}>Total{'\n'}Dates</Text>
+          <Text style={[styles.statValue, { color: colors.text }]}>{stats.totalDates}</Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total{'\n'}Dates</Text>
         </View>
         
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{stats.activeDates}</Text>
-          <Text style={styles.statLabel}>Active</Text>
+          <Text style={[styles.statValue, { color: colors.text }]}>{stats.activeDates}</Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Active</Text>
         </View>
         
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{formatRating(stats.averageRating)}</Text>
-          <Text style={styles.statLabel}>Avg{'\n'}Rating</Text>
+          <Text style={[styles.statValue, { color: colors.text }]}>{formatRating(stats.averageRating)}</Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Avg{'\n'}Rating</Text>
         </View>
         
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{stats.datesThisMonth}</Text>
-          <Text style={styles.statLabel}>This{'\n'}Month</Text>
+          <Text style={[styles.statValue, { color: colors.text }]}>{stats.datesThisMonth}</Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>This{'\n'}Month</Text>
         </View>
       </View>
     </View>
@@ -51,33 +58,38 @@ export function MemberStatsCard({ stats }: MemberStatsCardProps) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: Colors.light.card,
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 8,
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 16,
+    marginVertical: 12,
     borderWidth: 1,
-    borderColor: Colors.light.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   statsGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
   statItem: {
     alignItems: 'center',
     flex: 1,
+    paddingHorizontal: 4,
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '700',
-    color: Colors.light.text,
-    marginBottom: 4,
+    marginBottom: 6,
+    letterSpacing: -0.5,
   },
   statLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: Colors.light.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
     textAlign: 'center',
-    lineHeight: 14,
+    lineHeight: 16,
+    letterSpacing: 0.2,
   },
 });

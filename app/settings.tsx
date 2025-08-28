@@ -76,7 +76,6 @@ export default function SettingsScreen() {
   ).current;
 
   const themeOptions = [
-    { value: 'system' as const, label: 'System', icon: 'phone-portrait-outline' as const },
     { value: 'light' as const, label: 'Light', icon: 'sunny-outline' as const },
     { value: 'dark' as const, label: 'Dark', icon: 'moon-outline' as const },
   ];

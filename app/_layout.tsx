@@ -1,14 +1,9 @@
 // Import URL polyfill first - CRITICAL for React Native
 import 'react-native-url-polyfill/auto';
 
-// Verify URL polyfill is working
-if (typeof URL === 'undefined' && __DEV__) {
-  console.error('❌ URL polyfill failed to load!');
-}
-
 
 import React from 'react';
-import { View, Text, Platform } from 'react-native';
+import { View, Text, Platform , AppState } from 'react-native';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -31,8 +26,12 @@ import { initSentry } from '@/services/sentry';
 import { memoryMonitor } from '@/utils/memoryMonitor';
 import { SafeAnimated } from '@/utils/globalAnimationManager';
 import { thermalStateManager } from '@/utils/thermalStateManager';
-import { AppState } from 'react-native';
 import { logger } from '@/utils/logger';
+
+// Verify URL polyfill is working
+if (typeof URL === 'undefined' && __DEV__) {
+  console.error('❌ URL polyfill failed to load!');
+}
 
 
 function RootLayoutNav() {

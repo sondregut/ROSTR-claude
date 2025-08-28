@@ -7,7 +7,7 @@ import {
   Pressable,
   Platform,
   Alert,
-} from 'react-native';
+ Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,7 +26,6 @@ import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
 import { useRoster } from '@/contexts/RosterContext';
 import { useUser } from '@/contexts/UserContext';
 import { RosterService } from '@/services/supabase/roster';
-import { Image } from 'react-native';
 import { OptimizedImage } from '@/components/ui/OptimizedImage';
 
 type TabType = 'overview' | 'plans';

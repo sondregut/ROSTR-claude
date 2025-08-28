@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View, Pressable, Animated } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View, Pressable, Animated , Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DateFeed } from '@/components/ui/feed/DateFeed';
@@ -13,7 +13,6 @@ import { useSafeAuth } from '@/hooks/useSafeAuth';
 import { useSafeUser } from '@/hooks/useSafeUser';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useRouter } from 'expo-router';
-import { Alert } from 'react-native';
 import { NotificationBell } from '@/components/ui/notifications/NotificationBell';
 
 export default function FeedScreen() {
@@ -232,6 +231,12 @@ export default function FeedScreen() {
       <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
         Add your first date or follow friends to see their updates
       </Text>
+      <Pressable 
+        style={[styles.emptyAddButton, { backgroundColor: colors.primary }]}
+        onPress={() => router.push('/(tabs)/update')}
+      >
+        <Text style={styles.emptyAddButtonText}>Make First Update</Text>
+      </Pressable>
     </View>
   );
   
@@ -375,11 +380,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
-    marginTop: 60,
+    paddingHorizontal: 32,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     marginTop: 16,
     marginBottom: 8,
@@ -418,6 +422,17 @@ const styles = StyleSheet.create({
   newPostsText: {
     color: 'white',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyAddButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+    marginTop: 24,
+  },
+  emptyAddButtonText: {
+    color: 'white',
+    fontSize: 16,
     fontWeight: '600',
   },
 });

@@ -11,7 +11,8 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
-  ScrollView
+  ScrollView,
+  Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +21,8 @@ import { pickImageWithCrop } from '@/lib/photoUpload';
 import { Button } from '../buttons/Button';
 import { Colors } from '../../../constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { EnhancedContactModal } from './EnhancedContactModal';
+import { UserSearchModal } from '../search/UserSearchModal';
 
 interface Friend {
   id: string;
@@ -39,7 +42,7 @@ interface FriendCircleModalProps {
   visible: boolean;
   onClose: () => void;
   onCreateCircle: (circleName: string, description: string, friendIds: string[], groupPhotoUri?: string) => void;
-  friends: Friend[];
+  friends?: Friend[];
   existingCircles?: FriendCircle[];
 }
 
@@ -47,7 +50,7 @@ export function FriendCircleModal({
   visible,
   onClose,
   onCreateCircle,
-  friends,
+  friends = [],
   existingCircles = [],
 }: FriendCircleModalProps) {
   const colorScheme = useColorScheme();
@@ -60,6 +63,8 @@ export function FriendCircleModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [groupPhotoUri, setGroupPhotoUri] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isContactModalVisible, setIsContactModalVisible] = useState(false);
+  const [isSearchModalVisible, setIsSearchModalVisible] = useState(false);
   
   const toggleFriendSelection = (friend: Friend) => {
     const isAlreadySelected = selectedFriends.some(f => f.id === friend.id);
@@ -70,6 +75,18 @@ export function FriendCircleModal({
       setSelectedFriends([...selectedFriends, friend]);
     }
   };
+  
+  const clearSelection = () => {
+    setSelectedFriends([]);
+  };
+  
+  const selectAllFilteredFriends = () => {
+    if (!filteredFriends || filteredFriends.length === 0) return;
+    const allFilteredFriends = filteredFriends.filter(f => !selectedFriends.some(sf => sf.id === f.id));
+    setSelectedFriends([...selectedFriends, ...allFilteredFriends]);
+  };
+  
+  const hasUnselectedFriends = filteredFriends && filteredFriends.length > 0 && filteredFriends.some(f => !selectedFriends.some(sf => sf.id === f.id));
   
   const handleImagePick = async () => {
     try {
@@ -107,6 +124,13 @@ export function FriendCircleModal({
         resetForm();
       } catch (error) {
         console.error('Error creating circle:', error);
+        const errorMessage = error.message?.includes('permission')
+          ? 'Permission denied. Please try again later.'
+          : error.message?.includes('network')
+          ? 'Network error. Please check your connection.'
+          : 'Failed to create circle. Please try again.';
+          
+        Alert.alert('Error', errorMessage);
         setIsCreating(false);
       }
     }
@@ -119,9 +143,18 @@ export function FriendCircleModal({
     setSearchQuery('');
     setGroupPhotoUri(null);
     setIsCreating(false);
+    setIsContactModalVisible(false);
+    setIsSearchModalVisible(false);
   };
   
-  const filteredFriends = friends.filter(friend => 
+  const handleNewFriendAdded = () => {
+    // This callback would be used to refresh the friends list
+    // For now, we'll just close modals since the friend list comes from parent
+    setIsContactModalVisible(false);
+    setIsSearchModalVisible(false);
+  };
+  
+  const filteredFriends = (friends || []).filter(friend => 
     friend.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     friend.username.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -134,7 +167,11 @@ export function FriendCircleModal({
         style={({ pressed }) => [
           styles.friendItem,
           pressed && styles.pressed,
-          isSelected && { backgroundColor: `${colors.primary}20` }
+          isSelected && { 
+            backgroundColor: `${colors.primary}15`, 
+            borderColor: colors.primary,
+            borderWidth: 1
+          }
         ]}
         onPress={() => toggleFriendSelection(item)}
         accessibilityRole="checkbox"
@@ -163,7 +200,7 @@ export function FriendCircleModal({
         
         <View style={[
           styles.checkbox, 
-          { borderColor: colors.text },
+          { borderColor: colors.border },
           isSelected && { backgroundColor: colors.primary, borderColor: colors.primary }
         ]}>
           {isSelected && <Ionicons name="checkmark" size={16} color="white" />}
@@ -222,14 +259,15 @@ export function FriendCircleModal({
     <SwipeableModal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
       onRequestClose={onClose}
       onSwipeDown={onClose}
       swipeToCloseEnabled={true}
     >
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <Text style={[styles.title, { color: colors.text }]}>Friend Circles</Text>
+          <Text style={[styles.title, { color: colors.text }]}>
+            {selectedFriends.length > 0 ? `Friend Circles (${selectedFriends.length} selected)` : 'Friend Circles'}
+          </Text>
           <Pressable
             onPress={onClose}
             style={({ pressed }) => [
@@ -377,21 +415,32 @@ export function FriendCircleModal({
                 
                 <View style={styles.formGroup}>
                   <Text style={[styles.label, { color: colors.text }]}>Add Friends</Text>
-                  <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <Ionicons name="search" size={20} color={colors.textSecondary} />
-                    <TextInput
-                      style={[styles.searchInput, { color: colors.text }]}
-                      placeholder="Search friends"
-                      placeholderTextColor={colors.textSecondary}
-                      value={searchQuery}
-                      onChangeText={setSearchQuery}
-                    />
-                  </View>
+                  
+                  {friends.length > 0 ? (
+                    <>
+                      {/* Search Bar for existing friends */}
+                      <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                        <Ionicons name="search" size={20} color={colors.textSecondary} />
+                        <TextInput
+                          style={[styles.searchInput, { color: colors.text }]}
+                          placeholder="Search your friends"
+                          placeholderTextColor={colors.textSecondary}
+                          value={searchQuery}
+                          onChangeText={setSearchQuery}
+                        />
+                      </View>
+                    </>
+                  ) : (
+                    <Text style={[styles.noFriendsText, { color: colors.textSecondary }]}>
+                      You don't have any friends yet. Find some to add to your circle!
+                    </Text>
+                  )}
                 </View>
                 
+                {/* Selected Friends Display */}
                 {selectedFriends.length > 0 && (
                   <View style={styles.selectedContainer}>
-                    <Text style={[styles.selectedLabel, { color: colors.textSecondary }]}>
+                    <Text style={[styles.selectedLabel, { color: colors.text }]}>
                       Selected ({selectedFriends.length})
                     </Text>
                     <View style={styles.selectedFriends}>
@@ -423,16 +472,78 @@ export function FriendCircleModal({
                     </View>
                   </View>
                 )}
-              
-                    <FlatList
-                      data={filteredFriends}
-                      renderItem={renderFriendItem}
-                      keyExtractor={item => item.id}
-                      style={styles.friendsList}
-                      contentContainerStyle={styles.friendsListContent}
-                      keyboardShouldPersistTaps="handled"
-                      showsVerticalScrollIndicator={false}
-                    />
+                
+                {/* Existing Friends List */}
+                {friends.length > 0 && (
+                  <FlatList
+                    data={filteredFriends}
+                    renderItem={renderFriendItem}
+                    keyExtractor={item => item.id}
+                    style={styles.friendsList}
+                    contentContainerStyle={styles.friendsListContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                    ListHeaderComponent={() => (
+                      <View style={styles.friendsListHeader}>
+                        <View style={styles.friendsHeaderRow}>
+                          <Text style={[styles.friendsListTitle, { color: colors.text }]}>
+                            Your Friends ({filteredFriends.length})
+                          </Text>
+                          {filteredFriends.length > 0 && (
+                            <View style={styles.quickActions}>
+                              {hasUnselectedFriends && (
+                                <Pressable
+                                  onPress={selectAllFilteredFriends}
+                                  style={[styles.quickActionButton, { borderColor: colors.primary }]}
+                                >
+                                  <Text style={[styles.quickActionText, { color: colors.primary }]}>Select All</Text>
+                                </Pressable>
+                              )}
+                              {selectedFriends.length > 0 && (
+                                <Pressable
+                                  onPress={clearSelection}
+                                  style={[styles.quickActionButton, { borderColor: colors.textSecondary }]}
+                                >
+                                  <Text style={[styles.quickActionText, { color: colors.textSecondary }]}>Clear</Text>
+                                </Pressable>
+                              )}
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                    )}
+                  />
+                )}
+                
+                {/* Find More Friends Section */}
+                <View style={styles.discoverySection}>
+                  <Text style={[styles.discoveryTitle, { color: colors.text }]}>
+                    {friends.length === 0 ? 'Find Friends' : 'Find More Friends'}
+                  </Text>
+                  <Text style={[styles.discoveryText, { color: colors.textSecondary }]}>
+                    {friends.length === 0 
+                      ? 'Get started by finding friends to add to your circle:'
+                      : 'Add more friends from contacts or search:'}
+                  </Text>
+                  
+                  <View style={styles.discoveryActions}>
+                    <Pressable
+                      style={[styles.discoveryButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onPress={() => setIsContactModalVisible(true)}
+                    >
+                      <Ionicons name="people" size={20} color={colors.primary} />
+                      <Text style={[styles.discoveryButtonText, { color: colors.text }]}>Find from Contacts</Text>
+                    </Pressable>
+                    
+                    <Pressable
+                      style={[styles.discoveryButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onPress={() => setIsSearchModalVisible(true)}
+                    >
+                      <Ionicons name="search" size={20} color={colors.primary} />
+                      <Text style={[styles.discoveryButtonText, { color: colors.text }]}>Search Username</Text>
+                    </Pressable>
+                  </View>
+                </View>
                     
                     <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
                       <Button 
@@ -442,10 +553,10 @@ export function FriendCircleModal({
                         style={styles.footerButton}
                       />
                       <Button 
-                        title={isCreating ? "Creating..." : "Create Circle"} 
+                        title={isCreating ? "Creating Circle..." : "Create Circle"} 
                         variant="primary" 
                         onPress={handleCreateCircle} 
-                        style={styles.footerButton}
+                        style={[styles.footerButton, { opacity: !circleName.trim() ? 0.5 : 1 }]}
                         disabled={!circleName.trim() || isCreating}
                         loading={isCreating}
                       />
@@ -482,6 +593,26 @@ export function FriendCircleModal({
                 </View>
               )}
             </KeyboardAvoidingView>
+            
+            {/* Enhanced Contact Modal */}
+            <EnhancedContactModal
+              visible={isContactModalVisible}
+              onClose={() => setIsContactModalVisible(false)}
+              onInvitesSent={(count) => {
+                console.log(`Sent invites to ${count} contacts`);
+              }}
+              onFriendsAdded={(count) => {
+                console.log(`Added ${count} friends`);
+                handleNewFriendAdded();
+              }}
+            />
+
+            {/* User Search Modal */}
+            <UserSearchModal
+              visible={isSearchModalVisible}
+              onClose={() => setIsSearchModalVisible(false)}
+              onFriendAdded={handleNewFriendAdded}
+            />
       </SafeAreaView>
     </SwipeableModal>
   );
@@ -498,7 +629,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    paddingTop: 16, // Space from tabs
     paddingBottom: 100, // Space for footer
+    paddingHorizontal: 16, // Horizontal padding for all content
   },
   header: {
     flexDirection: 'row',
@@ -541,7 +674,6 @@ const styles = StyleSheet.create({
   },
   formGroup: {
     marginBottom: 16,
-    paddingHorizontal: 16,
   },
   label: {
     fontSize: 16,
@@ -580,7 +712,68 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
-    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  noFriendsText: {
+    fontSize: 14,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 16,
+  },
+  friendsListHeader: {
+    marginBottom: 12,
+  },
+  friendsHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  friendsListTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  quickActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  quickActionButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  quickActionText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  discoverySection: {
+    marginTop: 20,
+    marginBottom: 16,
+  },
+  discoveryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  discoveryText: {
+    fontSize: 14,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  discoveryActions: {
+    gap: 12,
+  },
+  discoveryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  discoveryButtonText: {
+    fontSize: 15,
+    fontWeight: '500',
   },
   searchInput: {
     flex: 1,
@@ -589,7 +782,6 @@ const styles = StyleSheet.create({
   },
   selectedContainer: {
     marginBottom: 16,
-    paddingHorizontal: 16,
   },
   selectedLabel: {
     fontSize: 14,
@@ -636,7 +828,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   friendsListContent: {
-    paddingHorizontal: 16,
     paddingBottom: 16,
   },
   friendItem: {
