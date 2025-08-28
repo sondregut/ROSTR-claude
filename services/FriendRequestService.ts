@@ -328,19 +328,18 @@ export class FriendRequestService {
         return false;
       }
 
-      const { error } = await supabase
-        .from('friendships')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('friend_id', friendId)
-        .eq('status', 'pending');
+      const { data, error } = await supabase
+        .rpc('reject_friend_request', {
+          p_requester_id: user.id,
+          p_target_id: friendId
+        });
 
       if (error) {
         console.error('Error canceling friend request:', error);
         return false;
       }
 
-      return true;
+      return data === true;
     } catch (error) {
       console.error('Error canceling friend request:', error);
       return false;

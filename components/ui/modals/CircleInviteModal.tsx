@@ -60,6 +60,7 @@ export function CircleInviteModal({
   const [activeSection, setActiveSection] = useState<ActiveSection>('friends');
   const [isLoading, setIsLoading] = useState(true);
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [totalFriendsCount, setTotalFriendsCount] = useState(0);
   const [selectedFriends, setSelectedFriends] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -76,6 +77,7 @@ export function CircleInviteModal({
   const resetState = () => {
     setActiveSection('friends');
     setFriends([]);
+    setTotalFriendsCount(0);
     setSelectedFriends(new Set());
     setSearchQuery('');
     setIsProcessing(false);
@@ -112,6 +114,9 @@ export function CircleInviteModal({
         .eq('circle_id', circleId);
 
       const memberIds = new Set(circleMembers?.map(m => m.user_id) || []);
+
+      // Track total friends count
+      setTotalFriendsCount(userFriends?.length || 0);
 
       // Filter out friends who are already members
       const inviteableFriends = (userFriends || [])
@@ -390,14 +395,30 @@ export function CircleInviteModal({
               <View style={styles.emptyContainer}>
                 <Ionicons name="people-outline" size={48} color={colors.textSecondary} />
                 <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                  {friends.length === 0 ? 'No Friends Available' : 'No Matches Found'}
+                  {totalFriendsCount === 0 
+                    ? 'No Friends Yet' 
+                    : friends.length === 0 
+                    ? 'All Friends Already Added'
+                    : 'No Matches Found'
+                  }
                 </Text>
                 <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                  {friends.length === 0 
-                    ? 'All your friends are already in this circle!'
+                  {totalFriendsCount === 0 
+                    ? "You don't have any friends on RostrDating yet. Let's find some!" 
+                    : friends.length === 0 
+                    ? 'All your friends are already members of this circle!'
                     : 'Try a different search term'
                   }
                 </Text>
+                {totalFriendsCount === 0 && (
+                  <Pressable 
+                    style={[styles.discoverButton, { backgroundColor: colors.primary }]}
+                    onPress={() => setActiveSection('discover')}
+                  >
+                    <Ionicons name="search" size={20} color="white" />
+                    <Text style={styles.discoverButtonText}>Discover Friends</Text>
+                  </Pressable>
+                )}
               </View>
             ) : (
               <FlatList
@@ -718,6 +739,21 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     fontSize: 14,
     textAlign: 'center',
+    marginBottom: 24,
+  },
+  discoverButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    gap: 8,
+  },
+  discoverButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   discoverActions: {
     gap: 12,

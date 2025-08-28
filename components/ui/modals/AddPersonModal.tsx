@@ -72,6 +72,7 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
   
   const [errors, setErrors] = useState<Partial<Record<keyof PersonData, string>>>({});
   const [showHowWeMetOptions, setShowHowWeMetOptions] = useState(false);
+  const [isAtTop, setIsAtTop] = useState(true);
   
   // Removed debouncing to fix performance issues
   
@@ -328,6 +329,9 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
       onRequestClose={handleClose}
       onSwipeDown={handleClose}
       swipeToCloseEnabled={true}
+      swipeThreshold={200}
+      swipeVelocityThreshold={0.8}
+      isAtTop={isAtTop}
     >
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
@@ -350,6 +354,11 @@ export function AddPersonModal({ visible, onClose, onSave, initialData }: AddPer
             contentContainerStyle={styles.contentContainer}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
+            onScroll={(event) => {
+              const scrollY = event.nativeEvent.contentOffset.y;
+              setIsAtTop(scrollY <= 10);
+            }}
+            scrollEventThrottle={16}
           >
             {/* Photo Section */}
             <View style={styles.photoSection}>

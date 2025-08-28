@@ -251,19 +251,10 @@ export default function CircleDetailScreen() {
             <View style={styles.navActions}>
               <Pressable 
                 style={[styles.navButtonOutline, { borderColor: colors.border }]}
-                onPress={async () => {
-                  try {
-                    await shareCircleInvite(
-                      { id: currentCircle.id, name: currentCircle.name, description: currentCircle.description },
-                      { id: user?.id || '', name: user?.user_metadata?.full_name || user?.email || 'Someone' }
-                    );
-                  } catch (error) {
-                    console.error('Failed to share invite:', error);
-                  }
-                }}
+                onPress={() => setIsInviteModalVisible(true)}
               >
                 <Ionicons name="person-add-outline" size={18} color={colors.text} />
-                <Text style={[styles.navButtonText, { color: colors.text }]}>Invite</Text>
+                <Text style={[styles.navButtonText, { color: colors.text }]}>Add Friends</Text>
               </Pressable>
               {permissions.canEditCircle && (
                 <Pressable 
@@ -384,19 +375,10 @@ export default function CircleDetailScreen() {
             <View style={styles.navActions}>
               <Pressable 
                 style={[styles.navButtonOutline, { borderColor: colors.border }]}
-                onPress={async () => {
-                  try {
-                    await shareCircleInvite(
-                      { id: currentCircle.id, name: currentCircle.name, description: currentCircle.description },
-                      { id: user?.id || '', name: user?.user_metadata?.full_name || user?.email || 'Someone' }
-                    );
-                  } catch (error) {
-                    console.error('Failed to share invite:', error);
-                  }
-                }}
+                onPress={() => setIsInviteModalVisible(true)}
               >
                 <Ionicons name="person-add-outline" size={18} color={colors.text} />
-                <Text style={[styles.navButtonText, { color: colors.text }]}>Invite</Text>
+                <Text style={[styles.navButtonText, { color: colors.text }]}>Add Friends</Text>
               </Pressable>
               {permissions.canEditCircle && (
                 <Pressable 

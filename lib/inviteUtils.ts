@@ -12,9 +12,9 @@ export interface User {
 }
 
 // App Store URLs
-const APP_STORE_URL = 'https://apps.apple.com/app/rostrdating/id123456789'; // Replace with actual
-const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.rostrdating'; // Replace with actual
-const APP_WEBSITE = 'https://rostrdating.app'; // Replace with actual website
+const APP_STORE_URL = 'https://apps.apple.com/app/rostrdating/id6739120789';
+const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.sondregut.rostrdating';
+const APP_WEBSITE = 'https://rostrdating.app';
 
 export const generateCircleInviteLink = (circleId: string, inviterName?: string): string => {
   const params = new URLSearchParams();
@@ -31,7 +31,7 @@ export const generateWebFallbackLink = (circleId: string, inviterName?: string):
   if (inviterName) {
     params.append('invited_by', inviterName);
   }
-  return `${APP_WEBSITE}/join?${params.toString()}`;
+  return `${APP_WEBSITE}/invite/${circleId}?${params.toString()}`;
 };
 
 export const generateAppStoreLink = (): string => {

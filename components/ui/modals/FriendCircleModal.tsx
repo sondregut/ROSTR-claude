@@ -14,9 +14,9 @@ import {
   ScrollView,
   Alert
 } from 'react-native';
+import { SwipeableModal } from '@/components/navigation/SwipeableModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { SwipeableModal } from '@/components/navigation/SwipeableModal';
 import { pickImageWithCrop } from '@/lib/photoUpload';
 import { Button } from '../buttons/Button';
 import { Colors } from '../../../constants/Colors';
@@ -32,18 +32,11 @@ interface Friend {
   isSelected?: boolean;
 }
 
-interface FriendCircle {
-  id: string;
-  name: string;
-  friends: Friend[];
-}
-
 interface FriendCircleModalProps {
   visible: boolean;
   onClose: () => void;
   onCreateCircle: (circleName: string, description: string, friendIds: string[], groupPhotoUri?: string) => void;
   friends?: Friend[];
-  existingCircles?: FriendCircle[];
 }
 
 export function FriendCircleModal({
@@ -51,7 +44,6 @@ export function FriendCircleModal({
   onClose,
   onCreateCircle,
   friends = [],
-  existingCircles = [],
 }: FriendCircleModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -59,12 +51,13 @@ export function FriendCircleModal({
   const [circleName, setCircleName] = useState('');
   const [circleDescription, setCircleDescription] = useState('');
   const [selectedFriends, setSelectedFriends] = useState<Friend[]>([]);
-  const [activeTab, setActiveTab] = useState<'create' | 'manage'>('create');
   const [searchQuery, setSearchQuery] = useState('');
   const [groupPhotoUri, setGroupPhotoUri] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isContactModalVisible, setIsContactModalVisible] = useState(false);
   const [isSearchModalVisible, setIsSearchModalVisible] = useState(false);
+  const [friendDiscoveryMode, setFriendDiscoveryMode] = useState<'friends' | 'discover' | 'share'>('friends');
+  const [isAtTop, setIsAtTop] = useState(true);
   
   const toggleFriendSelection = (friend: Friend) => {
     const isAlreadySelected = selectedFriends.some(f => f.id === friend.id);
@@ -145,6 +138,7 @@ export function FriendCircleModal({
     setIsCreating(false);
     setIsContactModalVisible(false);
     setIsSearchModalVisible(false);
+    setFriendDiscoveryMode('friends');
   };
   
   const handleNewFriendAdded = () => {
@@ -209,64 +203,23 @@ export function FriendCircleModal({
     );
   };
 
-  const renderCircleItem = ({ item }: { item: FriendCircle }) => (
-    <View style={[styles.circleItem, { backgroundColor: colors.card }]}>
-      <View style={styles.circleHeader}>
-        <Text style={[styles.circleName, { color: colors.text }]}>{item.name}</Text>
-        <Text style={[styles.friendCount, { color: colors.textSecondary }]}>
-          {item.friends.length} {item.friends.length === 1 ? 'friend' : 'friends'}
-        </Text>
-      </View>
-      
-      <View style={styles.circleFriends}>
-        {item.friends.slice(0, 3).map((friend) => (
-          <View key={friend.id} style={styles.circleFriendChip}>
-            <Text style={[styles.circleFriendName, { color: colors.text }]}>
-              {friend.name}
-            </Text>
-          </View>
-        ))}
-        
-        {item.friends.length > 3 && (
-          <View style={styles.circleFriendChip}>
-            <Text style={[styles.circleFriendName, { color: colors.text }]}>
-              +{item.friends.length - 3} more
-            </Text>
-          </View>
-        )}
-      </View>
-      
-      <View style={styles.circleActions}>
-        <Button 
-          title="Edit" 
-          variant="outline" 
-          size="small" 
-          onPress={() => {}} 
-          style={styles.circleActionButton}
-        />
-        <Button 
-          title="Delete" 
-          variant="outline" 
-          size="small" 
-          onPress={() => {}} 
-          style={styles.circleActionButton}
-        />
-      </View>
-    </View>
-  );
 
   return (
     <SwipeableModal
       visible={visible}
       animationType="slide"
+      presentationStyle="pageSheet"
       onRequestClose={onClose}
       onSwipeDown={onClose}
       swipeToCloseEnabled={true}
+      swipeThreshold={200}
+      swipeVelocityThreshold={0.8}
+      isAtTop={isAtTop}
     >
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <Text style={[styles.title, { color: colors.text }]}>
-            {selectedFriends.length > 0 ? `Friend Circles (${selectedFriends.length} selected)` : 'Friend Circles'}
+            Create New Circle
           </Text>
           <Pressable
             onPress={onClose}
@@ -281,46 +234,6 @@ export function FriendCircleModal({
           </Pressable>
         </View>
         
-        <View style={[styles.tabs, { borderBottomColor: colors.border }]}>
-          <Pressable
-            style={[
-              styles.tab,
-              activeTab === 'create' && [styles.activeTab, { borderBottomColor: colors.primary }]
-            ]}
-            onPress={() => setActiveTab('create')}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === 'create' }}
-          >
-            <Text 
-              style={[
-                styles.tabText, 
-                { color: activeTab === 'create' ? colors.primary : colors.textSecondary }
-              ]}
-            >
-              Create New
-            </Text>
-          </Pressable>
-          
-          <Pressable
-            style={[
-              styles.tab,
-              activeTab === 'manage' && [styles.activeTab, { borderBottomColor: colors.primary }]
-            ]}
-            onPress={() => setActiveTab('manage')}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === 'manage' }}
-          >
-            <Text 
-              style={[
-                styles.tabText, 
-                { color: activeTab === 'manage' ? colors.primary : colors.textSecondary }
-              ]}
-            >
-              Manage Existing
-            </Text>
-          </Pressable>
-        </View>
-        
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardAvoid}
@@ -329,9 +242,14 @@ export function FriendCircleModal({
           {activeTab === 'create' ? (
             <ScrollView 
               style={styles.scrollView}
-              contentContainerStyle={styles.scrollContent}
+              contentContainerStyle={styles.contentContainer}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
+              onScroll={(event) => {
+                const scrollY = event.nativeEvent.contentOffset.y;
+                setIsAtTop(scrollY <= 10);
+              }}
+              scrollEventThrottle={16}
             >
                 <View style={styles.formGroup}>
                   <View style={styles.labelRow}>
@@ -515,33 +433,120 @@ export function FriendCircleModal({
                   />
                 )}
                 
-                {/* Find More Friends Section */}
+                {/* Add Friends Section */}
                 <View style={styles.discoverySection}>
                   <Text style={[styles.discoveryTitle, { color: colors.text }]}>
                     {friends.length === 0 ? 'Find Friends' : 'Find More Friends'}
                   </Text>
-                  <Text style={[styles.discoveryText, { color: colors.textSecondary }]}>
-                    {friends.length === 0 
-                      ? 'Get started by finding friends to add to your circle:'
-                      : 'Add more friends from contacts or search:'}
-                  </Text>
                   
-                  <View style={styles.discoveryActions}>
+                  {/* Friend Discovery Tabs */}
+                  <View style={[styles.discoveryTabs, { borderBottomColor: colors.border }]}>
                     <Pressable
-                      style={[styles.discoveryButton, { backgroundColor: colors.card, borderColor: colors.border }]}
-                      onPress={() => setIsContactModalVisible(true)}
+                      style={[
+                        styles.discoveryTab,
+                        friendDiscoveryMode === 'friends' && { borderBottomColor: colors.primary }
+                      ]}
+                      onPress={() => setFriendDiscoveryMode('friends')}
                     >
-                      <Ionicons name="people" size={20} color={colors.primary} />
-                      <Text style={[styles.discoveryButtonText, { color: colors.text }]}>Find from Contacts</Text>
+                      <Ionicons 
+                        name="people" 
+                        size={16} 
+                        color={friendDiscoveryMode === 'friends' ? colors.primary : colors.textSecondary} 
+                      />
+                      <Text style={[
+                        styles.discoveryTabText,
+                        { color: friendDiscoveryMode === 'friends' ? colors.primary : colors.textSecondary }
+                      ]}>
+                        Friends
+                      </Text>
                     </Pressable>
                     
                     <Pressable
-                      style={[styles.discoveryButton, { backgroundColor: colors.card, borderColor: colors.border }]}
-                      onPress={() => setIsSearchModalVisible(true)}
+                      style={[
+                        styles.discoveryTab,
+                        friendDiscoveryMode === 'discover' && { borderBottomColor: colors.primary }
+                      ]}
+                      onPress={() => setFriendDiscoveryMode('discover')}
                     >
-                      <Ionicons name="search" size={20} color={colors.primary} />
-                      <Text style={[styles.discoveryButtonText, { color: colors.text }]}>Search Username</Text>
+                      <Ionicons 
+                        name="search" 
+                        size={16} 
+                        color={friendDiscoveryMode === 'discover' ? colors.primary : colors.textSecondary} 
+                      />
+                      <Text style={[
+                        styles.discoveryTabText,
+                        { color: friendDiscoveryMode === 'discover' ? colors.primary : colors.textSecondary }
+                      ]}>
+                        Discover
+                      </Text>
                     </Pressable>
+                    
+                    <Pressable
+                      style={[
+                        styles.discoveryTab,
+                        friendDiscoveryMode === 'share' && { borderBottomColor: colors.primary }
+                      ]}
+                      onPress={() => setFriendDiscoveryMode('share')}
+                    >
+                      <Ionicons 
+                        name="share-outline" 
+                        size={16} 
+                        color={friendDiscoveryMode === 'share' ? colors.primary : colors.textSecondary} 
+                      />
+                      <Text style={[
+                        styles.discoveryTabText,
+                        { color: friendDiscoveryMode === 'share' ? colors.primary : colors.textSecondary }
+                      ]}>
+                        Share
+                      </Text>
+                    </Pressable>
+                  </View>
+                  
+                  {/* Tab Content */}
+                  <View style={styles.discoveryContent}>
+                    {friendDiscoveryMode === 'friends' && (
+                      <Text style={[styles.discoveryText, { color: colors.textSecondary }]}>
+                        Your existing friends are listed above. Select them to add to this circle.
+                      </Text>
+                    )}
+                    
+                    {friendDiscoveryMode === 'discover' && (
+                      <View style={styles.discoveryActions}>
+                        <Pressable
+                          style={[styles.discoveryButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                          onPress={() => setIsContactModalVisible(true)}
+                        >
+                          <Ionicons name="people" size={20} color={colors.primary} />
+                          <Text style={[styles.discoveryButtonText, { color: colors.text }]}>Find from Contacts</Text>
+                        </Pressable>
+                        
+                        <Pressable
+                          style={[styles.discoveryButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                          onPress={() => setIsSearchModalVisible(true)}
+                        >
+                          <Ionicons name="search" size={20} color={colors.primary} />
+                          <Text style={[styles.discoveryButtonText, { color: colors.text }]}>Search Username</Text>
+                        </Pressable>
+                      </View>
+                    )}
+                    
+                    {friendDiscoveryMode === 'share' && (
+                      <View style={styles.shareSection}>
+                        <Text style={[styles.discoveryText, { color: colors.textSecondary }]}>
+                          Share your profile to invite friends to join this circle after it's created.
+                        </Text>
+                        <Pressable
+                          style={[styles.discoveryButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                          onPress={async () => {
+                            // This will be implemented when we have profile URLs
+                            Alert.alert('Coming Soon', 'Profile sharing will be available soon!');
+                          }}
+                        >
+                          <Ionicons name="share-outline" size={20} color={colors.primary} />
+                          <Text style={[styles.discoveryButtonText, { color: colors.text }]}>Share Profile</Text>
+                        </Pressable>
+                      </View>
+                    )}
                   </View>
                 </View>
                     
@@ -628,17 +633,25 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  scrollContent: {
-    paddingTop: 16, // Space from tabs
-    paddingBottom: 100, // Space for footer
-    paddingHorizontal: 16, // Horizontal padding for all content
+  contentContainer: {
+    paddingBottom: Platform.OS === 'ios' ? 100 : 80,
+    paddingHorizontal: 16,
+  },
+  formSection: {
+    paddingVertical: 8,
+  },
+  buttonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   title: {
@@ -650,27 +663,6 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
-  },
-  tabs: {
-    flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  activeTab: {
-    borderBottomWidth: 2,
-  },
-  tabText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 16,
   },
   formGroup: {
     marginBottom: 16,
@@ -747,8 +739,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   discoverySection: {
-    marginTop: 20,
-    marginBottom: 16,
+    marginTop: 8,
+    marginBottom: 8,
   },
   discoveryTitle: {
     fontSize: 16,
@@ -756,23 +748,24 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   discoveryText: {
-    fontSize: 14,
-    marginBottom: 16,
-    lineHeight: 20,
+    fontSize: 13,
+    marginBottom: 8,
+    lineHeight: 18,
   },
   discoveryActions: {
-    gap: 12,
+    gap: 8,
   },
   discoveryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 16,
-    borderRadius: 12,
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 6,
     borderWidth: 1,
   },
   discoveryButtonText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '500',
   },
   searchInput: {
@@ -834,9 +827,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 8,
     paddingHorizontal: 8,
-    borderRadius: 8,
+    borderRadius: 6,
   },
   friendInfo: {
     flexDirection: 'row',
@@ -846,29 +839,29 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#E0E0E0',
   },
   avatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
     color: 'white',
   },
   friendName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
   },
   friendUsername: {
-    fontSize: 14,
+    fontSize: 13,
   },
   checkbox: {
     width: 20,
@@ -878,83 +871,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    gap: 12,
-    backgroundColor: 'transparent',
-  },
   footerButton: {
     flex: 1,
-  },
-  circlesList: {
-    flex: 1,
-  },
-  circlesListContent: {
-    paddingBottom: 16,
-  },
-  circleItem: {
-    borderRadius: 12,
-    marginBottom: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  circleHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  circleName: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  friendCount: {
-    fontSize: 14,
-  },
-  circleFriends: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 12,
-  },
-  circleFriendChip: {
-    backgroundColor: '#F0F0F0',
-    borderRadius: 16,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  circleFriendName: {
-    fontSize: 14,
-  },
-  circleActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  circleActionButton: {
-    marginLeft: 8,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  emptyStateText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginVertical: 16,
-  },
-  emptyStateButton: {
-    minWidth: 200,
+    marginHorizontal: 8,
   },
   photoContainer: {
     position: 'relative',
@@ -993,5 +912,45 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     marginTop: 8,
+  },
+  discoveryTabs: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    marginTop: 12,
+    marginBottom: 16,
+  },
+  discoveryTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    gap: 6,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  discoveryTabText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  discoveryContent: {
+    marginTop: 8,
+  },
+  shareSection: {
+    gap: 12,
+  },
+  addFriendsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 8,
+  },
+  addFriendsButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

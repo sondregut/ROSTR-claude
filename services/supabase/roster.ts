@@ -178,7 +178,7 @@ export class RosterService {
     try {
       // First get the friend's user ID
       const { data: userData, error: userError } = await supabase
-        .from('profiles')
+        .from('users')
         .select('id')
         .eq('username', friendUsername)
         .single();

@@ -194,7 +194,7 @@ export default function SettingsScreen() {
       ]}
       {...panResponder.panHandlers}
     >
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
         <Stack.Screen
           options={{
             headerShown: true,
@@ -202,6 +202,12 @@ export default function SettingsScreen() {
             headerTitleStyle: { color: colors.text },
             headerStyle: { backgroundColor: colors.background },
             headerShadowVisible: false,
+            headerLeft: () => (
+              <Pressable onPress={() => router.back()} style={{ paddingHorizontal: 8 }}>
+                <Ionicons name="arrow-back" size={24} color={colors.text} />
+              </Pressable>
+            ),
+            headerBackVisible: false,
           }}
         />
         

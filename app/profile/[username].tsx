@@ -262,11 +262,42 @@ export default function MemberProfileScreen() {
     );
   };
 
+  const handleRetractRequest = async () => {
+    if (!profileData || !user?.id) return;
+    
+    Alert.alert(
+      'Cancel Friend Request',
+      `Are you sure you want to cancel your friend request to ${profileData.name}?`,
+      [
+        { text: 'Keep Request', style: 'cancel' },
+        {
+          text: 'Cancel Request',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const success = await FriendRequestService.cancelFriendRequest(profileData.id);
+              if (success) {
+                setFriendshipStatus('none');
+                Alert.alert('Request Cancelled', `Friend request to ${profileData.name} has been cancelled`);
+              } else {
+                Alert.alert('Error', 'Failed to cancel friend request');
+              }
+            } catch (error) {
+              console.error('Error cancelling friend request:', error);
+              Alert.alert('Error', 'Failed to cancel friend request');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleMoreOptions = () => {
     if (!profileData) return;
     
     const options = [
       ...(isFriend ? [{ text: 'Unfriend', onPress: handleUnfriend, style: 'destructive' as const }] : []),
+      ...(friendshipStatus === 'pending_sent' ? [{ text: 'Retract Friend Request', onPress: handleRetractRequest, style: 'destructive' as const }] : []),
       { text: 'Block User', style: 'destructive' as const },
       { text: 'Report User', style: 'destructive' as const },
       { text: 'Cancel', style: 'cancel' as const },

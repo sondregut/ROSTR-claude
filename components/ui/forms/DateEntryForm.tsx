@@ -169,10 +169,6 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof DateEntryFormData, string>> = {};
     
-    if (!formData.personId) {
-      newErrors.personId = 'Please select a person';
-    }
-    
     // Validate location if provided
     if (formData.location) {
       const locationResult = validateTextLength(formData.location, 0, 100, 'Location');
@@ -206,6 +202,8 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
       // Sanitize text fields before submitting
       const sanitizedData = {
         ...formData,
+        personName: formData.personName || 'Someone new',
+        personId: formData.personId || 'temp-' + Date.now(),
         location: formData.location ? sanitizeInput(formData.location) : formData.location,
         notes: formData.notes ? sanitizeInput(formData.notes) : formData.notes,
       };
@@ -245,7 +243,7 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
       >
         <View style={styles.formGroup}>
           <Text style={[styles.label, { color: colors.text }]}>
-            Who was your date with? <Text style={{ color: colors.error }}>*</Text>
+            Who was your date with?
           </Text>
           <PersonSelector
             value={formData.personId}
@@ -427,7 +425,7 @@ export function DateEntryForm({ onSubmit, onCancel, initialData, isSubmitting = 
             variant="primary" 
             onPress={handleSubmit} 
             style={[styles.button, styles.shareButton]}
-            disabled={isSubmitting || !formData.personId}
+            disabled={isSubmitting}
           />
         </View>
       </ScrollView>

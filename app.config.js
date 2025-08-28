@@ -11,6 +11,10 @@ export default {
     ios: {
       bundleIdentifier: "com.sondregut.rostrdating",
       supportsTablet: true,
+      associatedDomains: [
+        "applinks:rostrdating.app",
+        "applinks:www.rostrdating.app"
+      ],
       infoPlist: {
         NSPhotoLibraryUsageDescription: "Allow RostrDating to access your photos to add profile pictures for people you're dating.",
         NSCameraUsageDescription: "Allow RostrDating to access your camera to take profile pictures.",
@@ -55,6 +59,23 @@ export default {
         "android.permission.RECORD_AUDIO",
         "android.permission.VIBRATE",
         "android.permission.SCHEDULE_EXACT_ALARM"
+      ],
+      intentFilters: [
+        {
+          action: "VIEW",
+          autoVerify: true,
+          category: ["BROWSABLE", "DEFAULT"],
+          data: [
+            {
+              scheme: "https",
+              host: "rostrdating.app"
+            },
+            {
+              scheme: "https",
+              host: "www.rostrdating.app"
+            }
+          ]
+        }
       ]
     },
     web: {

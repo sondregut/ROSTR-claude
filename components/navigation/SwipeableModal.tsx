@@ -22,6 +22,9 @@ export interface SwipeableModalProps extends ModalProps {
   swipeToCloseEnabled?: boolean;
   animationType?: 'none' | 'slide' | 'fade';
   style?: ViewStyle;
+  swipeThreshold?: number;
+  swipeVelocityThreshold?: number;
+  isAtTop?: boolean;
 }
 
 export function SwipeableModal({
@@ -32,6 +35,9 @@ export function SwipeableModal({
   swipeToCloseEnabled = true,
   animationType = 'slide',
   style,
+  swipeThreshold = SWIPE_THRESHOLD,
+  swipeVelocityThreshold = SWIPE_VELOCITY_THRESHOLD,
+  isAtTop = true,
   ...modalProps
 }: SwipeableModalProps) {
   const { shouldDisableAnimations } = useThermalState();
@@ -78,8 +84,8 @@ export function SwipeableModal({
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Only respond to downward swipes
-        return swipeToCloseEnabled && gestureState.dy > 10 && Math.abs(gestureState.dx) < Math.abs(gestureState.dy);
+        // Only respond to downward swipes when at top of scroll
+        return swipeToCloseEnabled && isAtTop && gestureState.dy > 10 && Math.abs(gestureState.dx) < Math.abs(gestureState.dy);
       },
       onPanResponderGrant: () => {
         // Store the current position
@@ -95,8 +101,8 @@ export function SwipeableModal({
       onPanResponderRelease: (_, gestureState) => {
         // Check if swipe was fast enough or far enough
         if (
-          gestureState.dy > SWIPE_THRESHOLD ||
-          gestureState.vy > SWIPE_VELOCITY_THRESHOLD
+          gestureState.dy > swipeThreshold ||
+          gestureState.vy > swipeVelocityThreshold
         ) {
           animateClose(gestureState.vy);
         } else {
