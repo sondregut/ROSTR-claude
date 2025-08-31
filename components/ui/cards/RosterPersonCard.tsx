@@ -64,7 +64,7 @@ export function RosterPersonCard({ person, ownerName, onPress }: RosterPersonCar
   };
 
   const formatRating = (rating?: number) => {
-    return rating ? `${rating.toFixed(1)}/5` : 'No rating';
+    return (rating != null && rating > 0) ? `${rating.toFixed(1)}/5` : 'No rating';
   };
 
   const formatDateCount = (count: number) => {

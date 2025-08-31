@@ -135,7 +135,7 @@ export function PollVoting({
                   style={[
                     styles.progressBar,
                     {
-                      backgroundColor: '#E91E63',
+                      backgroundColor: colors.pollBar,
                       width: `${percentage}%`,
                     }
                   ]}

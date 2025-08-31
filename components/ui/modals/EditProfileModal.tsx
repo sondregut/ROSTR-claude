@@ -38,6 +38,7 @@ export function EditProfileModal({
       visible={visible}
       animationType="none"
       transparent={true}
+      presentationStyle="overFullScreen"
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>

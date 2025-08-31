@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { logger } from '@/utils/productionLogger';
 import type { DateEntryFormData } from '@/components/ui/forms/DateEntryForm';
 import type { PlanFormData } from '@/components/ui/modals/AddPlanModal';
 
@@ -224,7 +225,11 @@ export const DateService = {
           isLiked: likedDateIds.has(date.id),
           comments: commentsByDate[date.id] || [],
           authorName: date.user?.name || 'Unknown',
-          authorUsername: date.user?.username || '',
+          authorUsername: (() => {
+            const username = date.user?.username || '';
+            logger.debug('🔍 DateService: Setting authorUsername for date:', date.id, 'user:', date.user?.name, 'username:', username);
+            return username;
+          })(),
           authorAvatar: date.user?.image_uri,
           poll,
           userPollVote: userVotesByDate[date.id] ?? null,
@@ -243,6 +248,103 @@ export const DateService = {
   },
 
   // Get planned dates
+  // Get plans for feed (user's own plans + friends' plans)  
+  async getPlansForFeed(userId: string) {
+    try {
+      // Get user's circles
+      const { data: userCircles } = await supabase
+        .from('circle_members')
+        .select('circle_id')
+        .eq('user_id', userId);
+
+      const circleIds = userCircles?.map(c => c.circle_id) || [];
+      
+      if (circleIds.length === 0) {
+        // User not in any circles, only get their own plans
+        return this.getPlans(userId);
+      }
+
+      const { data: plans, error } = await supabase
+        .from('date_plans')
+        .select(`
+          *,
+          user:users (
+            id,
+            name,
+            username,
+            image_uri
+          )
+        `)
+        .eq('user_id', userId)
+        .eq('is_completed', false)
+        .order('date', { ascending: true })
+        .limit(50);
+
+      if (error) throw error;
+
+      // Get likes for these plans
+      const planIds = plans?.map(p => p.id) || [];
+      const { data: likes } = await supabase
+        .from('plan_likes')
+        .select('date_plan_id')
+        .in('date_plan_id', planIds)
+        .eq('user_id', userId);
+
+      // Get all likes for these plans to calculate counts
+      const { data: allLikes } = await supabase
+        .from('plan_likes')
+        .select('date_plan_id')
+        .in('date_plan_id', planIds);
+
+      const likedPlanIds = new Set(likes?.map(l => l.date_plan_id) || []);
+      
+      // Calculate like counts for each plan
+      const likeCountsByPlan = allLikes?.reduce((acc, like) => {
+        acc[like.date_plan_id] = (acc[like.date_plan_id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>) || {};
+
+      // Get comments for these plans
+      const { data: comments } = await supabase
+        .from('plan_comments')
+        .select(`
+          *,
+          user:users (
+            name,
+            username,
+            image_uri
+          )
+        `)
+        .in('date_plan_id', planIds)
+        .order('created_at', { ascending: true });
+
+      // Group comments by plan
+      const commentsByPlan = comments?.reduce((acc, comment) => {
+        if (!acc[comment.date_plan_id]) {
+          acc[comment.date_plan_id] = [];
+        }
+        acc[comment.date_plan_id].push({
+          name: comment.user?.name || 'Unknown',
+          content: comment.content,
+          imageUri: comment.user?.image_uri || '',
+        });
+        return acc;
+      }, {} as Record<string, Array<{ name: string; content: string; imageUri: string }>>) || {};
+
+      return plans?.map(plan => ({
+        ...plan,
+        isLiked: likedPlanIds.has(plan.id),
+        comments: commentsByPlan[plan.id] || [],
+        likeCount: likeCountsByPlan[plan.id] || 0,
+        commentCount: commentsByPlan[plan.id]?.length || 0,
+      })) || [];
+
+    } catch (error) {
+      console.error('Get plans for feed error:', error);
+      throw error;
+    }
+  },
+
   async getPlans(userId: string) {
     try {
       const { data: plans, error } = await supabase
@@ -438,7 +540,7 @@ export const DateService = {
           person_name: personName,
           location: '', // Not applicable for roster additions
           date: new Date().toISOString(), // Current timestamp
-          rating: 1, // Set to minimum valid rating for roster additions
+          rating: null, // No rating for roster additions
           notes: `Added ${personName} to roster`,
           tags: [],
           shared_circles: validCircles,

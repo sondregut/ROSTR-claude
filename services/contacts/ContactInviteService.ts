@@ -27,7 +27,7 @@ export class ContactInviteService {
       if (!isAvailable) {
         // Fallback to share sheet with pre-filled message
         const message = customMessage || 
-          `Hey! I'm on RostrDating and thought you'd like it. Join me: https://rostrdating.com/invite?ref=${senderId}`;
+          `Hey! I'm on RostrDating and thought you'd like it. Join me: https://rostrdating.com?ref=${senderId}`;
         
         await Linking.openURL(`sms:${phoneNumber}&body=${encodeURIComponent(message)}`);
         return true;
@@ -35,7 +35,7 @@ export class ContactInviteService {
 
       // Send SMS using Expo SMS
       const message = customMessage || 
-        `Hey! ${senderName} invited you to join RostrDating. Download: https://rostrdating.com/invite?ref=${senderId}`;
+        `Hey! ${senderName} invited you to join RostrDating. Download: https://rostrdating.com?ref=${senderId}`;
 
       const { result } = await SMS.sendSMSAsync([phoneNumber], message);
       
@@ -52,7 +52,7 @@ export class ContactInviteService {
       // Fallback: Open SMS app with pre-filled message
       try {
         const message = customMessage || 
-          `Hey! I'm on RostrDating and thought you'd like it. Join me: https://rostrdating.com/invite?ref=${senderId}`;
+          `Hey! I'm on RostrDating and thought you'd like it. Join me: https://rostrdating.com?ref=${senderId}`;
         
         await Linking.openURL(`sms:${phoneNumber}&body=${encodeURIComponent(message)}`);
         return true;
@@ -148,6 +148,6 @@ export class ContactInviteService {
       ...(username && { invited_by: username })
     });
     
-    return `${baseUrl}/invite?${params.toString()}`;
+    return `${baseUrl}?${params.toString()}`;
   }
 }

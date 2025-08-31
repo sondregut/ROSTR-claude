@@ -1,7 +1,13 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from '@/lib/supabase';
+import { isDevelopment } from '@/config/env';
 
 export async function debugAppleAuth() {
+  if (!isDevelopment) {
+    console.warn('Debug functions are disabled in production');
+    return;
+  }
+  
   console.log('\n=== DEBUGGING APPLE AUTH ===\n');
   
   // 1. Check availability

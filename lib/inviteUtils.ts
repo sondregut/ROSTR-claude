@@ -12,9 +12,9 @@ export interface User {
 }
 
 // App Store URLs
-const APP_STORE_URL = 'https://apps.apple.com/app/rostrdating/id6739120789';
+const APP_STORE_URL = 'https://apps.apple.com/us/app/rostrdating/id6749227605';
 const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.sondregut.rostrdating';
-const APP_WEBSITE = 'https://rostrdating.app';
+const APP_WEBSITE = 'https://rostrdating.com';
 
 export const generateCircleInviteLink = (circleId: string, inviterName?: string): string => {
   const params = new URLSearchParams();
@@ -25,13 +25,16 @@ export const generateCircleInviteLink = (circleId: string, inviterName?: string)
   return `rostrdating://invite?${params.toString()}`;
 };
 
-export const generateWebFallbackLink = (circleId: string, inviterName?: string): string => {
+export const generateWebFallbackLink = (circleId: string, inviterName?: string, referrerId?: string): string => {
   const params = new URLSearchParams();
-  params.append('circle', circleId);
+  if (referrerId) {
+    params.append('ref', referrerId);
+  }
   if (inviterName) {
     params.append('invited_by', inviterName);
   }
-  return `${APP_WEBSITE}/invite/${circleId}?${params.toString()}`;
+  params.append('circle', circleId);
+  return `${APP_WEBSITE}?${params.toString()}`;
 };
 
 export const generateAppStoreLink = (): string => {
@@ -41,10 +44,11 @@ export const generateAppStoreLink = (): string => {
 export const generateCircleInviteMessage = (
   circleName: string, 
   inviterName: string,
-  circleId: string
+  circleId: string,
+  referrerId?: string
 ): string => {
   const deepLink = generateCircleInviteLink(circleId, inviterName);
-  const webLink = generateWebFallbackLink(circleId, inviterName);
+  const webLink = generateWebFallbackLink(circleId, inviterName, referrerId);
   const storeLink = generateAppStoreLink();
   
   return `Hey! ${inviterName} invited you to join "${circleName}" on RostrDating! 🎉
@@ -65,7 +69,8 @@ export const shareCircleInvite = async (
 ): Promise<void> => {
   try {
     const inviterName = inviter?.name || 'Someone';
-    const message = generateCircleInviteMessage(circle.name, inviterName, circle.id);
+    const referrerId = inviter?.id;
+    const message = generateCircleInviteMessage(circle.name, inviterName, circle.id, referrerId);
     
     const result = await Share.share({
       message: message,

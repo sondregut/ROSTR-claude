@@ -28,9 +28,9 @@ interface ShareAppModalProps {
   };
 }
 
-const APP_STORE_URL = 'https://apps.apple.com/app/rostrdating/id123456789'; // Replace with actual App Store URL
-const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.rostrdating'; // Replace with actual Play Store URL
-const APP_WEBSITE = 'https://rostrdating.app'; // Replace with actual website
+const APP_STORE_URL = 'https://apps.apple.com/us/app/rostrdating/id6749227605';
+const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.sondregut.rostrdating';
+const APP_WEBSITE = 'https://rostrdating.com';
 
 export function ShareAppModal({ visible, onClose, userProfile }: ShareAppModalProps) {
   const colorScheme = useColorScheme();

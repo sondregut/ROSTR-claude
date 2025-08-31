@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase';
 import { useSafeAuth } from '@/hooks/useSafeAuth';
 import { useRouter } from 'expo-router';
 import { FriendsService } from '@/services/supabase/friends';
+import { FriendRequestService } from '@/services/FriendRequestService';
 
 interface UserSearchModalProps {
   visible: boolean;
@@ -32,7 +33,7 @@ interface SearchUser {
   username: string;
   image_uri?: string;
   bio?: string;
-  isFriend?: boolean;
+  friendshipStatus?: 'none' | 'pending_sent' | 'pending_received' | 'friends';
 }
 
 export function UserSearchModal({ visible, onClose, onFriendAdded }: UserSearchModalProps) {
@@ -100,18 +101,15 @@ export function UserSearchModal({ visible, onClose, onFriendAdded }: UserSearchM
 
       // Check friendship status for each result
       if (data && data.length > 0) {
-        const { data: friendships } = await supabase
-          .from('friendships')
-          .select('friend_id')
-          .eq('user_id', user?.id)
-          .in('friend_id', data.map(u => u.id));
-
-        const friendIds = new Set(friendships?.map(f => f.friend_id) || []);
-        
-        const resultsWithFriendship = data.map(u => ({
-          ...u,
-          isFriend: friendIds.has(u.id),
-        }));
+        const resultsWithFriendship = await Promise.all(
+          data.map(async (u) => {
+            const friendshipStatus = await FriendRequestService.getFriendshipStatus(u.id);
+            return {
+              ...u,
+              friendshipStatus,
+            };
+          })
+        );
 
         setSearchResults(resultsWithFriendship);
       } else {
@@ -131,23 +129,54 @@ export function UserSearchModal({ visible, onClose, onFriendAdded }: UserSearchM
     try {
       setAddingFriends(prev => new Set(prev).add(friendId));
 
-      // Use the FriendsService (now sends pending request)
-      await FriendsService.addFriend(user.id, friendId);
-
-      // Update local state to show request sent
-      setSearchResults(prev => 
-        prev.map(u => u.id === friendId ? { ...u, isFriend: false } : u)
-      );
+      // Use FriendRequestService for proper pending state handling
+      const success = await FriendRequestService.sendFriendRequest(friendId);
       
-      onFriendAdded?.();
-      Alert.alert('Success', 'Friend request sent!');
-    } catch (error) {
-      console.error('Error sending friend request:', error);
-      if (error instanceof Error && error.message.includes('already friends')) {
-        Alert.alert('Info', 'You are already friends with this user.');
+      if (success) {
+        // Update local state to show request sent
+        setSearchResults(prev => 
+          prev.map(u => u.id === friendId ? { ...u, friendshipStatus: 'pending_sent' } : u)
+        );
+        
+        onFriendAdded?.();
+        Alert.alert('Success', 'Friend request sent!');
       } else {
         Alert.alert('Error', 'Failed to send friend request. Please try again.');
       }
+    } catch (error) {
+      console.error('Error sending friend request:', error);
+      Alert.alert('Error', 'Failed to send friend request. Please try again.');
+    } finally {
+      setAddingFriends(prev => {
+        const next = new Set(prev);
+        next.delete(friendId);
+        return next;
+      });
+    }
+  };
+
+  const acceptFriendRequest = async (friendId: string) => {
+    if (!user) return;
+
+    try {
+      setAddingFriends(prev => new Set(prev).add(friendId));
+
+      const success = await FriendRequestService.acceptFriendRequest(friendId);
+      
+      if (success) {
+        // Update local state to show friends
+        setSearchResults(prev => 
+          prev.map(u => u.id === friendId ? { ...u, friendshipStatus: 'friends' } : u)
+        );
+        
+        onFriendAdded?.();
+        Alert.alert('Success', 'Friend request accepted!');
+      } else {
+        Alert.alert('Error', 'Failed to accept friend request. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+      Alert.alert('Error', 'Failed to accept friend request. Please try again.');
     } finally {
       setAddingFriends(prev => {
         const next = new Set(prev);
@@ -195,7 +224,7 @@ export function UserSearchModal({ visible, onClose, onFriendAdded }: UserSearchM
           </View>
         </View>
 
-        {!item.isFriend && (
+        {item.friendshipStatus === 'none' && (
           <Pressable
             style={[
               styles.addButton,
@@ -219,7 +248,38 @@ export function UserSearchModal({ visible, onClose, onFriendAdded }: UserSearchM
           </Pressable>
         )}
 
-        {item.isFriend && (
+        {item.friendshipStatus === 'pending_sent' && (
+          <View style={[styles.pendingBadge, { backgroundColor: colors.textSecondary + '20' }]}>
+            <Ionicons name="time" size={16} color={colors.textSecondary} />
+            <Text style={[styles.pendingText, { color: colors.textSecondary }]}>Request Sent</Text>
+          </View>
+        )}
+
+        {item.friendshipStatus === 'pending_received' && (
+          <Pressable
+            style={[
+              styles.addButton,
+              { backgroundColor: colors.success },
+              isAdding && styles.addingButton
+            ]}
+            onPress={(e) => {
+              e.stopPropagation();
+              acceptFriendRequest(item.id);
+            }}
+            disabled={isAdding}
+          >
+            {isAdding ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <>
+                <Ionicons name="checkmark" size={16} color="white" />
+                <Text style={styles.addButtonText}>Accept</Text>
+              </>
+            )}
+          </Pressable>
+        )}
+
+        {item.friendshipStatus === 'friends' && (
           <View style={[styles.friendBadge, { backgroundColor: colors.success + '20' }]}>
             <Ionicons name="checkmark-circle" size={16} color={colors.success} />
             <Text style={[styles.friendText, { color: colors.success }]}>Friends</Text>
@@ -448,6 +508,18 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   friendText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  pendingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
+  },
+  pendingText: {
     fontSize: 13,
     fontWeight: '500',
   },

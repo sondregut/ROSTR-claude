@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View, Pressable, Animated , Alert } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View, Pressable, Animated, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DateFeed } from '@/components/ui/feed/DateFeed';
@@ -101,7 +101,8 @@ export default function FeedScreen() {
     try {
       await addComment(dateId, {
         name: userProfile?.name || 'You',
-        content: text
+        content: text,
+        imageUri: userProfile?.imageUri
       });
     } catch (error) {
       console.error('Error adding comment:', error);
@@ -113,7 +114,8 @@ export default function FeedScreen() {
     try {
       await addPlanComment(planId, {
         name: userProfile?.name || 'You',
-        content: text
+        content: text,
+        imageUri: userProfile?.imageUri
       });
     } catch (error) {
       console.error('Error adding plan comment:', error);
@@ -127,8 +129,13 @@ export default function FeedScreen() {
 
   const handleAuthorPress = (authorUsername: string) => {
     // Navigate to the friend's profile who posted the update
-    if (authorUsername) {
+    console.log('🔍 Feed: handleAuthorPress called with authorUsername:', authorUsername);
+    if (authorUsername && authorUsername.trim() !== '') {
+      console.log('🔍 Feed: Navigating to profile:', `/profile/${authorUsername}`);
       router.push(`/profile/${authorUsername}`);
+    } else {
+      console.error('❌ Feed: Empty or invalid authorUsername provided:', JSON.stringify(authorUsername));
+      console.error('❌ Feed: Cannot navigate to profile - username is empty or invalid');
     }
   };
   
@@ -242,7 +249,7 @@ export default function FeedScreen() {
   
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
         <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
           <Text style={[styles.headerTitle, { color: colors.text }]}>My Feed</Text>
         </View>
@@ -258,7 +265,7 @@ export default function FeedScreen() {
 
   if (dates.length === 0) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
         <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
           <Text style={[styles.headerTitle, { color: colors.text }]}>My Feed</Text>
         </View>
@@ -268,7 +275,7 @@ export default function FeedScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>My Feed</Text>
         <NotificationBell size={24} />
@@ -284,42 +291,48 @@ export default function FeedScreen() {
         </Pressable>
       )}
       
-      <DateFeed
-        data={dates}
-        isRefreshing={isRefreshing}
-        onRefresh={handleRefresh}
-        onDatePress={(dateId) => console.log(`Navigate to date detail ${dateId}`)}
-        onPersonPress={(personName, authorName) => {
-          if (authorName && authorName !== 'You') {
-            // This is a friend's date - navigate to friend's view of this person
-            router.push(`/person/${encodeURIComponent(personName)}?friendUsername=${encodeURIComponent(authorName)}&isOwnRoster=false`);
-          } else {
-            // This is your own date
-            router.push(`/person/${encodeURIComponent(personName)}?isOwnRoster=true`);
-          }
-        }}
-        onPersonHistoryPress={(personName, authorName) => {
-          if (authorName && authorName !== 'You') {
-            // Navigate to friend's date profile
-            router.push(`/person/${encodeURIComponent(personName)}?friendUsername=${encodeURIComponent(authorName)}&isOwnRoster=false`);
-          } else {
-            // Navigate to your own roster
-            router.push(`/person/${encodeURIComponent(personName)}?isOwnRoster=true`);
-          }
-        }}
-        onAuthorPress={handleAuthorPress}
-        onLike={handleLike}
-        onReact={handleReact}
-        onSubmitComment={handleSubmitComment}
-        onEdit={handleEdit}
-        onEditRoster={handleEditRoster}
-        onLikePlan={handleLikePlan}
-        onReactPlan={handleReactPlan}
-        onSubmitPlanComment={handleSubmitPlanComment}
-        onEditPlan={handleEditPlan}
-        onPollVote={handlePollVote}
-        ListEmptyComponent={renderEmptyComponent()}
-      />
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <DateFeed
+          data={dates}
+          isRefreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          onDatePress={(dateId) => console.log(`Navigate to date detail ${dateId}`)}
+          onPersonPress={(personName, authorName) => {
+            if (authorName && authorName !== 'You') {
+              // This is a friend's date - navigate to friend's view of this person
+              router.push(`/person/${encodeURIComponent(personName)}?friendUsername=${encodeURIComponent(authorName)}&isOwnRoster=false`);
+            } else {
+              // This is your own date
+              router.push(`/person/${encodeURIComponent(personName)}?isOwnRoster=true`);
+            }
+          }}
+          onPersonHistoryPress={(personName, authorName) => {
+            if (authorName && authorName !== 'You') {
+              // Navigate to friend's date profile
+              router.push(`/person/${encodeURIComponent(personName)}?friendUsername=${encodeURIComponent(authorName)}&isOwnRoster=false`);
+            } else {
+              // Navigate to your own roster
+              router.push(`/person/${encodeURIComponent(personName)}?isOwnRoster=true`);
+            }
+          }}
+          onAuthorPress={handleAuthorPress}
+          onLike={handleLike}
+          onReact={handleReact}
+          onSubmitComment={handleSubmitComment}
+          onEdit={handleEdit}
+          onEditRoster={handleEditRoster}
+          onLikePlan={handleLikePlan}
+          onReactPlan={handleReactPlan}
+          onSubmitPlanComment={handleSubmitPlanComment}
+          onEditPlan={handleEditPlan}
+          onPollVote={handlePollVote}
+          ListEmptyComponent={renderEmptyComponent()}
+        />
+      </KeyboardAvoidingView>
       
       <EditDateModal
         visible={editModalVisible}

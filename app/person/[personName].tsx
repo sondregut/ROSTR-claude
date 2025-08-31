@@ -94,7 +94,8 @@ export default function UnifiedPersonDetailScreen() {
     if (rosterEntry) {
       // Get dates for this person
       personDates = dates.filter(date => 
-        date.personName.toLowerCase() === rosterEntry.name.toLowerCase()
+        date.personName.toLowerCase() === rosterEntry.name.toLowerCase() &&
+        date.entryType !== 'roster_addition'
       );
       
       // Get plans for this person
@@ -102,10 +103,11 @@ export default function UnifiedPersonDetailScreen() {
         plan.personName.toLowerCase() === rosterEntry.name.toLowerCase()
       );
       
-      // Calculate average rating from dates
-      const avgRating = personDates.length > 0
-        ? personDates.reduce((sum, date) => sum + date.rating, 0) / personDates.length
-        : 0;
+      // Calculate average rating from dates (excluding null ratings)
+      const validRatingDates = personDates.filter(date => date.rating != null && date.rating > 0);
+      const avgRating = validRatingDates.length > 0
+        ? validRatingDates.reduce((sum, date) => sum + date.rating, 0) / validRatingDates.length
+        : null;
       
       // Convert roster entry to person data format
       personData = {
@@ -118,7 +120,7 @@ export default function UnifiedPersonDetailScreen() {
         instagramUsername: rosterEntry.instagram || personDates[0]?.instagramUsername || '',
         status: rosterEntry.status,
         totalDates: personDates.length,
-        averageRating: avgRating || rosterEntry.rating,
+        averageRating: avgRating !== null ? avgRating : (rosterEntry.rating || 0),
         lastDate: personDates[0]?.date || rosterEntry.lastDate,
         upcomingPlans: personPlans.filter(p => !p.isCompleted).length,
         notes: rosterEntry.notes || '',
@@ -173,7 +175,7 @@ export default function UnifiedPersonDetailScreen() {
         instagramUsername: rosterEntry.instagram || personDates[0]?.instagramUsername || '',
         status: rosterEntry.status,
         totalDates: personDates.length,
-        averageRating: avgRating || rosterEntry.rating,
+        averageRating: avgRating !== null ? avgRating : (rosterEntry.rating || 0),
         lastDate: personDates[0]?.date || rosterEntry.lastDate,
         upcomingPlans: 0, // Don't show friend's plans
         notes: rosterEntry.notes || '',
@@ -213,7 +215,8 @@ export default function UnifiedPersonDetailScreen() {
     if (rosterEntry) {
       // Found the person, treat as own roster view
       personDates = dates.filter(date => 
-        date.personName.toLowerCase() === rosterEntry.name.toLowerCase()
+        date.personName.toLowerCase() === rosterEntry.name.toLowerCase() &&
+        date.entryType !== 'roster_addition'
       );
       
       const personPlans = plans.filter(plan => 
@@ -234,7 +237,7 @@ export default function UnifiedPersonDetailScreen() {
         instagramUsername: rosterEntry.instagram || personDates[0]?.instagramUsername || '',
         status: rosterEntry.status,
         totalDates: personDates.length,
-        averageRating: avgRating || rosterEntry.rating,
+        averageRating: avgRating !== null ? avgRating : (rosterEntry.rating || 0),
         lastDate: personDates[0]?.date || rosterEntry.lastDate,
         upcomingPlans: personPlans.filter(p => !p.isCompleted).length,
         notes: rosterEntry.notes || '',

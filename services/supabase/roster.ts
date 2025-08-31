@@ -68,7 +68,7 @@ export class RosterService {
           user_id: userId,
           name: entry.name,
           status: 'new',
-          rating: 0,
+          rating: null,
           last_date: null,
           next_date: null,
           age: entry.age && entry.age.trim() !== '' ? parseInt(entry.age) : null,
@@ -181,7 +181,7 @@ export class RosterService {
         .from('users')
         .select('id')
         .eq('username', friendUsername)
-        .single();
+        .maybeSingle();
 
       if (userError || !userData) {
         console.error('Error fetching friend user:', userError);

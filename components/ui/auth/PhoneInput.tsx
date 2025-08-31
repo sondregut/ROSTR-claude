@@ -294,6 +294,7 @@ export function PhoneInput({
         visible={showCountryPicker}
         animationType="none"
         transparent={true}
+        presentationStyle="overFullScreen"
         onRequestClose={closeCountryPicker}
       >
         <View style={styles.modalContainer}>

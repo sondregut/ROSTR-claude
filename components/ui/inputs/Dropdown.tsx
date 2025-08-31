@@ -71,6 +71,7 @@ export function Dropdown({
       <Modal
         visible={isOpen}
         transparent={true}
+        presentationStyle="overFullScreen"
         animationType="fade"
         onRequestClose={() => setIsOpen(false)}
       >

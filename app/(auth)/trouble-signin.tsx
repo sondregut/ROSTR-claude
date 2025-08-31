@@ -30,7 +30,7 @@ export default function TroubleSignInScreen() {
   const handleContactSupport = () => {
     Alert.alert(
       'Contact Support',
-      'Please email support@rostr.app for assistance with your account.',
+      'Please email support@rostrdating.com for assistance with your account.',
       [
         { text: 'OK' }
       ]

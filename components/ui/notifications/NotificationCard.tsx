@@ -34,6 +34,10 @@ export function NotificationCard({ notification, onPress, onDelete }: Notificati
         return { name: 'person-add', color: colors.primary };
       case 'friend_plan':
         return { name: 'calendar-outline', color: colors.primary };
+      case 'friend_request':
+        return { name: 'person-add', color: colors.primary };
+      case 'friend_request_accepted':
+        return { name: 'checkmark-circle', color: colors.success };
       case 'circle_invite':
         return { name: 'people', color: colors.primary };
       case 'circle_activity':

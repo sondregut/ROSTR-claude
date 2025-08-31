@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { logger } from '@/utils/productionLogger';
 import { DateService } from '@/services/supabase/dates';
 import { StorageService } from '@/services/supabase/storage';
 import { DateEntryFormData } from '@/components/ui/forms/DateEntryForm';
@@ -19,6 +20,7 @@ export interface DateEntry {
   circles: string[];
   isPrivate: boolean;
   imageUri?: string;
+  entryType?: 'date' | 'roster_addition';
   poll?: {
     question: string;
     options: Array<{
@@ -110,8 +112,8 @@ interface DateContextType {
   likePlan: (id: string) => Promise<void>;
   reactToDate: (id: string, reaction: string | null) => Promise<void>;
   reactToPlan: (id: string, reaction: string | null) => Promise<void>;
-  addComment: (id: string, comment: { name: string; content: string }) => Promise<void>;
-  addPlanComment: (id: string, comment: { name: string; content: string }) => Promise<void>;
+  addComment: (id: string, comment: { name: string; content: string; imageUri?: string }) => Promise<void>;
+  addPlanComment: (id: string, comment: { name: string; content: string; imageUri?: string }) => Promise<void>;
   voteOnPoll: (id: string, optionIndex: number) => Promise<void>;
   refreshDates: () => Promise<void>;
   isLoading: boolean;
@@ -181,10 +183,10 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
   const channelsRef = useRef<RealtimeChannel[]>([]);
 
   // Transform database dates to DateEntry format
-  const transformDate = (dbDate: any): DateEntry => {
+  const transformDate = useCallback((dbDate: any): DateEntry => {
     // Log roster addition images for debugging
     if (dbDate.entry_type === 'roster_addition') {
-      console.log('[DateContext] Transforming roster addition:', {
+      logger.debug('[DateContext] Transforming roster addition:', {
         personName: dbDate.person_name,
         image_uri: dbDate.image_uri,
         roster_photos: dbDate.roster_info?.photos,
@@ -249,10 +251,10 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
         photos: dbDate.roster_info.photos,
       } : undefined,
     };
-  };
+  }, [user?.id]);
 
   // Transform database plans to PlanEntry format
-  const transformPlan = (dbPlan: any): PlanEntry & { user_id?: string; authorUsername?: string } => {
+  const transformPlan = useCallback((dbPlan: any): PlanEntry & { user_id?: string; authorUsername?: string } => {
     return {
       id: dbPlan.id,
       personName: dbPlan.person_name,
@@ -263,7 +265,11 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       content: dbPlan.notes,
       tags: dbPlan.tags,
       authorName: dbPlan.user?.name || 'Unknown',
-      authorUsername: dbPlan.user?.username,
+      authorUsername: (() => {
+        const username = dbPlan.user?.username;
+        logger.debug('🔍 DateContext: Setting plan authorUsername for plan:', dbPlan.id, 'user:', dbPlan.user?.name, 'username:', username);
+        return username;
+      })(),
       authorAvatar: dbPlan.user?.image_uri,
       createdAt: dbPlan.created_at,
       isCompleted: dbPlan.is_completed,
@@ -275,7 +281,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       comments: dbPlan.comments || [],
       user_id: dbPlan.user_id, // Pass through user_id for ownership check
     };
-  };
+  }, [user?.id]);
 
   // Load dates from Supabase
   const loadDates = async (isRefresh = false) => {
@@ -296,7 +302,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       // Get dates and plans
       const [dbDates, dbPlans] = await Promise.all([
         DateService.getDates(user.id),
-        DateService.getPlans(user.id),
+        DateService.getPlansForFeed(user.id), // Use feed function to get friends' plans too
       ]);
       
       // Transform dates and plans
@@ -352,11 +358,11 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
   // Set up real-time subscriptions
   const setupRealtimeSubscriptions = () => {
     if (!user) {
-      console.log('⚠️ Skipping subscriptions setup - no user');
+      logger.debug('⚠️ Skipping subscriptions setup - no user');
       return;
     }
 
-    console.log('🔄 Setting up real-time feed subscriptions');
+    logger.debug('🔄 Setting up real-time feed subscriptions');
     
     // Clean up existing channels
     channelsRef.current.forEach(channel => {
@@ -387,7 +393,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
                 return;
               }
               
-              console.log('📨 Date entries change:', payload.eventType);
+              logger.debug('📨 Date entries change:', payload.eventType);
               
               if (payload.eventType === 'INSERT') {
                 // Show new posts indicator if not user's own post
@@ -398,8 +404,11 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
                   await loadDates();
                 }
               } else if (payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
-                // Refresh for updates and deletes
-                await loadDates();
+                // Only refresh for other users' updates/deletes to avoid disrupting current user's actions
+                if ((payload.new?.user_id && payload.new.user_id !== user.id) || 
+                    (payload.old?.user_id && payload.old.user_id !== user.id)) {
+                  await loadDates();
+                }
               }
             } catch (error) {
               console.error('Error handling date entries change:', error);
@@ -439,7 +448,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
                 return;
               }
               
-              console.log('❤️ Likes change:', payload.eventType);
+              logger.debug('❤️ Likes change:', payload.eventType);
               
               // Only update the specific date entry's like status instead of refreshing entire feed
               if (payload.eventType === 'INSERT' && payload.new) {
@@ -508,31 +517,64 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
           },
           async (payload) => {
             try {
-              console.log('💬 Comments change:', payload.eventType);
+              logger.debug('💬 Comments change:', payload.eventType, payload);
+              
+              // Skip if it's the current user's comment (optimistic update already handled it)
+              if (payload.new?.user_id === user.id || payload.old?.user_id === user.id) {
+                return;
+              }
               
               // Only update the specific date entry's comments instead of refreshing entire feed
               if (payload.eventType === 'INSERT' && payload.new) {
                 const dateId = payload.new.date_id || payload.new.date_entry_id;
                 
                 if (dateId) {
-                  // Update only the specific date's comment count
-                  setDates(prevDates => 
-                    prevDates.map(date => 
-                      date.id === dateId
-                        ? { ...date, commentCount: (date.commentCount || 0) + 1 }
-                        : date
-                    )
-                  );
+                  // Fetch the full comment data to add to the local state
+                  const { data: commentData, error: commentError } = await supabase
+                    .from('date_comments')
+                    .select(`
+                      id,
+                      content,
+                      user_id,
+                      users!inner(name, username, image_uri)
+                    `)
+                    .eq('id', payload.new.id)
+                    .single();
+                  
+                  if (!commentError && commentData) {
+                    setDates(prevDates => 
+                      prevDates.map(date => 
+                        date.id === dateId
+                          ? { 
+                              ...date, 
+                              commentCount: (date.commentCount || 0) + 1,
+                              comments: [
+                                ...date.comments,
+                                {
+                                  id: commentData.id,
+                                  name: commentData.users.name,
+                                  content: commentData.content,
+                                  imageUri: commentData.users.image_uri
+                                }
+                              ]
+                            }
+                          : date
+                      )
+                    );
+                  }
                 }
               } else if (payload.eventType === 'DELETE' && payload.old) {
                 const dateId = payload.old.date_id || payload.old.date_entry_id;
                 
                 if (dateId) {
-                  // Update only the specific date's comment count
                   setDates(prevDates => 
                     prevDates.map(date => 
                       date.id === dateId
-                        ? { ...date, commentCount: Math.max((date.commentCount || 0) - 1, 0) }
+                        ? { 
+                            ...date, 
+                            commentCount: Math.max((date.commentCount || 0) - 1, 0),
+                            comments: date.comments.filter(c => c.id !== payload.old.id)
+                          }
                         : date
                     )
                   );
@@ -575,7 +617,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
                 return;
               }
               
-              console.log('📅 Plans change:', payload.eventType);
+              logger.debug('📅 Plans change:', payload.eventType);
               
               // For plans, we need to handle INSERT, UPDATE, and DELETE differently
               // Only reload if it's from another user to avoid disrupting the feed
@@ -620,7 +662,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
                 return;
               }
               
-              console.log('📊 Poll votes change:', payload.eventType);
+              logger.debug('📊 Poll votes change:', payload.eventType);
               
               // For poll votes, we need to reload the poll data for the specific date
               // But only update that specific date entry, not the entire feed
@@ -706,7 +748,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
 
     // Cleanup on unmount or user change
     return () => {
-      console.log('🧹 Cleaning up DateContext subscriptions');
+      logger.debug('🧹 Cleaning up DateContext subscriptions');
       channelsRef.current.forEach(channel => {
         try {
           supabase.removeChannel(channel);
@@ -886,7 +928,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     
-    console.log('🔍 DateContext: likeDate called with id:', id);
+    logger.debug('🔍 DateContext: likeDate called with id:', id);
     
     // Find the entry to check its type
     const entry = dates.find(d => d.id === id);
@@ -895,7 +937,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     
-    console.log('🔍 DateContext: Found entry:', { 
+    logger.debug('🔍 DateContext: Found entry:', { 
       id: entry.id, 
       personName: entry.personName, 
       entryType: entry.entryType,
@@ -919,7 +961,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       
       // Send like to server - this works for all entry types since they all use date_entries table
       await DateService.likeDate(id, user.id);
-      console.log('✅ DateContext: Like successfully sent to server');
+      logger.debug('✅ DateContext: Like successfully sent to server');
       
     } catch (err) {
       console.error('❌ DateContext: Error liking date:', err);
@@ -990,7 +1032,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     
-    console.log('🔍 DateContext: reactToDate called with:', { id, reaction });
+    logger.debug('🔍 DateContext: reactToDate called with:', { id, reaction });
     
     // Find the entry to get current reaction state
     const entry = dates.find(d => d.id === id);
@@ -1050,7 +1092,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       
       // Send reaction to server
       await DateService.reactToDate(id, reaction, user.id);
-      console.log('✅ DateContext: Reaction successfully sent to server');
+      logger.debug('✅ DateContext: Reaction successfully sent to server');
       
     } catch (err) {
       console.error('❌ DateContext: Error reacting to date:', err);
@@ -1142,7 +1184,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const addComment = async (id: string, comment: { name: string; content: string }) => {
+  const addComment = async (id: string, comment: { name: string; content: string; imageUri?: string }) => {
     if (!user) {
       setError('User not authenticated');
       return;
@@ -1153,6 +1195,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       id: `temp-${Date.now()}`,
       name: comment.name,
       content: comment.content,
+      imageUri: comment.imageUri,
       isOptimistic: true,
     };
 
@@ -1173,7 +1216,8 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       // Send comment to server
       await DateService.addComment(id, comment, user.id);
 
-      // Replace optimistic comment with confirmed state
+      // Don't update again - real-time subscription will be ignored for this user's comment
+      // Just mark as confirmed to remove optimistic styling
       setDates(prevDates => 
         prevDates.map(date => 
           date.id === id 
@@ -1181,7 +1225,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
                 ...date,
                 comments: date.comments.map(c => 
                   c.id === optimisticComment.id 
-                    ? { ...c, isOptimistic: false, id: `confirmed-${Date.now()}` }
+                    ? { ...c, isOptimistic: false }
                     : c
                 ),
               }
@@ -1210,7 +1254,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const addPlanComment = async (id: string, comment: { name: string; content: string }) => {
+  const addPlanComment = async (id: string, comment: { name: string; content: string; imageUri?: string }) => {
     if (!user) {
       setError('User not authenticated');
       return;
@@ -1221,6 +1265,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       id: `temp-${Date.now()}`,
       name: comment.name,
       content: comment.content,
+      imageUri: comment.imageUri,
       isOptimistic: true,
     };
 
@@ -1241,7 +1286,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       // Send comment to server
       await DateService.addPlanComment(id, comment, user.id);
 
-      // Replace optimistic comment with confirmed state
+      // Just mark as confirmed to remove optimistic styling
       setPlans(prevPlans => 
         prevPlans.map(plan => 
           plan.id === id 
@@ -1249,7 +1294,7 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
                 ...plan,
                 comments: plan.comments.map(c => 
                   c.id === optimisticComment.id 
-                    ? { ...c, isOptimistic: false, id: `confirmed-${Date.now()}` }
+                    ? { ...c, isOptimistic: false }
                     : c
                 ),
               }

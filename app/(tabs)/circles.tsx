@@ -445,10 +445,12 @@ export default function CirclesScreen() {
                 <Pressable
                   style={[styles.quickActionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
                   onPress={async () => {
-                    const profileUrl = `https://rostrdating.com/@${userProfile?.username || 'user'}`;
+                    const userId = user?.id || '';
+                    const userName = userProfile?.name || 'A friend';
+                    const referralUrl = `https://rostrdating.com?ref=${userId}&invited_by=${encodeURIComponent(userName)}`;
                     await Share.share({
-                      message: `Connect with me on RostrDating! ${profileUrl}`,
-                      title: 'Share My Profile',
+                      message: `Hey! ${userName} invited you to join RostrDating - track and share your dating journey with friends! ${referralUrl}`,
+                      title: 'Share RostrDating',
                     });
                   }}
                 >
@@ -465,24 +467,6 @@ export default function CirclesScreen() {
           </View>
         )}
 
-        {/* Join Circle Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Join a Circle</Text>
-          </View>
-          <Pressable style={[styles.joinCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.joinIconContainer, { backgroundColor: colors.background }]}>
-              <Ionicons name="link-outline" size={24} color={colors.primary} />
-            </View>
-            <View style={styles.joinContent}>
-              <Text style={[styles.joinTitle, { color: colors.text }]}>Have an invite code?</Text>
-              <Text style={[styles.joinSubtitle, { color: colors.textSecondary }]}>
-                Join a friend's circle with their code
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.icon} />
-          </Pressable>
-        </View>
       </ScrollView>
 
       {/* Create Circle Modal */}
@@ -634,33 +618,6 @@ const styles = StyleSheet.create({
   circlesList: {
     gap: 12,
     paddingHorizontal: 20,
-  },
-  joinCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  joinIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  joinContent: {
-    flex: 1,
-  },
-  joinTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  joinSubtitle: {
-    fontSize: 14,
   },
   loadingContainer: {
     flex: 1,

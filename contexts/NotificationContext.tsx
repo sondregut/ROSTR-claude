@@ -7,8 +7,7 @@ import { supabase } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 
-// Check if we're in a simulator/emulator or Expo Go
-const isSimulator = Constants.isDevice === false;
+// Check if we're in Expo Go (simulators with dev builds can handle push notifications)
 const isExpoGo = Constants.appOwnership === 'expo' || !Constants.appOwnership;
 
 interface NotificationContextType {
@@ -126,9 +125,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const initializePushNotifications = async () => {
     if (!user) return;
 
-    // Skip push notification initialization in simulator or Expo Go
-    if (isSimulator || isExpoGo) {
-      console.log('Push notifications are not available in', isSimulator ? 'simulator' : 'Expo Go');
+    // Skip push notification initialization only in Expo Go
+    if (isExpoGo) {
+      console.log('Push notifications are not available in Expo Go');
       setPushEnabled(false);
       return;
     }

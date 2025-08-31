@@ -203,7 +203,10 @@ export function DateFeed({
             rosterInfo={item.rosterInfo}
             onPress={() => onDatePress?.(item.id)}
             onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
-            onAuthorPress={() => onAuthorPress?.(item.authorUsername || '')}
+            onAuthorPress={() => {
+              console.log('🔍 DateFeed: RosterCard onAuthorPress - item.authorUsername:', item.authorUsername, 'item.authorName:', item.authorName);
+              onAuthorPress?.(item.authorUsername || '');
+            }}
             onLike={() => {
               console.log('🔍 DateFeed: onLike called for item:', item.id, item.personName);
               onLike?.(item.id);
@@ -258,7 +261,10 @@ export function DateFeed({
             onReact={onReactPlan ? (reaction) => onReactPlan(item.id, reaction) : undefined}
             onSubmitComment={onSubmitPlanComment ? (text) => onSubmitPlanComment(item.id, text) : undefined}
             onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
-            onAuthorPress={() => onAuthorPress?.(item.authorUsername || '')}
+            onAuthorPress={() => {
+              console.log('🔍 DateFeed: PlanCard onAuthorPress - item.authorUsername:', item.authorUsername, 'item.authorName:', item.authorName);
+              onAuthorPress?.(item.authorUsername || '');
+            }}
             onEdit={item.isOwnPost && onEditPlan ? () => onEditPlan(item.id) : undefined}
             showEditOptions={item.isOwnPost}
             onCommentFocus={() => handleCommentFocus(item.id)}
@@ -299,7 +305,10 @@ export function DateFeed({
           onPress={() => onDatePress?.(item.id)}
           onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
           onPersonHistoryPress={() => onPersonHistoryPress?.(item.personName, item.authorName)}
-          onAuthorPress={() => onAuthorPress?.(item.authorUsername || '')}
+          onAuthorPress={() => {
+            console.log('🔍 DateFeed: DateCard onAuthorPress - item.authorUsername:', item.authorUsername, 'item.authorName:', item.authorName);
+            onAuthorPress?.(item.authorUsername || '');
+          }}
           onLike={() => {
             console.log('🔍 DateFeed: RosterCard onLike called for item:', item.id, item.personName, 'entryType:', item.entryType);
             if (onLike) {

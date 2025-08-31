@@ -107,7 +107,7 @@ export function ProfileCard({
           
           {lastDate && (
             <Text style={[styles.dateInfo, { color: colors.textSecondary }]}>
-              Last date: {lastDate} {rating > 0 && <Text style={{ color: colors.primary }}> • {formatRating(rating)}</Text>}
+              Last date: {lastDate} {rating != null && rating > 0 && <Text style={{ color: colors.primary }}> • {formatRating(rating)}</Text>}
             </Text>
           )}
           

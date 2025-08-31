@@ -68,6 +68,20 @@ export default function NotificationsScreen() {
         }
         break;
       
+      case 'friend_request':
+        if (data?.senderId) {
+          // Navigate to sender's profile to accept/decline
+          router.push(`/profile/${data.senderName || data.senderId}`);
+        }
+        break;
+      
+      case 'friend_request_accepted':
+        if (data?.accepterId) {
+          // Navigate to accepter's profile
+          router.push(`/profile/${data.accepterName || data.accepterId}`);
+        }
+        break;
+      
       case 'circle_invite':
         if (data?.circleId) {
           router.push(`/circles/${data.circleId}`);

@@ -175,6 +175,7 @@ export function EnhancedContactModal({
         const success = await ContactService.sendInvites(
           contactsToInvite,
           user?.name || 'Your friend',
+          user?.id, // Add user ID for referrer deep links
           joinCode
         );
 

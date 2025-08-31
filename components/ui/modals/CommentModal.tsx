@@ -85,6 +85,7 @@ export function CommentModal({
       visible={visible}
       animationType="none"
       transparent={true}
+      presentationStyle="overFullScreen"
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView

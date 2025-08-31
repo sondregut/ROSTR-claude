@@ -4,12 +4,17 @@ import { useRouter } from 'expo-router';
 import { Alert, ActivityIndicator } from 'react-native';
 import { joinCircleByInvite, getCircleInviteInfo } from '@/services/supabase/circleJoining';
 import { useSafeAuth } from '@/hooks/useSafeAuth';
+import { FriendRequestService } from '@/services/FriendRequestService';
+import { UserService } from '@/services/supabase/users';
+import { supabase } from '@/lib/supabase';
+import { logger } from '@/utils/productionLogger';
 
 interface InviteParams {
   circle?: string;
   invited_by?: string;
   ref?: string;
   username?: string;
+  phone?: string;
 }
 
 export function useDeepLinks() {
@@ -93,6 +98,89 @@ export function useDeepLinks() {
     }
   };
 
+  const handleProfileInvite = async (username: string, referrerId: string) => {
+    try {
+      // Get the profile user by username
+      const profileUser = await UserService.getUserByUsername(username);
+      
+      if (!profileUser) {
+        Alert.alert('User Not Found', 'This user profile could not be found.');
+        return;
+      }
+
+      // Navigate to profile first
+      router.push(`/profile/${username}`);
+
+      // Auto-send friend request from the referrer
+      logger.debug('🤝 Auto-sending friend request from referrer:', referrerId, 'to profile user:', profileUser.id);
+      
+      const success = await FriendRequestService.sendFriendRequest(profileUser.id);
+      
+      if (success) {
+        // Show success message with some delay to ensure profile screen has loaded
+        setTimeout(() => {
+          Alert.alert(
+            'Connected!',
+            `You're now connected with ${profileUser.name}! 🎉`,
+            [{ text: 'Great!' }]
+          );
+        }, 1000);
+      } else {
+        logger.debug('Friend request failed or already exists');
+      }
+    } catch (error) {
+      console.error('Error handling profile invite:', error);
+      // Still navigate to profile even if friend request fails
+      router.push(`/profile/${username}`);
+    }
+  };
+
+  const handlePhoneBasedInvite = async (referrerId: string, phoneHash: string) => {
+    try {
+      logger.debug('📞 Processing phone-based invite from:', referrerId, 'phone:', phoneHash);
+      
+      // Get the referrer user info
+      const { data: referrer } = await supabase
+        .from('users')
+        .select('name, username')
+        .eq('id', referrerId)
+        .single();
+
+      const referrerName = referrer?.name || 'A friend';
+      
+      Alert.alert(
+        'Welcome to RostrDating!',
+        `${referrerName} invited you to join! When you complete your profile, you'll automatically connect with them. 🎉`,
+        [
+          { 
+            text: 'Get Started', 
+            onPress: async () => {
+              // Store the phone-based connection for after profile completion
+              try {
+                if (auth?.user?.id) {
+                  // Auto-connect with referrer after profile setup
+                  await FriendRequestService.sendFriendRequest(referrerId);
+                  console.log('✅ Auto-connected with referrer:', referrerName);
+                }
+              } catch (error) {
+                console.error('Failed to auto-connect:', error);
+              }
+              router.push('/(tabs)/');
+            }
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error handling phone-based invite:', error);
+      // Fallback to regular welcome
+      Alert.alert(
+        'Welcome to RostrDating!',
+        'A friend invited you to join! 🎉',
+        [{ text: 'Get Started', onPress: () => router.push('/(tabs)/') }]
+      );
+    }
+  };
+
   const handleInviteLink = async (params: InviteParams) => {
     try {
       if (params.circle) {
@@ -101,8 +189,18 @@ export function useDeepLinks() {
         await handleCircleInvite(params.circle, invitedBy);
       } else if (params.username) {
         // Handle profile deep link
-        console.log('Opening profile:', params.username);
-        router.push(`/profile/${params.username}`);
+        console.log('Opening profile:', params.username, 'with referrer:', params.ref);
+        
+        if (params.ref) {
+          // This is a profile link with a referrer - auto-send friend request
+          await handleProfileInvite(params.username, params.ref);
+        } else {
+          // Regular profile link without referrer
+          router.push(`/profile/${params.username}`);
+        }
+      } else if (params.ref && params.phone) {
+        // Handle phone-based referral invite
+        await handlePhoneBasedInvite(params.ref, params.phone);
       } else if (params.ref) {
         // Handle general app referral
         const referrerName = params.invited_by ? decodeURIComponent(params.invited_by) : 'a friend';
@@ -159,7 +257,7 @@ export function useDeepLinks() {
         } else {
           console.warn('⚠️ Unknown custom scheme hostname:', hostname);
         }
-      } else if (url.startsWith('https://rostrdating.app') || url.startsWith('https://www.rostrdating.app')) {
+      } else if (url.startsWith('https://rostrdating.com') || url.startsWith('https://www.rostrdating.com')) {
         console.log('🌐 Processing universal link');
         const urlObj = new URL(url);
         const pathParts = urlObj.pathname.split('/').filter(Boolean);
@@ -172,7 +270,7 @@ export function useDeepLinks() {
         });
         
         if (pathParts[0] === 'invite' && pathParts[1]) {
-          // Handle invite links like https://rostrdating.app/invite/circle-id
+          // Handle invite links like https://rostrdating.com/invite/circle-id
           console.log('🎉 Processing circle invite via universal link:', pathParts[1]);
           const invitedBy = searchParams.get('invited_by');
           await handleInviteLink({ 
@@ -180,14 +278,40 @@ export function useDeepLinks() {
             invited_by: invitedBy || undefined
           });
         } else if (pathParts[0]?.startsWith('@')) {
-          // Handle profile links like rostrdating.app/@username
+          // Handle profile links like rostrdating.com/@username
           const username = pathParts[0].substring(1);
-          console.log('👤 Processing profile link via universal link (@username):', username);
-          await handleInviteLink({ username });
+          const referrerId = searchParams.get('ref');
+          console.log('👤 Processing profile link via universal link (@username):', username, 'referrer:', referrerId);
+          await handleInviteLink({ 
+            username,
+            ref: referrerId || undefined 
+          });
         } else if (pathParts[0] === 'profile' && pathParts[1]) {
-          // Handle profile links like rostrdating.app/profile/username
-          console.log('👤 Processing profile link via universal link (profile/username):', pathParts[1]);
-          await handleInviteLink({ username: pathParts[1] });
+          // Handle profile links like rostrdating.com/profile/username
+          const referrerId = searchParams.get('ref');
+          console.log('👤 Processing profile link via universal link (profile/username):', pathParts[1], 'referrer:', referrerId);
+          await handleInviteLink({ 
+            username: pathParts[1],
+            ref: referrerId || undefined 
+          });
+        } else if (pathParts.length === 0) {
+          // Handle root-level query parameter URLs like https://rostrdating.com?ref=123&phone=456
+          console.log('🔗 Processing root-level universal link with query params');
+          const params = {
+            ref: searchParams.get('ref') || undefined,
+            phone: searchParams.get('phone') || undefined,
+            invited_by: searchParams.get('invited_by') || undefined,
+            circle: searchParams.get('circle') || undefined
+          };
+          
+          console.log('📋 Extracted params:', params);
+          
+          // Only process if we have a ref parameter (indicates it's a referral link)
+          if (params.ref) {
+            await handleInviteLink(params);
+          } else {
+            console.log('ℹ️ Root-level URL with no referral parameters - treating as normal web visit');
+          }
         } else {
           console.warn('⚠️ Unknown universal link path:', pathParts);
         }
@@ -257,7 +381,7 @@ export function useDeepLinks() {
       // Clear processed URLs on unmount
       processedUrls.current.clear();
     };
-  }, [router, auth]);
+  }, []);
 
   return {
     processDeepLink,

@@ -164,11 +164,12 @@ export class ContactService {
   }
 
   /**
-   * Send SMS invite to multiple contacts
+   * Send SMS invite to multiple contacts with personalized deep links for auto-friend connection
    */
   static async sendInvites(
     contacts: Array<{ name: string; phoneNumber: string }>,
     inviterName: string,
+    senderId?: string,
     joinCode?: string
   ): Promise<boolean> {
     try {
@@ -177,19 +178,31 @@ export class ContactService {
         throw new Error('SMS is not available on this device');
       }
 
-      const phoneNumbers = contacts.map(c => c.phoneNumber);
-      const names = contacts.map(c => c.name.split(' ')[0]).join(', ');
-      
-      let message = `Hey ${names}! ${inviterName} invited you to join RostrDating - a fun way to track and share your dating life with friends. `;
-      
-      if (joinCode) {
-        message += `\n\nUse this code to join their circle: ${joinCode}`;
-      }
-      
-      message += `\n\nDownload the app: https://rostrdating.app`;
+      // Send individual SMS to each contact with personalized deep link
+      const results = await Promise.allSettled(
+        contacts.map(async (contact) => {
+          let message = `Hey ${contact.name.split(' ')[0]}! ${inviterName} invited you to join RostrDating - a fun way to track and share your dating life with friends. `;
+          
+          if (joinCode) {
+            message += `\n\nUse this code to join their circle: ${joinCode}`;
+          }
+          
+          // Create personalized deep link for auto-friend connection
+          if (senderId) {
+            const phoneHash = this.normalizePhoneNumber(contact.phoneNumber);
+            const inviteLink = `https://rostrdating.com?ref=${senderId}&phone=${phoneHash}`;
+            message += `\n\nJoin me: ${inviteLink}`;
+          } else {
+            message += `\n\nDownload the app: https://rostrdating.com`;
+          }
 
-      const { result } = await SMS.sendSMSAsync(phoneNumbers, message);
-      return result === 'sent';
+          const { result } = await SMS.sendSMSAsync([contact.phoneNumber], message);
+          return result === 'sent';
+        })
+      );
+
+      // Return true if all SMS were sent successfully
+      return results.every(result => result.status === 'fulfilled' && result.value === true);
     } catch (error) {
       console.error('Error sending invites:', error);
       throw error;

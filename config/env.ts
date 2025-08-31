@@ -61,8 +61,8 @@ function createConfig(): EnvironmentConfig {
     showDevMenu: extra.showDevMenu ?? (process.env.EXPO_PUBLIC_SHOW_DEV_MENU === 'true') ?? false,
   };
   
-  // Only log configuration in development mode
-  if (isDevelopment && config.debugMode) {
+  // Only log configuration in development/debug mode
+  if ((isDevelopment || config.debugMode) && __DEV__) {
     console.log('🔧 Environment Configuration:', {
       env: config.env,
       analyticsEnabled: config.analyticsEnabled,

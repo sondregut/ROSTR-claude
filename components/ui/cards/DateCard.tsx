@@ -241,14 +241,14 @@ export function DateCard({
               style={[
                 styles.tag, 
                 { 
-                  backgroundColor: '#FFE5E5', 
+                  backgroundColor: colors.tagBackground, 
                   borderRadius: 12, 
                   paddingHorizontal: 12, 
                   paddingVertical: 6 
                 }
               ]}
             >
-              <Text style={[styles.tagText, { color: '#E91E63' }]}>{tag}</Text>
+              <Text style={[styles.tagText, { color: colors.tagText }]}>{tag}</Text>
             </View>
           ))}
         </View>

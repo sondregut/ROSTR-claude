@@ -14,8 +14,7 @@ import { useNotifications } from '@/contexts/NotificationContext';
 import * as Haptics from 'expo-haptics';
 import Constants from 'expo-constants';
 
-// Check if we're in a simulator/emulator or Expo Go
-const isSimulator = !Constants.isDevice;
+// Check if we're in Expo Go (simulators with dev builds can handle push notifications)
 const isExpoGo = Constants.appOwnership === 'expo';
 
 export default function SettingsScreen() {
@@ -153,12 +152,10 @@ export default function SettingsScreen() {
   const handleToggleNotifications = async () => {
     if (!pushEnabled) {
       // Check if we're in an environment that doesn't support push notifications
-      if (isSimulator || isExpoGo) {
+      if (isExpoGo) {
         Alert.alert(
           'Push Notifications Unavailable',
-          isSimulator 
-            ? 'Push notifications are not available in the simulator. Please test on a real device.'
-            : 'Push notifications require a development build. They are not available in Expo Go.',
+          'Push notifications require a development build. They are not available in Expo Go.',
           [{ text: 'OK' }]
         );
         return;
@@ -194,22 +191,21 @@ export default function SettingsScreen() {
       ]}
       {...panResponder.panHandlers}
     >
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
         <Stack.Screen
           options={{
-            headerShown: true,
-            headerTitle: 'Settings',
-            headerTitleStyle: { color: colors.text },
-            headerStyle: { backgroundColor: colors.background },
-            headerShadowVisible: false,
-            headerLeft: () => (
-              <Pressable onPress={() => router.back()} style={{ paddingHorizontal: 8 }}>
-                <Ionicons name="arrow-back" size={24} color={colors.text} />
-              </Pressable>
-            ),
-            headerBackVisible: false,
+            headerShown: false,
           }}
         />
+        
+        {/* Custom Header */}
+        <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </Pressable>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Settings</Text>
+          <View style={styles.headerRight} />
+        </View>
         
         <View style={styles.content}>
         <View style={[styles.section, { backgroundColor: colors.card }]}>
@@ -388,6 +384,24 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  backButton: {
+    padding: 8,
+  },
+  headerRight: {
+    width: 40, // Balance the layout
   },
   content: {
     padding: 16,

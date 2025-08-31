@@ -37,11 +37,6 @@ class PushNotificationService {
   // Initialize push notifications
   async initialize(userId: string) {
     try {
-      if (!Device.isDevice) {
-        console.log('Push notifications only work on physical devices');
-        return;
-      }
-
       if (isExpoGo) {
         console.log('Push notifications are limited in Expo Go. Build a development client for full functionality.');
         // Still set up listeners for local notifications

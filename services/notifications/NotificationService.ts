@@ -9,6 +9,8 @@ export type NotificationType =
   | 'friend_date'
   | 'friend_roster'
   | 'friend_plan'
+  | 'friend_request'
+  | 'friend_request_accepted'
   | 'circle_invite'
   | 'circle_activity'
   | 'message'

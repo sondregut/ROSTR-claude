@@ -61,7 +61,15 @@ export default function MemberProfileScreen() {
   useEffect(() => {
     const loadProfileData = async () => {
       if (!username || typeof username !== 'string') {
+        console.error('❌ Profile: Invalid username provided:', username);
         setError('Invalid username');
+        setIsLoading(false);
+        return;
+      }
+
+      if (username.trim() === '') {
+        console.error('❌ Profile: Empty username provided');
+        setError('Username cannot be empty');
         setIsLoading(false);
         return;
       }
@@ -71,13 +79,17 @@ export default function MemberProfileScreen() {
         setError(null);
         
         // Get user profile by username
+        console.log('🔍 Profile: Looking up user with username:', username);
         const userProfile = await UserService.getUserByUsername(username);
         
         if (!userProfile) {
+          console.error('❌ Profile: User not found for username:', username);
           setError('User not found');
           setIsLoading(false);
           return;
         }
+
+        console.log('✅ Profile: Found user:', userProfile.name, 'username:', userProfile.username);
 
         // Check friendship status FIRST if user is logged in
         let currentFriendshipStatus: 'friends' | 'pending_sent' | 'pending_received' | 'none' = 'none';
@@ -86,10 +98,12 @@ export default function MemberProfileScreen() {
         if (user?.id && user.id !== userProfile.id) {
           currentFriendshipStatus = await FriendRequestService.getFriendshipStatus(userProfile.id);
           areActualFriends = currentFriendshipStatus === 'friends';
+          console.log('🔍 Profile Debug - Other user:', userProfile.username, 'Friendship Status:', currentFriendshipStatus, 'Are Friends:', areActualFriends);
         } else if (user?.id === userProfile.id) {
           // User viewing their own profile - allow full access
           areActualFriends = true;
           currentFriendshipStatus = 'friends';
+          console.log('🔍 Profile Debug - Own profile:', userProfile.username, 'Full access granted');
         }
         
         setFriendshipStatus(currentFriendshipStatus);

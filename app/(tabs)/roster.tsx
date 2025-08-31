@@ -25,8 +25,6 @@ export default function RosterScreen() {
     try {
       await addPerson(personData.name, personData);
       setShowAddModal(false);
-      // Navigate to roster tab
-      router.push('/(tabs)/roster');
     } catch (error) {
       console.error('Error adding person:', error);
     }
@@ -49,8 +47,6 @@ export default function RosterScreen() {
         photos: personData.photos,
       });
       setEditingPerson(null);
-      // Navigate to roster tab
-      router.push('/(tabs)/roster');
     } catch (error) {
       console.error('Error updating person:', error);
     }

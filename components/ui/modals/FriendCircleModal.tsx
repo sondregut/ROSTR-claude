@@ -23,6 +23,8 @@ import { Colors } from '../../../constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { EnhancedContactModal } from './EnhancedContactModal';
 import { UserSearchModal } from '../search/UserSearchModal';
+import { shareApp } from '@/lib/inviteUtils';
+import { useSafeAuth } from '@/hooks/useSafeAuth';
 
 interface Friend {
   id: string;
@@ -47,6 +49,7 @@ export function FriendCircleModal({
 }: FriendCircleModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const auth = useSafeAuth();
   
   const [circleName, setCircleName] = useState('');
   const [circleDescription, setCircleDescription] = useState('');
@@ -57,6 +60,7 @@ export function FriendCircleModal({
   const [isContactModalVisible, setIsContactModalVisible] = useState(false);
   const [isSearchModalVisible, setIsSearchModalVisible] = useState(false);
   const [friendDiscoveryMode, setFriendDiscoveryMode] = useState<'friends' | 'discover' | 'share'>('friends');
+  const [activeTab, setActiveTab] = useState('create');
   const [isAtTop, setIsAtTop] = useState(true);
   
   const toggleFriendSelection = (friend: Friend) => {
@@ -211,10 +215,7 @@ export function FriendCircleModal({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
       onSwipeDown={onClose}
-      swipeToCloseEnabled={true}
-      swipeThreshold={200}
-      swipeVelocityThreshold={0.8}
-      isAtTop={isAtTop}
+      swipeToCloseEnabled={false}
     >
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
@@ -486,7 +487,16 @@ export function FriendCircleModal({
                         styles.discoveryTab,
                         friendDiscoveryMode === 'share' && { borderBottomColor: colors.primary }
                       ]}
-                      onPress={() => setFriendDiscoveryMode('share')}
+                      onPress={async () => {
+                        try {
+                          if (auth?.user) {
+                            await shareApp({ id: auth.user.id, name: auth.user.name || 'User' });
+                          }
+                        } catch (error) {
+                          console.error('Error sharing app:', error);
+                          Alert.alert('Error', 'Failed to share the app. Please try again.');
+                        }
+                      }}
                     >
                       <Ionicons 
                         name="share-outline" 
@@ -530,23 +540,6 @@ export function FriendCircleModal({
                       </View>
                     )}
                     
-                    {friendDiscoveryMode === 'share' && (
-                      <View style={styles.shareSection}>
-                        <Text style={[styles.discoveryText, { color: colors.textSecondary }]}>
-                          Share your profile to invite friends to join this circle after it's created.
-                        </Text>
-                        <Pressable
-                          style={[styles.discoveryButton, { backgroundColor: colors.card, borderColor: colors.border }]}
-                          onPress={async () => {
-                            // This will be implemented when we have profile URLs
-                            Alert.alert('Coming Soon', 'Profile sharing will be available soon!');
-                          }}
-                        >
-                          <Ionicons name="share-outline" size={20} color={colors.primary} />
-                          <Text style={[styles.discoveryButtonText, { color: colors.text }]}>Share Profile</Text>
-                        </Pressable>
-                      </View>
-                    )}
                   </View>
                 </View>
                     
@@ -871,9 +864,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  footer: {
+    flexDirection: 'row',
+    padding: 16,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+    borderTopWidth: 1,
+    gap: 12,
+  },
   footerButton: {
     flex: 1,
-    marginHorizontal: 8,
   },
   photoContainer: {
     position: 'relative',

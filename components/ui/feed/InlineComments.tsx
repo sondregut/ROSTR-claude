@@ -91,7 +91,7 @@ export function InlineComments({
                   </Text>
                 </View>
               )}
-              <View style={styles.commentContent}>
+              <View style={[styles.commentContent, { backgroundColor: colors.background }]}>
                 <Text style={[styles.commentName, { color: colors.text }]}>
                   {comment.name}
                 </Text>
@@ -186,7 +186,6 @@ const styles = StyleSheet.create({
   },
   commentContent: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 8,

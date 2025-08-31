@@ -1,7 +1,13 @@
 import { supabase } from '@/lib/supabase';
 import { Alert } from 'react-native';
+import { isDevelopment } from '@/config/env';
 
 export async function debugSupabaseConnection() {
+  if (!isDevelopment) {
+    console.warn('Debug functions are disabled in production');
+    return;
+  }
+  
   console.log('🔍 Starting Supabase debug...');
   
   try {

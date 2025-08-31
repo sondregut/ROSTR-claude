@@ -12,8 +12,8 @@ export default {
       bundleIdentifier: "com.sondregut.rostrdating",
       supportsTablet: true,
       associatedDomains: [
-        "applinks:rostrdating.app",
-        "applinks:www.rostrdating.app"
+        "applinks:rostrdating.com",
+        "applinks:www.rostrdating.com"
       ],
       infoPlist: {
         NSPhotoLibraryUsageDescription: "Allow RostrDating to access your photos to add profile pictures for people you're dating.",
@@ -68,11 +68,11 @@ export default {
           data: [
             {
               scheme: "https",
-              host: "rostrdating.app"
+              host: "rostrdating.com"
             },
             {
               scheme: "https",
-              host: "www.rostrdating.app"
+              host: "www.rostrdating.com"
             }
           ]
         }
