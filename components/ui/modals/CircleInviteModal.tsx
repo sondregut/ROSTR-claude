@@ -203,7 +203,9 @@ export function CircleInviteModal({
 
   const handleShareInvite = async () => {
     try {
-      const inviteUrl = `https://rostrdating.com/invite?circle=${circleId}&invited_by=${encodeURIComponent(user?.name || 'Friend')}`;
+      const userId = user?.id || '';
+      const userName = user?.name || 'Friend';
+      const inviteUrl = `https://rostrdating.com?ref=${userId}&invited_by=${encodeURIComponent(userName)}&circle=${circleId}`;
       const message = `🎉 Join my "${circleName}" circle on RostrDating!\n\n` +
                      `Use invite code: ${joinCode}\n` +
                      `Or visit: ${inviteUrl}`;
@@ -541,7 +543,7 @@ export function CircleInviteModal({
               {showQR && (
                 <View style={[styles.qrContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   <QRCode
-                    value={`https://rostrdating.com/invite?circle=${circleId}&code=${joinCode}`}
+                    value={`https://rostrdating.com?ref=${user?.id}&invited_by=${encodeURIComponent(user?.name || 'Friend')}&circle=${circleId}`}
                     size={200}
                     backgroundColor={colors.card}
                     color={colors.text}
