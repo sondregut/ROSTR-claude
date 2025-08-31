@@ -2,7 +2,7 @@ export default {
   expo: {
     name: "RostrDating",
     slug: "RostrDating",
-    version: "1.0.0",
+    version: "1.0.3",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     scheme: "rostrdating",

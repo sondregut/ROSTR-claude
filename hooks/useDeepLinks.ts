@@ -148,28 +148,15 @@ export function useDeepLinks() {
 
       const referrerName = referrer?.name || 'A friend';
       
-      Alert.alert(
-        'Welcome to RostrDating!',
-        `${referrerName} invited you to join! When you complete your profile, you'll automatically connect with them. 🎉`,
-        [
-          { 
-            text: 'Get Started', 
-            onPress: async () => {
-              // Store the phone-based connection for after profile completion
-              try {
-                if (auth?.user?.id) {
-                  // Auto-connect with referrer after profile setup
-                  await FriendRequestService.sendFriendRequest(referrerId);
-                  console.log('✅ Auto-connected with referrer:', referrerName);
-                }
-              } catch (error) {
-                console.error('Failed to auto-connect:', error);
-              }
-              router.push('/(tabs)/');
-            }
-          },
-        ]
-      );
+      // Navigate to dedicated friend invite screen
+      router.push({
+        pathname: '/(auth)/friend-invite',
+        params: {
+          ref: referrerId,
+          phone: phoneHash,
+          invited_by: referrerName,
+        }
+      });
     } catch (error) {
       console.error('Error handling phone-based invite:', error);
       // Fallback to regular welcome

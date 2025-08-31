@@ -9,10 +9,10 @@ import {
   Platform,
   Dimensions,
   Clipboard as RNClipboard,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as Sharing from 'expo-sharing';
 
 import { Button } from '../buttons/Button';
 import { Colors } from '@/constants/Colors';
@@ -78,18 +78,10 @@ export function ShareAppModal({ visible, onClose, userProfile }: ShareAppModalPr
       const storeUrl = Platform.OS === 'ios' ? APP_STORE_URL : PLAY_STORE_URL;
       const message = `Check out RostrDating - the dating tracker app! ${userProfile.name} is using it to track their dating journey. Download it here: ${storeUrl}`;
       
-      const isAvailable = await Sharing.isAvailableAsync();
-      
-      if (isAvailable) {
-        await Sharing.shareAsync(message, {
-          mimeType: 'text/plain',
-          dialogTitle: 'Share RostrDating',
-          UTI: 'public.text',
-        });
-      } else {
-        RNClipboard.setString(storeUrl);
-        Alert.alert('Link Copied!', 'App store link copied to clipboard.');
-      }
+      await Share.share({
+        message,
+        title: 'Share RostrDating',
+      });
     } catch (error) {
       console.error('Error sharing app store link:', error);
       Alert.alert('Error', 'Failed to share app store link. Please try again.');
