@@ -194,7 +194,7 @@ export class RosterService {
         .select('*')
         .eq('user_id', userData.id)
         .ilike('name', personName)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching friend roster entry:', error);

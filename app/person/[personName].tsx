@@ -70,9 +70,14 @@ export default function UnifiedPersonDetailScreen() {
           );
           if (friendEntry) {
             setFriendRosterStatus(friendEntry.status);
+          } else {
+            // Friend doesn't have this person in their roster
+            console.log(`Person "${personName}" not found in ${friendUsername}'s roster`);
+            setFriendRosterStatus(null);
           }
         } catch (error) {
           console.error('Error fetching friend roster status:', error);
+          setFriendRosterStatus(null);
         }
       }
     };

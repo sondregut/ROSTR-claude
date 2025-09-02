@@ -169,8 +169,10 @@ export function DateCard({
             )}
             
             <Pressable onPress={() => {
-              // If this is a friend's date (has authorName), we need to navigate differently
-              if (onPersonHistoryPress) {
+              // Navigate to person view when clicking on person name
+              if (onPersonPress) {
+                onPersonPress();
+              } else if (onPersonHistoryPress) {
                 onPersonHistoryPress();
               }
             }}>

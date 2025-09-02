@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { StyleSheet, View, Text, Pressable, useColorScheme as useRNColorScheme, Alert, PanResponder, Animated } from 'react-native';
+import { StyleSheet, View, Text, Pressable, useColorScheme as useRNColorScheme, Alert, PanResponder, Animated, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -207,7 +207,7 @@ export default function SettingsScreen() {
           <View style={styles.headerRight} />
         </View>
         
-        <View style={styles.content}>
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Appearance</Text>
           
@@ -314,6 +314,19 @@ export default function SettingsScreen() {
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Account</Text>
+          
+          <Pressable
+            style={[styles.accountButton, { borderColor: colors.border }]}
+            onPress={() => router.push('/phone-settings')}
+          >
+            <Ionicons name="call-outline" size={20} color={colors.text} />
+            <Text style={[styles.accountButtonText, { color: colors.text }]}>Phone Number</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          </Pressable>
+        </View>
+
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>About</Text>
           
           <View style={styles.aboutItem}>
@@ -375,7 +388,7 @@ export default function SettingsScreen() {
             Permanently delete your account and all associated data
           </Text>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
     </Animated.View>
   );
@@ -404,6 +417,7 @@ const styles = StyleSheet.create({
     width: 40, // Balance the layout
   },
   content: {
+    flex: 1,
     padding: 16,
   },
   section: {
@@ -476,6 +490,21 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   feedbackButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+  },
+  accountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+    gap: 12,
+  },
+  accountButtonText: {
     fontSize: 16,
     fontWeight: '500',
     flex: 1,

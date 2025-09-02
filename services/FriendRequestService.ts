@@ -64,7 +64,7 @@ export class FriendRequestService {
       // Get sender details for notification
       const { data: senderDetails } = await supabase
         .from('users')
-        .select('name')
+        .select('name, username')
         .eq('id', user.id)
         .single();
 
@@ -75,7 +75,11 @@ export class FriendRequestService {
           type: 'friend_request',
           title: 'Friend Request',
           body: `${senderDetails.name} wants to be your friend`,
-          data: { senderId: user.id, senderName: senderDetails.name },
+          data: { 
+            senderId: user.id, 
+            senderName: senderDetails.name,
+            senderUsername: senderDetails.username 
+          },
           read: false
         });
       }
@@ -122,7 +126,7 @@ export class FriendRequestService {
       // Get user details for notification
       const { data: userDetails } = await supabase
         .from('users')
-        .select('name')
+        .select('name, username')
         .eq('id', user.id)
         .single();
 
@@ -133,7 +137,11 @@ export class FriendRequestService {
           type: 'friend_request_accepted',
           title: 'Friend Request Accepted',
           body: `${userDetails.name} accepted your friend request`,
-          data: { accepterId: user.id, accepterName: userDetails.name },
+          data: { 
+            accepterId: user.id, 
+            accepterName: userDetails.name,
+            accepterUsername: userDetails.username 
+          },
           read: false
         });
       }

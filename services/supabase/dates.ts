@@ -94,7 +94,27 @@ export const DateService = {
 
       const circleIds = userCircles?.map(c => c.circle_id) || [];
 
-      // Get dates from user's circles or their own dates
+      // Get user's active friends
+      const { data: friendships } = await supabase
+        .from('friendships')
+        .select('friend_id')
+        .eq('user_id', userId)
+        .eq('status', 'active');
+
+      const friendIds = friendships?.map(f => f.friend_id) || [];
+
+      // Build the OR filter conditions
+      let orConditions = [`user_id.eq.${userId}`];
+      
+      if (circleIds.length > 0) {
+        orConditions.push(`shared_circles.ov.{${circleIds.join(',')}}`);
+      }
+      
+      if (friendIds.length > 0) {
+        orConditions.push(`user_id.in.(${friendIds.join(',')})`);
+      }
+
+      // Get dates from user's own posts, circles, or friends
       const { data: dates, error } = await supabase
         .from('date_entries')
         .select(`
@@ -106,7 +126,7 @@ export const DateService = {
             image_uri
           )
         `)
-        .or(`user_id.eq.${userId},shared_circles.ov.{${circleIds.join(',')}}`)
+        .or(orConditions.join(','))
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -259,9 +279,19 @@ export const DateService = {
 
       const circleIds = userCircles?.map(c => c.circle_id) || [];
       
-      if (circleIds.length === 0) {
-        // User not in any circles, only get their own plans
-        return this.getPlans(userId);
+      // Get user's active friends
+      const { data: friendships } = await supabase
+        .from('friendships')
+        .select('friend_id')
+        .eq('user_id', userId)
+        .eq('status', 'active');
+
+      const friendIds = friendships?.map(f => f.friend_id) || [];
+
+      // Build filter to include user's own plans and friends' plans
+      let userFilter = [userId];
+      if (friendIds.length > 0) {
+        userFilter = [...userFilter, ...friendIds];
       }
 
       const { data: plans, error } = await supabase
@@ -275,7 +305,7 @@ export const DateService = {
             image_uri
           )
         `)
-        .eq('user_id', userId)
+        .in('user_id', userFilter)
         .eq('is_completed', false)
         .order('date', { ascending: true })
         .limit(50);

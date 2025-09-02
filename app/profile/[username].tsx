@@ -615,6 +615,7 @@ export default function MemberProfileScreen() {
                   commentCount={date.comment_count}
                   isLiked={false}
                   onPersonPress={() => router.push(`/person/${date.person_name.toLowerCase()}?friendUsername=${profileData.username}&isOwnRoster=false`)}
+                  onPersonHistoryPress={() => router.push(`/person/${date.person_name.toLowerCase()}?friendUsername=${profileData.username}&isOwnRoster=false`)}
                 />
               ))}
               

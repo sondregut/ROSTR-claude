@@ -71,14 +71,16 @@ export default function NotificationsScreen() {
       case 'friend_request':
         if (data?.senderId) {
           // Navigate to sender's profile to accept/decline
-          router.push(`/profile/${data.senderName || data.senderId}`);
+          // Use username for navigation, fallback to senderId if username not available
+          router.push(`/profile/${data.senderUsername || data.senderId}`);
         }
         break;
       
       case 'friend_request_accepted':
         if (data?.accepterId) {
           // Navigate to accepter's profile
-          router.push(`/profile/${data.accepterName || data.accepterId}`);
+          // Use username for navigation, fallback to accepterId if username not available
+          router.push(`/profile/${data.accepterUsername || data.accepterId}`);
         }
         break;
       
@@ -183,7 +185,7 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen
         options={{
           headerShown: true,

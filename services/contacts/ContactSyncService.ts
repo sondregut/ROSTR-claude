@@ -249,7 +249,7 @@ export class ContactSyncService {
       // Get user details for notifications
       const { data: senderDetails } = await supabase
         .from('users')
-        .select('name')
+        .select('name, username')
         .eq('id', user.id)
         .single();
 
@@ -286,7 +286,11 @@ export class ContactSyncService {
                   type: 'friend_request',
                   title: 'Friend Request',
                   body: `${senderDetails.name} wants to be your friend`,
-                  data: { senderId: user.id, senderName: senderDetails.name },
+                  data: { 
+                    senderId: user.id, 
+                    senderName: senderDetails.name,
+                    senderUsername: senderDetails.username 
+                  },
                   read: false
                 });
               }
