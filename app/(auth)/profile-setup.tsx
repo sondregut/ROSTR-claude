@@ -109,8 +109,8 @@ export default function ProfileSetupScreen() {
       // Update auth context to mark profile as complete
       updateProfileComplete(true);
       
-      // Navigate to main app
-      router.replace('/(tabs)');
+      // Navigate to phone setup screen for contact discovery
+      router.replace('/(auth)/phone-setup');
     } catch (error: any) {
       console.error('Profile setup error:', error);
       console.error('Error details:', {
@@ -138,7 +138,7 @@ export default function ProfileSetupScreen() {
             await UserService.createProfile({ ...updatedProfileData, id: user.id });
           }
           updateProfileComplete(true);
-          router.replace('/(tabs)');
+          router.replace('/(auth)/phone-setup');
           return;
         } catch (retryError) {
           console.error('Retry failed:', retryError);
