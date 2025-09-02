@@ -18,6 +18,7 @@ import { DateProvider } from '@/contexts/DateContext';
 import { RosterProvider } from '@/contexts/RosterContext';
 import { CircleProvider } from '@/contexts/CircleContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
+import { ReferralProvider } from '@/contexts/ReferralContext';
 import { AuthenticatedApp } from '@/components/AuthenticatedApp';
 import { useDeepLinks } from '@/hooks/useDeepLinks';
 import { verifyEnvironmentVariables } from '@/utils/verifyEnv';
@@ -244,19 +245,21 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <AppThemeProvider>
-          <SimpleAuthProvider>
-            <UserProvider>
-              <DateProvider>
-                <RosterProvider>
-                  <CircleProvider>
-                    <NotificationProvider>
-                      <RootLayoutNav />
-                    </NotificationProvider>
-                  </CircleProvider>
-                </RosterProvider>
-              </DateProvider>
-            </UserProvider>
-          </SimpleAuthProvider>
+          <ReferralProvider>
+            <SimpleAuthProvider>
+              <UserProvider>
+                <DateProvider>
+                  <RosterProvider>
+                    <CircleProvider>
+                      <NotificationProvider>
+                        <RootLayoutNav />
+                      </NotificationProvider>
+                    </CircleProvider>
+                  </RosterProvider>
+                </DateProvider>
+              </UserProvider>
+            </SimpleAuthProvider>
+          </ReferralProvider>
         </AppThemeProvider>
       </ErrorBoundary>
     </SafeAreaProvider>

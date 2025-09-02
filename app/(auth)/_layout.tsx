@@ -36,6 +36,7 @@ export default function AuthLayout() {
         <Stack.Screen name="phone-auth" />
         <Stack.Screen name="verify-phone" />
         <Stack.Screen name="trouble-signin" />
+        <Stack.Screen name="friend-invite" />
       </Stack>
     </GestureHandlerRootView>
   );

@@ -24,6 +24,8 @@ import { supabase } from '@/lib/supabase';
 import { CircleService } from '@/services/supabase/circles';
 import { UserSearchService } from '@/services/UserSearchService';
 import { ContactSyncService } from '@/services/contacts/ContactSyncService';
+import { EnhancedContactModal } from './EnhancedContactModal';
+import { UserSearchModal } from '../search/UserSearchModal';
 
 interface Friend {
   id: string;
@@ -65,6 +67,8 @@ export function CircleInviteModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  const [isContactModalVisible, setIsContactModalVisible] = useState(false);
+  const [isUserSearchModalVisible, setIsUserSearchModalVisible] = useState(false);
 
   useEffect(() => {
     if (visible && user) {
@@ -82,6 +86,8 @@ export function CircleInviteModal({
     setSearchQuery('');
     setIsProcessing(false);
     setShowQR(false);
+    setIsContactModalVisible(false);
+    setIsUserSearchModalVisible(false);
   };
 
   const loadInviteableFriends = async () => {
@@ -220,25 +226,18 @@ export function CircleInviteModal({
   };
 
   const openContactSync = () => {
-    Alert.alert(
-      'Find from Contacts', 
-      'This feature helps you discover friends from your phone contacts who are already on RostrDating.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Continue', onPress: () => console.log('Contact sync would open here') }
-      ]
-    );
+    setIsContactModalVisible(true);
   };
 
   const openUserSearch = () => {
-    Alert.alert(
-      'Search by Username',
-      'Enter a username to find and add friends directly to this circle.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Continue', onPress: () => console.log('User search would open here') }
-      ]
-    );
+    setIsUserSearchModalVisible(true);
+  };
+
+  const handleNewFriendAdded = () => {
+    // Refresh the friends list after adding new friends
+    loadInviteableFriends();
+    setIsContactModalVisible(false);
+    setIsUserSearchModalVisible(false);
   };
 
   const filteredFriends = friends.filter(friend =>
@@ -574,6 +573,27 @@ export function CircleInviteModal({
             </ScrollView>
           )}
         </View>
+
+        {/* Enhanced Contact Modal */}
+        <EnhancedContactModal
+          visible={isContactModalVisible}
+          onClose={() => setIsContactModalVisible(false)}
+          onInvitesSent={(count) => {
+            console.log(`Sent invites to ${count} contacts`);
+          }}
+          onFriendsAdded={(count) => {
+            console.log(`Added ${count} friends`);
+            handleNewFriendAdded();
+          }}
+          joinCode={joinCode}
+        />
+
+        {/* User Search Modal */}
+        <UserSearchModal
+          visible={isUserSearchModalVisible}
+          onClose={() => setIsUserSearchModalVisible(false)}
+          onFriendAdded={handleNewFriendAdded}
+        />
       </SafeAreaView>
     </Modal>
   );

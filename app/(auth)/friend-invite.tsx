@@ -4,8 +4,8 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -16,12 +16,14 @@ import { FriendRequestService } from '@/services/FriendRequestService';
 import { useSafeAuth } from '@/hooks/useSafeAuth';
 import { supabase } from '@/lib/supabase';
 import { logger } from '@/utils/productionLogger';
+import { useReferral } from '@/contexts/ReferralContext';
 
 export default function FriendInviteScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
   const auth = useSafeAuth();
+  const { clearReferralData } = useReferral();
   const { ref, phone, invited_by } = useLocalSearchParams();
 
   const [isAccepting, setIsAccepting] = React.useState(false);
@@ -64,21 +66,25 @@ export default function FriendInviteScreen() {
       
       if (success) {
         logger.debug('✅ Auto-connected with referrer:', referrerName);
-        router.replace('/(tabs)/');
       } else {
         logger.debug('Friend request failed or already exists');
-        router.replace('/(tabs)/');
       }
+      
+      // Clear referral data and navigate to main app
+      await clearReferralData();
+      router.replace('/(tabs)');
     } catch (error) {
       logger.debug('Failed to auto-connect:', error);
-      router.replace('/(tabs)/');
+      await clearReferralData();
+      router.replace('/(tabs)');
     } finally {
       setIsAccepting(false);
     }
   };
 
-  const handleClose = () => {
-    router.replace('/(tabs)/');
+  const handleClose = async () => {
+    await clearReferralData();
+    router.replace('/(tabs)');
   };
 
   return (

@@ -8,6 +8,7 @@ import { FriendRequestService } from '@/services/FriendRequestService';
 import { UserService } from '@/services/supabase/users';
 import { supabase } from '@/lib/supabase';
 import { logger } from '@/utils/productionLogger';
+import { useReferral } from '@/contexts/ReferralContext';
 
 interface InviteParams {
   circle?: string;
@@ -20,6 +21,7 @@ interface InviteParams {
 export function useDeepLinks() {
   const router = useRouter();
   const auth = useSafeAuth();
+  const { setReferralData } = useReferral();
   const processedUrls = useRef(new Set<string>());
 
   const handleCircleInvite = async (circleId: string, invitedByName?: string) => {
@@ -29,7 +31,7 @@ export function useDeepLinks() {
         'Please sign in to join circles.',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Sign In', onPress: () => router.push('/(auth)/') }
+          { text: 'Sign In', onPress: () => router.push('/(auth)') }
         ]
       );
       return;
@@ -72,7 +74,7 @@ export function useDeepLinks() {
             text: 'Join Circle', 
             onPress: async () => {
               // Show loading state and join circle
-              const result = await joinCircleByInvite(circleId, auth.user.id, inviterName);
+              const result = await joinCircleByInvite(circleId, auth.user!.id, inviterName);
               
               if (result.success) {
                 Alert.alert(
@@ -148,22 +150,34 @@ export function useDeepLinks() {
 
       const referrerName = referrer?.name || 'A friend';
       
-      // Navigate to dedicated friend invite screen
-      router.push({
-        pathname: '/(auth)/friend-invite',
-        params: {
-          ref: referrerId,
-          phone: phoneHash,
-          invited_by: referrerName,
-        }
+      // Store referral data in context
+      await setReferralData({
+        ref: referrerId,
+        phone: phoneHash,
+        invited_by: referrerName,
       });
+      
+      if (auth?.user) {
+        // User is already authenticated, show friend invite screen directly
+        router.push({
+          pathname: '/(auth)/friend-invite',
+          params: {
+            ref: referrerId,
+            phone: phoneHash,
+            invited_by: referrerName,
+          }
+        });
+      } else {
+        // User needs to authenticate, context will handle showing invite after auth
+        logger.debug('🔐 User not authenticated, referral data stored for after auth');
+      }
     } catch (error) {
       console.error('Error handling phone-based invite:', error);
       // Fallback to regular welcome
       Alert.alert(
         'Welcome to RostrDating!',
         'A friend invited you to join! 🎉',
-        [{ text: 'Get Started', onPress: () => router.push('/(tabs)/') }]
+        [{ text: 'Get Started', onPress: () => router.push('/(tabs)') }]
       );
     }
   };
@@ -192,11 +206,18 @@ export function useDeepLinks() {
         // Handle general app referral
         const referrerName = params.invited_by ? decodeURIComponent(params.invited_by) : 'a friend';
         
+        // Store referral data in context for general referrals too
+        await setReferralData({
+          ref: params.ref,
+          invited_by: referrerName,
+          circle: params.circle,
+        });
+        
         Alert.alert(
           'Welcome to RostrDating!',
           `${referrerName} invited you to join RostrDating! 🎉`,
           [
-            { text: 'Get Started', onPress: () => router.push('/(tabs)/') },
+            { text: 'Get Started', onPress: () => router.push('/(tabs)') },
           ]
         );
       }

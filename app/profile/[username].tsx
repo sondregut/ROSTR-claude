@@ -238,15 +238,22 @@ export default function MemberProfileScreen() {
     if (!profileData || !user?.id) return;
     
     try {
-      await FriendRequestService.acceptFriendRequest(profileData.id);
-      setFriendshipStatus('friends');
-      setIsFriend(true);
-      Alert.alert('Success', `You are now friends with ${profileData.name}`, [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
-    } catch (error) {
+      console.log('Profile: Attempting to accept friend request from:', profileData.id);
+      const success = await FriendRequestService.acceptFriendRequest(profileData.id);
+      
+      if (success) {
+        setFriendshipStatus('friends');
+        setIsFriend(true);
+        Alert.alert('Success', `You are now friends with ${profileData.name}`, [
+          { text: 'OK', onPress: () => router.back() }
+        ]);
+      } else {
+        Alert.alert('Error', 'Failed to accept friend request. Please try again.');
+      }
+    } catch (error: any) {
       console.error('Error accepting friend request:', error);
-      Alert.alert('Error', 'Failed to accept friend request');
+      const errorMessage = error.message || 'Failed to accept friend request';
+      Alert.alert('Error', errorMessage);
     }
   };
 
@@ -263,12 +270,19 @@ export default function MemberProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await FriendRequestService.rejectFriendRequest(profileData.id);
-              setFriendshipStatus('none');
-              Alert.alert('Request declined');
-            } catch (error) {
+              console.log('Profile: Attempting to decline friend request from:', profileData.id);
+              const success = await FriendRequestService.rejectFriendRequest(profileData.id);
+              
+              if (success) {
+                setFriendshipStatus('none');
+                Alert.alert('Request declined');
+              } else {
+                Alert.alert('Error', 'Failed to decline friend request. Please try again.');
+              }
+            } catch (error: any) {
               console.error('Error declining friend request:', error);
-              Alert.alert('Error', 'Failed to decline friend request');
+              const errorMessage = error.message || 'Failed to decline friend request';
+              Alert.alert('Error', errorMessage);
             }
           },
         },
@@ -325,8 +339,8 @@ export default function MemberProfileScreen() {
   };
 
   const handlePersonPress = (person: RosterPersonData) => {
-    // Navigate to roster person detail screen
-    router.push(`/roster/${person.name.toLowerCase()}?isOwnRoster=false`);
+    // Navigate to person detail screen for friend's roster entry
+    router.push(`/person/${encodeURIComponent(person.name.toLowerCase())}?friendUsername=${encodeURIComponent(profileData.username)}&isOwnRoster=false`);
   };
 
   if (isLoading) {

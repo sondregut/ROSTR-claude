@@ -95,38 +95,29 @@ export class FriendRequestService {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
         console.error('User not authenticated:', authError);
-        return false;
+        throw new Error('User not authenticated');
       }
 
-      // Update the friend request to active
-      const { error: updateError } = await supabase
-        .from('friendships')
-        .update({ 
-          status: 'active',
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', requesterId)
-        .eq('friend_id', user.id)
-        .eq('status', 'pending');
+      console.log('Accepting friend request from:', requesterId, 'to:', user.id);
 
-      if (updateError) {
-        console.error('Error accepting friend request:', updateError);
-        return false;
-      }
-
-      // Create the reciprocal friendship (both directions now active)
-      const { error: reciprocalError } = await supabase
-        .from('friendships')
-        .insert({
-          user_id: user.id,
-          friend_id: requesterId,
-          status: 'active'
+      // Use the database function to accept the friend request
+      const { data, error } = await supabase
+        .rpc('accept_friend_request', {
+          p_requester_id: requesterId,
+          p_accepter_id: user.id
         });
 
-      if (reciprocalError) {
-        console.error('Error creating reciprocal friendship:', reciprocalError);
-        // Don't fail the whole operation, but log the issue
+      if (error) {
+        console.error('Error calling accept_friend_request function:', error);
+        throw new Error(`Failed to accept friend request: ${error.message}`);
       }
+
+      if (!data) {
+        console.error('accept_friend_request returned false');
+        throw new Error('Friend request acceptance failed');
+      }
+
+      console.log('Friend request accepted successfully');
 
       // Get user details for notification
       const { data: userDetails } = await supabase
