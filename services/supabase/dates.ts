@@ -83,6 +83,38 @@ export interface DateComment {
 }
 
 export const DateService = {
+  // Helper to get mutual friend IDs (bidirectional friendships)
+  async getMutualFriendIds(userId: string): Promise<string[]> {
+    try {
+      // Get friendships where user is user_id (outgoing)
+      const { data: outgoing } = await supabase
+        .from('friendships')
+        .select('friend_id')
+        .eq('user_id', userId)
+        .eq('status', 'active');
+
+      // Get friendships where user is friend_id (incoming)
+      const { data: incoming } = await supabase
+        .from('friendships')
+        .select('user_id')
+        .eq('friend_id', userId)
+        .eq('status', 'active');
+
+      // Find intersection (mutual friends - both must have active status)
+      const outgoingIds = new Set(outgoing?.map(f => f.friend_id) || []);
+      const incomingIds = new Set(incoming?.map(f => f.user_id) || []);
+      
+      // Return only IDs that appear in both sets (bidirectional friendship)
+      const mutualFriends = Array.from(outgoingIds).filter(id => incomingIds.has(id));
+      
+      logger.debug(`[DateService] Mutual friends for ${userId}: ${mutualFriends.length} found`);
+      return mutualFriends;
+    } catch (error) {
+      console.error('Error getting mutual friends:', error);
+      return [];
+    }
+  },
+
   // Get all dates for the feed
   async getDates(userId: string) {
     try {
@@ -94,14 +126,8 @@ export const DateService = {
 
       const circleIds = userCircles?.map(c => c.circle_id) || [];
 
-      // Get user's active friends
-      const { data: friendships } = await supabase
-        .from('friendships')
-        .select('friend_id')
-        .eq('user_id', userId)
-        .eq('status', 'active');
-
-      const friendIds = friendships?.map(f => f.friend_id) || [];
+      // Get ONLY mutual friends (bidirectional active friendships)
+      const friendIds = await this.getMutualFriendIds(userId);
 
       // Build the OR filter conditions
       let orConditions = [`user_id.eq.${userId}`];
@@ -277,7 +303,7 @@ export const DateService = {
   },
 
   // Get planned dates
-  // Get plans for feed (user's own plans + friends' plans)  
+  // Get plans for feed (user's own plans + mutual friends' plans)  
   async getPlansForFeed(userId: string) {
     try {
       // Get user's circles
@@ -288,14 +314,8 @@ export const DateService = {
 
       const circleIds = userCircles?.map(c => c.circle_id) || [];
       
-      // Get user's active friends
-      const { data: friendships } = await supabase
-        .from('friendships')
-        .select('friend_id')
-        .eq('user_id', userId)
-        .eq('status', 'active');
-
-      const friendIds = friendships?.map(f => f.friend_id) || [];
+      // Get ONLY mutual friends (bidirectional active friendships)
+      const friendIds = await this.getMutualFriendIds(userId);
 
       // Build filter to include user's own plans and friends' plans
       let userFilter = [userId];
@@ -786,6 +806,7 @@ export const DateService = {
         }
         
         console.log('✅ DateService: Successfully liked');
+        // Note: Notification is handled by database trigger automatically
       }
     } catch (error) {
       console.error('Error liking date:', error);
@@ -872,6 +893,7 @@ export const DateService = {
       }
 
       console.log('✅ Comment inserted successfully:', insertedComment);
+      // Note: Notification is handled by database trigger automatically
 
       // Try to increment comment count
       try {

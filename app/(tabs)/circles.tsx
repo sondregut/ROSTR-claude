@@ -196,7 +196,7 @@ export default function CirclesScreen() {
     const totalMembers = circles.reduce((sum, circle) => sum + (circle.member_count || 0), 0);
     // Estimate 30% overlap between circles
     const estimatedOverlap = Math.floor(totalMembers * 0.3);
-    return Math.max(totalMembers - estimatedOverlap, allFriends.length);
+    return Math.max(totalMembers - estimatedOverlap, actualFriends.length);
   };
 
   const renderCircleItem = ({ item }: { item: any }) => (
@@ -291,7 +291,7 @@ export default function CirclesScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          {activeTab === 'circles' ? 'My Circles' : 'All Friends'}
+          {activeTab === 'circles' ? 'My Circles' : 'Friends'}
         </Text>
       </View>
 
@@ -323,7 +323,7 @@ export default function CirclesScreen() {
             styles.tabText,
             { color: activeTab === 'friends' ? colors.primary : colors.textSecondary }
           ]}>
-            All Friends
+            Friends
           </Text>
         </Pressable>
       </View>
@@ -368,23 +368,10 @@ export default function CirclesScreen() {
             )}
           </View>
         ) : (
-          /* All Friends Tab Content */
+          /* Friends Tab Content */
           <View style={styles.section}>
-            {/* Header */}
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                All Friends ({getTotalFriendCount()})
-              </Text>
-            </View>
-            
-            {/* Your Friends List - TOP SECTION */}
+            {/* Friends List */}
             <View style={styles.friendsSection}>
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionSubtitle, { color: colors.text }]}>
-                  Your Friends
-                </Text>
-              </View>
-              
               {actualFriends.length === 0 ? (
                 <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
                   <Ionicons name="heart-outline" size={48} color={colors.icon} />

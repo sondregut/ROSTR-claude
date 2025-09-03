@@ -404,9 +404,15 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
               logger.debug('📨 Date entries change:', payload.eventType);
               
               if (payload.eventType === 'INSERT') {
-                // Show new posts indicator if not user's own post
+                // Check if the new post is from a mutual friend
                 if (payload.new?.user_id && payload.new.user_id !== user.id) {
-                  setHasNewPosts(true);
+                  // Get mutual friends to check if this post should be shown
+                  const mutualFriends = await DateService.getMutualFriendIds(user.id);
+                  
+                  // Only show new posts indicator if the post is from a mutual friend
+                  if (mutualFriends.includes(payload.new.user_id)) {
+                    setHasNewPosts(true);
+                  }
                 } else {
                   // If it's user's own post, refresh immediately
                   await loadDates();
@@ -435,6 +441,56 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('Failed to setup date entries subscription:', error);
+    }
+
+    // Subscribe to friendship changes to refresh feed when friends are added/removed
+    try {
+      const friendshipsChannel = supabase
+        .channel('feed-friendships')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'friendships',
+          },
+          async (payload) => {
+            try {
+              logger.debug('👥 Friendship change:', payload.eventType);
+              
+              // Check if this friendship change involves the current user
+              const involvesCurrentUser = 
+                (payload.new?.user_id === user.id || payload.new?.friend_id === user.id) ||
+                (payload.old?.user_id === user.id || payload.old?.friend_id === user.id);
+              
+              if (involvesCurrentUser) {
+                // Check if the friendship status changed to/from active
+                const statusChanged = 
+                  (payload.new?.status === 'active' && payload.old?.status !== 'active') ||
+                  (payload.old?.status === 'active' && (!payload.new || payload.new.status !== 'active'));
+                
+                if (statusChanged || payload.eventType === 'DELETE') {
+                  // Refresh the feed to add/remove friend's posts
+                  logger.debug('🔄 Refreshing feed due to friendship change');
+                  await loadDates();
+                }
+              }
+            } catch (error) {
+              console.error('Error handling friendship change:', error);
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIPTION_ERROR') {
+            console.error('Friendships subscription error');
+          }
+        });
+      
+      if (friendshipsChannel) {
+        channelsRef.current.push(friendshipsChannel);
+      }
+    } catch (error) {
+      console.error('Failed to setup friendships subscription:', error);
     }
 
     // Subscribe to likes changes

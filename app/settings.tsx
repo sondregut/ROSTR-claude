@@ -606,4 +606,36 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
   },
+  notificationCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  notificationCardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  notificationCardContent: {
+    flex: 1,
+    marginRight: 16,
+  },
+  notificationCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  notificationCardDescription: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  notificationPreferences: {
+    marginTop: 8,
+  },
 });
