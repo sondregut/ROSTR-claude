@@ -74,8 +74,8 @@ interface DateFeedProps {
   onRefresh?: () => void;
   onEndReached?: () => void;
   onDatePress?: (dateId: string) => void;
-  onPersonPress?: (personName: string, authorName?: string) => void;
-  onPersonHistoryPress?: (personName: string, authorName?: string) => void;
+  onPersonPress?: (personName: string, authorName?: string, authorUsername?: string) => void;
+  onPersonHistoryPress?: (personName: string, authorName?: string, authorUsername?: string) => void;
   onAuthorPress?: (authorUsername: string) => void;
   onLike?: (dateId: string) => void;
   onReact?: (dateId: string, reaction: any) => void;
@@ -202,7 +202,7 @@ export function DateFeed({
             imageUri={item.imageUri}
             rosterInfo={item.rosterInfo}
             onPress={() => onDatePress?.(item.id)}
-            onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
+            onPersonPress={() => onPersonPress?.(item.personName, item.authorName, item.authorUsername)}
             onAuthorPress={() => {
               console.log('🔍 DateFeed: RosterCard onAuthorPress - item.authorUsername:', item.authorUsername, 'item.authorName:', item.authorName);
               onAuthorPress?.(item.authorUsername || '');
@@ -260,7 +260,7 @@ export function DateFeed({
             onLike={() => onLikePlan?.(item.id)}
             onReact={onReactPlan ? (reaction) => onReactPlan(item.id, reaction) : undefined}
             onSubmitComment={onSubmitPlanComment ? (text) => onSubmitPlanComment(item.id, text) : undefined}
-            onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
+            onPersonPress={() => onPersonPress?.(item.personName, item.authorName, item.authorUsername)}
             onAuthorPress={() => {
               console.log('🔍 DateFeed: PlanCard onAuthorPress - item.authorUsername:', item.authorUsername, 'item.authorName:', item.authorName);
               onAuthorPress?.(item.authorUsername || '');
@@ -303,8 +303,8 @@ export function DateFeed({
           reactions={item.reactions}
           userReaction={item.userReaction}
           onPress={() => onDatePress?.(item.id)}
-          onPersonPress={() => onPersonPress?.(item.personName, item.authorName)}
-          onPersonHistoryPress={() => onPersonHistoryPress?.(item.personName, item.authorName)}
+          onPersonPress={() => onPersonPress?.(item.personName, item.authorName, item.authorUsername)}
+          onPersonHistoryPress={() => onPersonHistoryPress?.(item.personName, item.authorName, item.authorUsername)}
           onAuthorPress={() => {
             console.log('🔍 DateFeed: DateCard onAuthorPress - item.authorUsername:', item.authorUsername, 'item.authorName:', item.authorName);
             onAuthorPress?.(item.authorUsername || '');

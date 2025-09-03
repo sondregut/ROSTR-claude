@@ -59,24 +59,87 @@ export class UserService {
    */
   static async getUserByUsername(username: string): Promise<UserProfile | null> {
     try {
-      const { data, error } = await supabase
+      console.log('🔍 getUserByUsername: Looking for username:', username);
+      
+      // First try exact username match
+      const { data: usernameData, error: usernameError } = await supabase
         .from('users')
         .select('*')
         .eq('username', username)
-        .single();
+        .maybeSingle();
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // No rows returned
-          return null;
-        }
-        throw error;
+      if (usernameData) {
+        console.log('✅ Found user by exact username match:', username);
+        return usernameData;
       }
 
-      return data;
+      console.log('❌ No exact username match, trying instagram_username...');
+
+      // If no exact match, try instagram_username
+      const { data: instagramData, error: instagramError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('instagram_username', username)
+        .maybeSingle();
+
+      if (instagramData) {
+        console.log('✅ Found user by instagram_username:', username);
+        return instagramData;
+      }
+
+      console.log('❌ No instagram_username match, trying partial name match...');
+
+      // Try to find by partial name match (for usernames like "sondregut" from "Sondre Guttormsen")
+      const { data: users } = await supabase
+        .from('users')
+        .select('*');
+
+      if (users && users.length > 0) {
+        // First try exact normalized name match
+        const normalizedUsername = username.toLowerCase().replace(/\s+/g, '');
+        
+        // Try to find user whose name starts with the username
+        const matchedUser = users.find(user => {
+          if (!user.name) return false;
+          const normalizedName = user.name.toLowerCase().replace(/\s+/g, '');
+          
+          // Check if normalized name matches exactly
+          if (normalizedName === normalizedUsername) {
+            return true;
+          }
+          
+          // Check if username is a prefix of the normalized name (e.g., "sondregut" from "sondreguttormsen")
+          if (normalizedName.startsWith(normalizedUsername)) {
+            return true;
+          }
+          
+          // Check if the username matches first name + partial last name
+          const nameParts = user.name.toLowerCase().split(' ');
+          if (nameParts.length > 1) {
+            // Try first name + first 3 letters of last name (e.g., "sondregut" from "Sondre Guttormsen")
+            const firstPlusPartialLast = nameParts[0] + nameParts[1].substring(0, 3);
+            if (firstPlusPartialLast === normalizedUsername) {
+              return true;
+            }
+          }
+          
+          return false;
+        });
+
+        if (matchedUser) {
+          console.log('✅ Found user by name match:', username, '->', matchedUser.name);
+          return matchedUser;
+        }
+        
+        console.log('🔍 Available users for debugging:', users.map(u => ({ name: u.name, username: u.username, instagram: u.instagram_username })));
+      }
+
+      // No user found with any method
+      console.log('❌ No user found for username:', username);
+      return null;
     } catch (error) {
       console.error('Get user by username error:', error);
-      throw error;
+      return null; // Return null instead of throwing
     }
   }
 
@@ -681,7 +744,8 @@ export class UserService {
    */
   static async getUserDateHistory(userId: string) {
     try {
-      const { data, error } = await supabase
+      // First get the date entries
+      const { data: dates, error } = await supabase
         .from('date_entries')
         .select(`
           *,
@@ -700,7 +764,54 @@ export class UserService {
         throw error;
       }
 
-      return data || [];
+      if (!dates || dates.length === 0) {
+        return [];
+      }
+
+      // Get all date IDs
+      const dateIds = dates.map(d => d.id);
+
+      // Fetch comments for all dates
+      const { data: comments } = await supabase
+        .from('date_comments')
+        .select(`
+          id,
+          date_entry_id,
+          content,
+          created_at,
+          user:users (
+            name,
+            username,
+            image_uri
+          )
+        `)
+        .in('date_entry_id', dateIds)
+        .order('created_at', { ascending: true });
+
+      // Group comments by date_entry_id
+      const commentsByDate: Record<string, any[]> = {};
+      if (comments) {
+        comments.forEach(comment => {
+          if (!commentsByDate[comment.date_entry_id]) {
+            commentsByDate[comment.date_entry_id] = [];
+          }
+          commentsByDate[comment.date_entry_id].push({
+            id: comment.id,
+            name: comment.user?.name || 'Unknown',
+            content: comment.content,
+            imageUri: comment.user?.image_uri,
+          });
+        });
+      }
+
+      // Add comments to each date entry
+      const datesWithComments = dates.map(date => ({
+        ...date,
+        comments: commentsByDate[date.id] || [],
+        comment_count: commentsByDate[date.id]?.length || 0,
+      }));
+
+      return datesWithComments;
     } catch (error) {
       console.error('Get user date history error:', error);
       throw error;

@@ -176,15 +176,52 @@ export class RosterService {
    */
   static async getFriendRosterEntry(friendUsername: string, personName: string): Promise<RosterEntry | null> {
     try {
-      // First get the friend's user ID
-      const { data: userData, error: userError } = await supabase
+      // First try to get friend by username with multiple fallback methods
+      let userData = null;
+      
+      // Try exact username match
+      const { data: userByUsername } = await supabase
         .from('users')
-        .select('id')
+        .select('id, name, username, instagram_username')
         .eq('username', friendUsername)
         .maybeSingle();
 
-      if (userError || !userData) {
-        console.error('Error fetching friend user:', userError);
+      if (userByUsername) {
+        userData = userByUsername;
+        console.log('Found friend by username:', friendUsername);
+      } else {
+        // Try instagram_username
+        const { data: userByInstagram } = await supabase
+          .from('users')
+          .select('id, name, username, instagram_username')
+          .eq('instagram_username', friendUsername)
+          .maybeSingle();
+        
+        if (userByInstagram) {
+          userData = userByInstagram;
+          console.log('Found friend by instagram_username:', friendUsername);
+        } else {
+          // Try normalized name match as last resort
+          const { data: users } = await supabase
+            .from('users')
+            .select('id, name, username, instagram_username');
+          
+          if (users && users.length > 0) {
+            const normalizedUsername = friendUsername.toLowerCase().replace(/\s+/g, '');
+            userData = users.find(user => {
+              const normalizedName = user.name?.toLowerCase().replace(/\s+/g, '');
+              return normalizedName === normalizedUsername;
+            });
+            
+            if (userData) {
+              console.log('Found friend by normalized name:', friendUsername, '->', userData.name);
+            }
+          }
+        }
+      }
+
+      if (!userData) {
+        console.error('Could not find friend user for username:', friendUsername);
         return null;
       }
 
@@ -199,6 +236,10 @@ export class RosterService {
       if (error) {
         console.error('Error fetching friend roster entry:', error);
         return null;
+      }
+
+      if (!data) {
+        console.log(`Person "${personName}" not found in ${userData.name}'s roster`);
       }
 
       return data;

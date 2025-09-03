@@ -81,8 +81,10 @@ export class ContactService {
 
   /**
    * Normalize phone number to E.164 format
+   * @param phoneNumber The phone number to normalize
+   * @param defaultCountry Optional ISO country code (e.g., 'US', 'GB') to use as default
    */
-  static normalizePhoneNumber(phoneNumber: string): string {
+  static normalizePhoneNumber(phoneNumber: string, defaultCountry?: string): string {
     try {
       // Remove all non-numeric characters except +
       const cleaned = phoneNumber.replace(/[^\d+]/g, '');
@@ -93,7 +95,19 @@ export class ContactService {
         return parsed.format('E.164');
       }
       
-      // If no country code, try with default country (US)
+      // If no country code, try with provided default country
+      if (!cleaned.startsWith('+') && defaultCountry) {
+        try {
+          const parsed = parsePhoneNumber(cleaned, defaultCountry as any);
+          if (parsed && parsed.isValid()) {
+            return parsed.format('E.164');
+          }
+        } catch (e) {
+          // Fall through to US default
+        }
+      }
+      
+      // If no country code and no default provided, try with US as fallback
       if (!cleaned.startsWith('+')) {
         const withUS = `+1${cleaned}`;
         if (isValidPhoneNumber(withUS)) {

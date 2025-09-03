@@ -136,6 +136,11 @@ export default function FeedScreen() {
     } else {
       console.error('❌ Feed: Empty or invalid authorUsername provided:', JSON.stringify(authorUsername));
       console.error('❌ Feed: Cannot navigate to profile - username is empty or invalid');
+      Alert.alert(
+        'Profile Unavailable',
+        'Unable to view this user\'s profile. Their username may not be set up yet.',
+        [{ text: 'OK' }]
+      );
     }
   };
   
@@ -301,19 +306,28 @@ export default function FeedScreen() {
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           onDatePress={(dateId) => console.log(`Navigate to date detail ${dateId}`)}
-          onPersonPress={(personName, authorName) => {
-            if (authorName && authorName !== 'You') {
+          onPersonPress={(personName, authorName, authorUsername) => {
+            if (authorName && authorName !== 'You' && authorUsername) {
               // This is a friend's date - navigate to friend's view of this person
-              router.push(`/person/${encodeURIComponent(personName)}?friendUsername=${encodeURIComponent(authorName)}&isOwnRoster=false`);
+              // Use authorUsername for the query param, not authorName
+              router.push(`/person/${encodeURIComponent(personName)}?friendUsername=${encodeURIComponent(authorUsername)}&isOwnRoster=false`);
+            } else if (authorName && authorName !== 'You') {
+              // Fallback: use authorName if username not available
+              const fallbackUsername = authorName.toLowerCase().replace(/\s+/g, '');
+              router.push(`/person/${encodeURIComponent(personName)}?friendUsername=${encodeURIComponent(fallbackUsername)}&isOwnRoster=false`);
             } else {
               // This is your own date
               router.push(`/person/${encodeURIComponent(personName)}?isOwnRoster=true`);
             }
           }}
-          onPersonHistoryPress={(personName, authorName) => {
-            if (authorName && authorName !== 'You') {
-              // Navigate to friend's date profile
-              router.push(`/person/${encodeURIComponent(personName)}?friendUsername=${encodeURIComponent(authorName)}&isOwnRoster=false`);
+          onPersonHistoryPress={(personName, authorName, authorUsername) => {
+            if (authorName && authorName !== 'You' && authorUsername) {
+              // Navigate to friend's date profile with proper username
+              router.push(`/person/${encodeURIComponent(personName)}?friendUsername=${encodeURIComponent(authorUsername)}&isOwnRoster=false`);
+            } else if (authorName && authorName !== 'You') {
+              // Fallback: use normalized authorName if username not available
+              const fallbackUsername = authorName.toLowerCase().replace(/\s+/g, '');
+              router.push(`/person/${encodeURIComponent(personName)}?friendUsername=${encodeURIComponent(fallbackUsername)}&isOwnRoster=false`);
             } else {
               // Navigate to your own roster
               router.push(`/person/${encodeURIComponent(personName)}?isOwnRoster=true`);

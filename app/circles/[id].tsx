@@ -216,7 +216,15 @@ export default function CircleDetailScreen() {
               }
             ]}
           >
-            <Image source={{ uri: member.user?.image_uri || '' }} style={styles.avatar} />
+            {member.user?.image_uri ? (
+              <Image source={{ uri: member.user.image_uri }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.avatarInitial, { color: colors.buttonText }]}>
+                  {member.user?.name?.charAt(0)?.toUpperCase() || '?'}
+                </Text>
+              </View>
+            )}
           </View>
         ))}
         {remainingCount > 0 && (
@@ -669,6 +677,14 @@ const styles = StyleSheet.create({
   avatar: {
     width: '100%',
     height: '100%',
+  },
+  avatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitial: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   remainingCount: {
     marginLeft: 4,

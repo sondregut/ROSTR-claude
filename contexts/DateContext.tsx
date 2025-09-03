@@ -266,8 +266,16 @@ export function DateProvider({ children }: { children: React.ReactNode }) {
       tags: dbPlan.tags,
       authorName: dbPlan.user?.name || 'Unknown',
       authorUsername: (() => {
-        const username = dbPlan.user?.username;
-        logger.debug('🔍 DateContext: Setting plan authorUsername for plan:', dbPlan.id, 'user:', dbPlan.user?.name, 'username:', username);
+        // Use actual username or instagram_username from database
+        // DO NOT generate usernames from names as it causes mismatches
+        const username = dbPlan.user?.username || dbPlan.user?.instagram_username || '';
+        
+        logger.debug('🔍 DateContext: Setting plan authorUsername for plan:', dbPlan.id, 
+          'user:', dbPlan.user?.name,
+          'username:', dbPlan.user?.username,
+          'instagram:', dbPlan.user?.instagram_username,
+          'final:', username || 'none');
+        
         return username;
       })(),
       authorAvatar: dbPlan.user?.image_uri,

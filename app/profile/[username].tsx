@@ -22,6 +22,9 @@ import { UserService } from '@/services/supabase/users';
 import { FriendsService } from '@/services/supabase/friends';
 import { FriendRequestService } from '@/services/FriendRequestService';
 import { useAuth } from '@/contexts/SimpleAuthContext';
+import { DateService } from '@/services/supabase/dates';
+import { supabase } from '@/lib/supabase';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface ProfileData {
   id: string;
@@ -56,6 +59,8 @@ export default function MemberProfileScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isFriend, setIsFriend] = useState(false);
   const [friendshipStatus, setFriendshipStatus] = useState<'friends' | 'pending_sent' | 'pending_received' | 'none'>('none');
+  const [dateHistory, setDateHistory] = useState<any[]>([]);
+  const commentChannelRef = React.useRef<RealtimeChannel | null>(null);
   
   // Load profile data from database
   useEffect(() => {
@@ -168,6 +173,9 @@ export default function MemberProfileScreen() {
           }).length,
         };
         
+        // Store date history in state separately for real-time updates
+        setDateHistory(dateHistory);
+        
         const profile: ProfileData = {
           id: userProfile.id,
           name: userProfile.name,
@@ -195,6 +203,118 @@ export default function MemberProfileScreen() {
     loadProfileData();
   }, [username]);
 
+  // Set up real-time subscription for comments
+  useEffect(() => {
+    if (!profileData || dateHistory.length === 0) return;
+
+    // Clean up existing subscription
+    if (commentChannelRef.current) {
+      supabase.removeChannel(commentChannelRef.current);
+    }
+
+    // Get all date IDs to watch for comments
+    const dateIds = dateHistory.map(d => d.id);
+
+    // Subscribe to comment changes for these dates
+    const channel = supabase
+      .channel(`profile-comments-${profileData.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'date_comments',
+          filter: `date_entry_id=in.(${dateIds.join(',')})`,
+        },
+        async (payload) => {
+          console.log('💬 New comment received:', payload);
+          
+          if (payload.new) {
+            const newComment = payload.new as any;
+            
+            // Fetch user info for the comment
+            const { data: userData } = await supabase
+              .from('users')
+              .select('name, username, image_uri')
+              .eq('id', newComment.user_id)
+              .single();
+
+            // Update the specific date entry with the new comment
+            setDateHistory(prevHistory => 
+              prevHistory.map(date => {
+                if (date.id === newComment.date_entry_id) {
+                  return {
+                    ...date,
+                    comments: [
+                      ...(date.comments || []),
+                      {
+                        id: newComment.id,
+                        name: userData?.name || 'Unknown',
+                        content: newComment.content,
+                        imageUri: userData?.image_uri,
+                      }
+                    ],
+                    comment_count: (date.comment_count || 0) + 1,
+                  };
+                }
+                return date;
+              })
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    commentChannelRef.current = channel;
+
+    return () => {
+      if (commentChannelRef.current) {
+        supabase.removeChannel(commentChannelRef.current);
+      }
+    };
+  }, [profileData, dateHistory.length]);
+
+  const handleSubmitComment = async (dateId: string, text: string) => {
+    if (!user || !profileData) return;
+
+    try {
+      // Optimistically update UI
+      const optimisticComment = {
+        id: `temp-${Date.now()}`,
+        name: user.user_metadata?.name || 'You',
+        content: text,
+        imageUri: user.user_metadata?.image_uri,
+      };
+
+      setDateHistory(prevHistory => 
+        prevHistory.map(date => {
+          if (date.id === dateId) {
+            return {
+              ...date,
+              comments: [...(date.comments || []), optimisticComment],
+              comment_count: (date.comment_count || 0) + 1,
+            };
+          }
+          return date;
+        })
+      );
+
+      // Send comment to server
+      await DateService.addComment(dateId, {
+        name: user.user_metadata?.name || 'You',
+        content: text,
+        imageUri: user.user_metadata?.image_uri,
+      }, user.id);
+
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      Alert.alert('Error', 'Failed to add comment. Please try again.');
+      
+      // Revert optimistic update on error
+      setDateHistory(prevHistory => [...prevHistory]);
+    }
+  };
+
   const handleUnfriend = async () => {
     if (!profileData || !user?.id) return;
     
@@ -210,6 +330,17 @@ export default function MemberProfileScreen() {
             try {
               await FriendsService.removeFriend(user.id, profileData.id);
               setIsFriend(false);
+              setFriendshipStatus('none');
+              // Reload the profile to update UI
+              const loadProfileData = async () => {
+                const userProfile = await UserService.getUserByUsername(profileData.username);
+                if (userProfile) {
+                  const currentFriendshipStatus = await FriendRequestService.getFriendshipStatus(userProfile.id);
+                  setFriendshipStatus(currentFriendshipStatus);
+                  setIsFriend(currentFriendshipStatus === 'friends');
+                }
+              };
+              await loadProfileData();
               Alert.alert('Success', `${profileData.name} has been removed from your friends`);
             } catch (error) {
               console.error('Error removing friend:', error);
@@ -598,7 +729,7 @@ export default function MemberProfileScreen() {
                 </Text>
               </View>
               
-              {profileData.dateHistory.map((date) => (
+              {dateHistory.map((date) => (
                 <DateCard
                   key={date.id}
                   id={date.id}
@@ -612,10 +743,12 @@ export default function MemberProfileScreen() {
                   authorName={profileData.name}
                   authorAvatar={profileData.avatar}
                   likeCount={date.like_count}
-                  commentCount={date.comment_count}
+                  commentCount={date.comment_count || 0}
+                  comments={date.comments || []}
                   isLiked={false}
                   onPersonPress={() => router.push(`/person/${date.person_name.toLowerCase()}?friendUsername=${profileData.username}&isOwnRoster=false`)}
                   onPersonHistoryPress={() => router.push(`/person/${date.person_name.toLowerCase()}?friendUsername=${profileData.username}&isOwnRoster=false`)}
+                  onSubmitComment={(text) => handleSubmitComment(date.id, text)}
                 />
               ))}
               

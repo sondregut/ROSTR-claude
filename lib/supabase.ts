@@ -39,6 +39,10 @@ export type Database = {
           date_of_birth: string;
           image_uri: string;
           instagram_username: string;
+          phone?: string;
+          phone_verified?: boolean;
+          allow_phone_discovery?: boolean;
+          country_code?: string;
           total_dates: number;
           active_connections: number;
           avg_rating: number;
@@ -61,6 +65,10 @@ export type Database = {
           date_of_birth?: string;
           image_uri?: string;
           instagram_username?: string;
+          phone?: string;
+          phone_verified?: boolean;
+          allow_phone_discovery?: boolean;
+          country_code?: string;
           total_dates?: number;
           active_connections?: number;
           avg_rating?: number;
@@ -83,6 +91,10 @@ export type Database = {
           date_of_birth?: string;
           image_uri?: string;
           instagram_username?: string;
+          phone?: string;
+          phone_verified?: boolean;
+          allow_phone_discovery?: boolean;
+          country_code?: string;
           total_dates?: number;
           active_connections?: number;
           avg_rating?: number;

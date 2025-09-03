@@ -3,7 +3,6 @@ import {
   StyleSheet,
   View,
   Text,
-  TextInput,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -20,6 +19,8 @@ import { useSafeAuth } from '@/hooks/useSafeAuth';
 import { useSafeUser } from '@/hooks/useSafeUser';
 import { UserService } from '@/services/supabase/users';
 import { ContactService } from '@/services/contacts/ContactService';
+import { PhoneInput } from '@/components/ui/auth/PhoneInput';
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import * as Haptics from 'expo-haptics';
 
 export default function PhoneSettingsScreen() {
@@ -32,7 +33,6 @@ export default function PhoneSettingsScreen() {
   const userProfile = safeUser?.userProfile;
 
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [countryCode, setCountryCode] = useState('+1');
   const [isLoading, setIsLoading] = useState(false);
   const [allowDiscovery, setAllowDiscovery] = useState(true);
   const [currentPhone, setCurrentPhone] = useState<string | null>(null);
@@ -41,40 +41,11 @@ export default function PhoneSettingsScreen() {
     // Load existing phone number if available
     if (userProfile?.phone) {
       setCurrentPhone(userProfile.phone);
-      // Try to parse country code and number
-      const phoneStr = userProfile.phone;
-      if (phoneStr.startsWith('+1') && phoneStr.length === 12) {
-        setCountryCode('+1');
-        setPhoneNumber(formatPhoneNumber(phoneStr.substring(2)));
-      } else if (phoneStr.startsWith('+')) {
-        // Handle other country codes
-        setPhoneNumber(phoneStr);
-      }
+      // Set the full phone number for PhoneInput component
+      setPhoneNumber(userProfile.phone);
       setAllowDiscovery(userProfile.allow_phone_discovery ?? true);
     }
   }, [userProfile]);
-
-  const formatPhoneNumber = (value: string) => {
-    // Remove all non-numeric characters
-    const cleaned = value.replace(/\D/g, '');
-    
-    // Apply US phone number formatting
-    if (cleaned.length <= 3) {
-      return cleaned;
-    } else if (cleaned.length <= 6) {
-      return `${cleaned.slice(0, 3)}-${cleaned.slice(3)}`;
-    } else {
-      return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
-    }
-  };
-
-  const handlePhoneChange = (value: string) => {
-    if (countryCode === '+1') {
-      setPhoneNumber(formatPhoneNumber(value));
-    } else {
-      setPhoneNumber(value);
-    }
-  };
 
   const handleSave = async () => {
     if (!phoneNumber.trim()) {
@@ -90,18 +61,26 @@ export default function PhoneSettingsScreen() {
     try {
       setIsLoading(true);
       
-      // Normalize phone number to E.164 format
-      const normalizedPhone = ContactService.normalizePhoneNumber(
-        countryCode + phoneNumber.replace(/\D/g, '')
-      );
+      // Parse the phone number to get country code
+      const parsedPhone = parsePhoneNumberFromString(phoneNumber);
       
-      console.log('Saving phone number:', normalizedPhone);
+      if (!parsedPhone || !parsedPhone.isValid()) {
+        Alert.alert('Error', 'Please enter a valid phone number');
+        return;
+      }
       
-      // Update user profile with phone number
+      // Get the E.164 format and country code
+      const normalizedPhone = parsedPhone.format('E.164');
+      const countryCode = parsedPhone.country || undefined;
+      
+      console.log('Saving phone number:', normalizedPhone, 'Country:', countryCode);
+      
+      // Update user profile with phone number and country code
       await UserService.updateProfile(user.id, {
         phone: normalizedPhone,
         phone_verified: false,
         allow_phone_discovery: allowDiscovery,
+        country_code: countryCode,
       });
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -201,25 +180,13 @@ export default function PhoneSettingsScreen() {
 
           {/* Phone Input Section */}
           <View style={[styles.inputSection, { backgroundColor: colors.card }]}>
-            <Text style={[styles.label, { color: colors.text }]}>
-              {currentPhone ? 'Update Phone Number' : 'Add Phone Number'}
-            </Text>
-            
-            <View style={styles.phoneInputContainer}>
-              <View style={[styles.countryCodeContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                <Text style={[styles.countryCode, { color: colors.text }]}>{countryCode}</Text>
-              </View>
-              
-              <TextInput
-                style={[styles.phoneInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
-                value={phoneNumber}
-                onChangeText={handlePhoneChange}
-                placeholder={countryCode === '+1' ? '123-456-7890' : 'Enter phone number'}
-                placeholderTextColor={colors.textSecondary}
-                keyboardType="phone-pad"
-                maxLength={countryCode === '+1' ? 12 : 20}
-              />
-            </View>
+            <PhoneInput
+              label={currentPhone ? 'Update Phone Number' : 'Add Phone Number'}
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              placeholder="Enter your phone number"
+              required={false}
+            />
 
             <Text style={[styles.helperText, { color: colors.textSecondary }]}>
               We'll use this to help your friends find you
@@ -339,29 +306,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 12,
-  },
-  phoneInputContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  countryCodeContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    justifyContent: 'center',
-  },
-  countryCode: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  phoneInput: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    fontSize: 16,
   },
   helperText: {
     fontSize: 13,

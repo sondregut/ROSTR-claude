@@ -245,14 +245,18 @@ export default function SettingsScreen() {
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Notifications</Text>
           
+          {/* Master Push Notification Toggle */}
           <Pressable
-            style={[styles.settingRow, { borderBottomColor: colors.border }]}
+            style={[styles.notificationCard, { backgroundColor: colors.background, borderColor: colors.border }]}
             onPress={handleToggleNotifications}
           >
-            <View style={styles.settingInfo}>
-              <Text style={[styles.settingLabel, { color: colors.text }]}>Push Notifications</Text>
-              <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
-                Get notified about likes, comments, and friend activity
+            <View style={styles.notificationCardIcon}>
+              <Ionicons name="notifications" size={24} color={pushEnabled ? colors.primary : colors.textSecondary} />
+            </View>
+            <View style={styles.notificationCardContent}>
+              <Text style={[styles.notificationCardTitle, { color: colors.text }]}>Push Notifications</Text>
+              <Text style={[styles.notificationCardDescription, { color: colors.textSecondary }]}>
+                Enable to receive notifications about your dating activity
               </Text>
             </View>
             <View style={[styles.toggle, { backgroundColor: pushEnabled ? colors.primary : colors.border }]}>
@@ -261,56 +265,97 @@ export default function SettingsScreen() {
           </Pressable>
 
           {pushEnabled && preferences && (
-            <>
+            <View style={styles.notificationPreferences}>
+              {/* Likes & Reactions Card */}
               <Pressable
-                style={[styles.settingRow, { borderBottomColor: colors.border }]}
+                style={[styles.notificationCard, { backgroundColor: colors.background, borderColor: colors.border }]}
                 onPress={() => handleToggleNotificationPreference('likes_reactions', !preferences.likes_reactions)}
               >
-                <View style={styles.settingInfo}>
-                  <Text style={[styles.settingLabel, { color: colors.text }]}>Likes & Reactions</Text>
+                <View style={styles.notificationCardIcon}>
+                  <Ionicons name="heart" size={24} color={preferences.likes_reactions ? colors.primary : colors.textSecondary} />
+                </View>
+                <View style={styles.notificationCardContent}>
+                  <Text style={[styles.notificationCardTitle, { color: colors.text }]}>Likes & Reactions</Text>
+                  <Text style={[styles.notificationCardDescription, { color: colors.textSecondary }]}>
+                    When someone likes your dates or roster entries
+                  </Text>
                 </View>
                 <View style={[styles.toggle, { backgroundColor: preferences.likes_reactions ? colors.primary : colors.border }]}>
                   <View style={[styles.toggleThumb, { transform: [{ translateX: preferences.likes_reactions ? 22 : 2 }] }]} />
                 </View>
               </Pressable>
 
+              {/* Comments Card */}
               <Pressable
-                style={[styles.settingRow, { borderBottomColor: colors.border }]}
+                style={[styles.notificationCard, { backgroundColor: colors.background, borderColor: colors.border }]}
                 onPress={() => handleToggleNotificationPreference('comments', !preferences.comments)}
               >
-                <View style={styles.settingInfo}>
-                  <Text style={[styles.settingLabel, { color: colors.text }]}>Comments & Mentions</Text>
+                <View style={styles.notificationCardIcon}>
+                  <Ionicons name="chatbubble" size={24} color={preferences.comments ? colors.primary : colors.textSecondary} />
+                </View>
+                <View style={styles.notificationCardContent}>
+                  <Text style={[styles.notificationCardTitle, { color: colors.text }]}>Comments</Text>
+                  <Text style={[styles.notificationCardDescription, { color: colors.textSecondary }]}>
+                    When someone comments on your dates or mentions you
+                  </Text>
                 </View>
                 <View style={[styles.toggle, { backgroundColor: preferences.comments ? colors.primary : colors.border }]}>
                   <View style={[styles.toggleThumb, { transform: [{ translateX: preferences.comments ? 22 : 2 }] }]} />
                 </View>
               </Pressable>
 
+              {/* Friend Activity Card */}
               <Pressable
-                style={[styles.settingRow, { borderBottomColor: colors.border }]}
+                style={[styles.notificationCard, { backgroundColor: colors.background, borderColor: colors.border }]}
                 onPress={() => handleToggleNotificationPreference('friend_activity', !preferences.friend_activity)}
               >
-                <View style={styles.settingInfo}>
-                  <Text style={[styles.settingLabel, { color: colors.text }]}>Friend Activity</Text>
+                <View style={styles.notificationCardIcon}>
+                  <Ionicons name="people" size={24} color={preferences.friend_activity ? colors.primary : colors.textSecondary} />
+                </View>
+                <View style={styles.notificationCardContent}>
+                  <Text style={[styles.notificationCardTitle, { color: colors.text }]}>Friend Activity</Text>
+                  <Text style={[styles.notificationCardDescription, { color: colors.textSecondary }]}>
+                    Friend requests, new dates, and roster updates
+                  </Text>
                 </View>
                 <View style={[styles.toggle, { backgroundColor: preferences.friend_activity ? colors.primary : colors.border }]}>
                   <View style={[styles.toggleThumb, { transform: [{ translateX: preferences.friend_activity ? 22 : 2 }] }]} />
                 </View>
               </Pressable>
 
+              {/* Circle Updates Card */}
               <Pressable
-                style={[styles.settingRow, { borderBottomColor: colors.border }]}
+                style={[styles.notificationCard, { backgroundColor: colors.background, borderColor: colors.border }]}
                 onPress={() => handleToggleNotificationPreference('circle_updates', !preferences.circle_updates)}
               >
-                <View style={styles.settingInfo}>
-                  <Text style={[styles.settingLabel, { color: colors.text }]}>Circle Updates</Text>
+                <View style={styles.notificationCardIcon}>
+                  <Ionicons name="people-circle" size={24} color={preferences.circle_updates ? colors.primary : colors.textSecondary} />
+                </View>
+                <View style={styles.notificationCardContent}>
+                  <Text style={[styles.notificationCardTitle, { color: colors.text }]}>Circle Updates</Text>
+                  <Text style={[styles.notificationCardDescription, { color: colors.textSecondary }]}>
+                    Circle invites, messages, and member activity
+                  </Text>
                 </View>
                 <View style={[styles.toggle, { backgroundColor: preferences.circle_updates ? colors.primary : colors.border }]}>
                   <View style={[styles.toggleThumb, { transform: [{ translateX: preferences.circle_updates ? 22 : 2 }] }]} />
                 </View>
               </Pressable>
-            </>
+            </View>
           )}
+        </View>
+
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Social</Text>
+          
+          <Pressable
+            style={[styles.accountButton, { borderColor: colors.border }]}
+            onPress={() => router.push('/friend-requests')}
+          >
+            <Ionicons name="people-outline" size={20} color={colors.text} />
+            <Text style={[styles.accountButtonText, { color: colors.text }]}>Friend Requests</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          </Pressable>
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.card }]}>

@@ -270,8 +270,8 @@ export class FriendRequestService {
         return 'none';
       }
 
-      // Check for active friendship (mutual)
-      const { data: activeFriendship } = await supabase
+      // Check for active friendship in BOTH directions
+      const { data: activeFriendship1 } = await supabase
         .from('friendships')
         .select('status')
         .eq('user_id', user.id)
@@ -279,7 +279,16 @@ export class FriendRequestService {
         .eq('status', 'active')
         .single();
 
-      if (activeFriendship) {
+      const { data: activeFriendship2 } = await supabase
+        .from('friendships')
+        .select('status')
+        .eq('user_id', otherUserId)
+        .eq('friend_id', user.id)
+        .eq('status', 'active')
+        .single();
+
+      // Both directions must be active for true friendship
+      if (activeFriendship1 && activeFriendship2) {
         return 'friends';
       }
 

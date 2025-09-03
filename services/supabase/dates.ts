@@ -123,6 +123,7 @@ export const DateService = {
             id,
             name,
             username,
+            instagram_username,
             image_uri
           )
         `)
@@ -246,8 +247,16 @@ export const DateService = {
           comments: commentsByDate[date.id] || [],
           authorName: date.user?.name || 'Unknown',
           authorUsername: (() => {
-            const username = date.user?.username || '';
-            logger.debug('🔍 DateService: Setting authorUsername for date:', date.id, 'user:', date.user?.name, 'username:', username);
+            // Use actual username or instagram_username from database
+            // DO NOT generate usernames from names as it causes mismatches
+            const username = date.user?.username || date.user?.instagram_username || '';
+            
+            logger.debug('🔍 DateService: Setting authorUsername for date:', date.id, 
+              'user:', date.user?.name, 
+              'username:', date.user?.username,
+              'instagram:', date.user?.instagram_username,
+              'final:', username || 'none');
+            
             return username;
           })(),
           authorAvatar: date.user?.image_uri,
@@ -302,6 +311,7 @@ export const DateService = {
             id,
             name,
             username,
+            instagram_username,
             image_uri
           )
         `)
@@ -385,6 +395,7 @@ export const DateService = {
             id,
             name,
             username,
+            instagram_username,
             image_uri
           )
         `)
