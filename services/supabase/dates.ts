@@ -405,6 +405,111 @@ export const DateService = {
     }
   },
 
+  async getFriendDatesForPerson(friendUserId: string, personName: string) {
+    try {
+      const { data: dates, error } = await supabase
+        .from('date_entries')
+        .select(`
+          *,
+          user:users (
+            id,
+            name,
+            username,
+            image_uri
+          )
+        `)
+        .eq('user_id', friendUserId)
+        .eq('person_name', personName)
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+
+      if (!dates || dates.length === 0) {
+        return [];
+      }
+
+      // Get current user for likes check
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const dateIds = dates.map(d => d.id);
+
+      // Get likes for these dates
+      const { data: likes } = await supabase
+        .from('date_likes')
+        .select('date_entry_id')
+        .in('date_entry_id', dateIds)
+        .eq('user_id', user.id);
+
+      const likedDateIds = new Set(likes?.map(l => l.date_entry_id) || []);
+
+      // Get comments for these dates
+      const { data: comments } = await supabase
+        .from('date_comments')
+        .select(`
+          *,
+          user:users (
+            name,
+            username,
+            image_uri
+          )
+        `)
+        .in('date_entry_id', dateIds)
+        .order('created_at', { ascending: true });
+
+      // Group comments by date
+      const commentsByDate = comments?.reduce((acc, comment) => {
+        if (!acc[comment.date_entry_id]) {
+          acc[comment.date_entry_id] = [];
+        }
+        acc[comment.date_entry_id].push({
+          name: comment.user?.name || 'Unknown',
+          content: comment.content,
+          imageUri: comment.user?.image_uri || '',
+        });
+        return acc;
+      }, {} as Record<string, Array<{ name: string; content: string; imageUri: string }>>) || {};
+
+      // Get like counts
+      const { data: likeCounts } = await supabase
+        .from('date_likes')
+        .select('date_entry_id')
+        .in('date_entry_id', dateIds);
+
+      const likeCountsByDate = likeCounts?.reduce((acc, like) => {
+        acc[like.date_entry_id] = (acc[like.date_entry_id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>) || {};
+
+      // Transform dates with engagement data
+      return dates.map(date => ({
+        id: date.id,
+        personName: date.person_name,
+        date: date.date,
+        location: date.location,
+        rating: date.rating,
+        notes: date.notes,
+        tags: date.tags || [],
+        imageUri: date.image_uri,
+        instagramUsername: date.roster_info?.instagram || '',
+        authorName: date.user?.name || '',
+        authorAvatar: date.user?.image_uri || '',
+        likeCount: likeCountsByDate[date.id] || 0,
+        commentCount: commentsByDate[date.id]?.length || 0,
+        isLiked: likedDateIds.has(date.id),
+        comments: commentsByDate[date.id] || [],
+        poll: date.poll_question ? {
+          question: date.poll_question,
+          options: date.poll_options || []
+        } : undefined,
+      }));
+
+    } catch (error) {
+      console.error('Get friend dates for person error:', error);
+      return [];
+    }
+  },
+
   async getPlans(userId: string) {
     try {
       const { data: plans, error } = await supabase

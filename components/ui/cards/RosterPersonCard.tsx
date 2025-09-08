@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { Avatar } from '../Avatar';
+import { formatDate } from '@/lib/dateUtils';
 
 export type DateStatus = 'active' | 'new' | 'fading' | 'ended' | 'ghosted';
 
@@ -28,6 +29,17 @@ interface RosterPersonCardProps {
 }
 
 export function RosterPersonCard({ person, ownerName, onPress }: RosterPersonCardProps) {
+  
+  // Helper to ensure dates are formatted properly
+  const formatDateSafely = (dateStr?: string) => {
+    if (!dateStr) return undefined;
+    // Check if it looks like an ISO date string
+    if (dateStr.includes('T') && dateStr.includes('-')) {
+      return formatDate(dateStr);
+    }
+    // Otherwise assume it's already formatted
+    return dateStr;
+  };
   
   const getStatusColor = (status: DateStatus) => {
     switch (status) {
@@ -109,13 +121,13 @@ export function RosterPersonCard({ person, ownerName, onPress }: RosterPersonCar
           <View style={styles.details}>
             {person.lastDate && (
               <Text style={styles.detailText}>
-                Last: {person.lastDate} • {formatDateCount(person.totalDates)}
+                Last: {formatDateSafely(person.lastDate)} • {formatDateCount(person.totalDates)}
               </Text>
             )}
             
             {person.nextDate ? (
               <Text style={styles.nextDate}>
-                📅 Next: {person.nextDate}
+                📅 Next: {formatDateSafely(person.nextDate)}
               </Text>
             ) : person.averageRating ? (
               <Text style={styles.detailText}>

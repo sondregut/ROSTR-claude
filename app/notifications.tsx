@@ -70,17 +70,19 @@ export default function NotificationsScreen() {
       
       case 'friend_request':
         if (data?.senderId) {
-          // Navigate to sender's profile to accept/decline
+          // Navigate to sender's profile to accept/decline with refresh params
           // Use username for navigation, fallback to senderId if username not available
-          router.push(`/profile/${data.senderUsername || data.senderId}`);
+          const profileUrl = `/profile/${data.senderUsername || data.senderId}?fromNotification=true&refreshTimestamp=${Date.now()}`;
+          router.push(profileUrl);
         }
         break;
       
       case 'friend_request_accepted':
         if (data?.accepterId) {
-          // Navigate to accepter's profile
+          // Navigate to accepter's profile with refresh params
           // Use username for navigation, fallback to accepterId if username not available
-          router.push(`/profile/${data.accepterUsername || data.accepterId}`);
+          const profileUrl = `/profile/${data.accepterUsername || data.accepterId}?fromNotification=true&refreshTimestamp=${Date.now()}`;
+          router.push(profileUrl);
         }
         break;
       
@@ -117,7 +119,18 @@ export default function NotificationsScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            await deleteNotification(notificationId);
+            try {
+              console.log('Deleting notification:', notificationId);
+              await deleteNotification(notificationId);
+              console.log('Notification deleted successfully');
+            } catch (error) {
+              console.error('Failed to delete notification:', error);
+              Alert.alert(
+                'Error',
+                'Failed to delete notification. Please try again.',
+                [{ text: 'OK' }]
+              );
+            }
           },
         },
       ]
@@ -128,13 +141,16 @@ export default function NotificationsScreen() {
     await markAllAsRead();
   }, [markAllAsRead]);
 
-  const renderNotification = ({ item }: { item: Notification }) => (
-    <NotificationCard
-      notification={item}
-      onPress={() => handleNotificationPress(item)}
-      onDelete={() => handleDeleteNotification(item.id)}
-    />
-  );
+  const renderNotification = ({ item }: { item: Notification }) => {
+    console.log('Rendering notification with delete capability:', item.id);
+    return (
+      <NotificationCard
+        notification={item}
+        onPress={() => handleNotificationPress(item)}
+        onDelete={() => handleDeleteNotification(item.id)}
+      />
+    );
+  };
 
   const renderEmpty = () => {
     if (isLoading) return null;

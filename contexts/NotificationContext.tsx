@@ -225,11 +225,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   // Delete notification
   const deleteNotification = async (notificationId: string) => {
+    console.log('Context: Deleting notification:', notificationId);
+    
+    // Find the notification before deleting
+    const notif = notifications.find(n => n.id === notificationId);
+    
     try {
-      await notificationService.deleteNotification(notificationId);
-      
-      // Update local state
-      const notif = notifications.find(n => n.id === notificationId);
+      // Optimistically update UI first
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
       
       if (notif && !notif.read) {
@@ -240,8 +242,29 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           await pushNotificationService.setBadgeCount(Math.max(0, unreadCount - 1));
         }
       }
+      
+      // Then attempt to delete from backend
+      await notificationService.deleteNotification(notificationId);
+      console.log('Context: Notification deleted successfully');
+      
     } catch (error) {
-      console.error('Error deleting notification:', error);
+      console.error('Context: Error deleting notification, reverting UI:', error);
+      
+      // Revert the optimistic update on error
+      if (notif) {
+        setNotifications(prev => [...prev, notif].sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        ));
+        
+        if (!notif.read) {
+          setUnreadCount(prev => prev + 1);
+          
+          if (pushEnabled) {
+            await pushNotificationService.setBadgeCount(unreadCount);
+          }
+        }
+      }
+      
       throw error;
     }
   };

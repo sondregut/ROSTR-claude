@@ -1,4 +1,5 @@
 import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
+import { logger } from './logger';
 
 export type ThermalState = 'nominal' | 'fair' | 'serious' | 'critical';
 
@@ -29,7 +30,7 @@ class ThermalStateManager {
           }
         );
       } catch (error) {
-        console.warn('[ThermalStateManager] Failed to initialize:', error);
+        logger.warn('[ThermalStateManager] Failed to initialize:', error);
       }
     }
   }
@@ -38,13 +39,13 @@ class ThermalStateManager {
     if (Platform.OS === 'ios' && NativeModules.ProcessInfo?.getThermalState) {
       NativeModules.ProcessInfo.getThermalState((state: ThermalState) => {
         this.currentState = state;
-        console.log('[ThermalStateManager] Current thermal state:', state);
+        logger.debug('[ThermalStateManager] Current thermal state:', state);
       });
     }
   }
 
   private handleThermalStateChange(state: ThermalState) {
-    console.log('[ThermalStateManager] Thermal state changed to:', state);
+    logger.debug('[ThermalStateManager] Thermal state changed to:', state);
     this.currentState = state;
     
     // Notify all listeners
@@ -52,7 +53,7 @@ class ThermalStateManager {
       try {
         listener(state);
       } catch (error) {
-        console.error('[ThermalStateManager] Listener error:', error);
+        logger.error('[ThermalStateManager] Listener error:', error);
       }
     });
   }
@@ -66,8 +67,9 @@ class ThermalStateManager {
   }
 
   shouldDisableAnimations(): boolean {
-    // Disable animations when device is warm or hotter
-    return this.currentState !== 'nominal';
+    // Only disable animations when device is seriously hot or critical
+    // 'fair' state should still allow animations for better UX
+    return this.currentState === 'serious' || this.currentState === 'critical';
   }
 
   addListener(listener: (state: ThermalState) => void): () => void {

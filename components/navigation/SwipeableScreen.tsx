@@ -5,14 +5,18 @@ import {
   Animated,
   Dimensions,
   ViewStyle,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useThermalState } from '@/utils/thermalStateManager';
+import { logger } from '@/utils/logger';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
 const SWIPE_VELOCITY_THRESHOLD = 0.3;
+// Increase edge detection area for production builds
+const EDGE_DETECTION_WIDTH = Platform.OS === 'ios' ? 40 : 50;
 
 export interface SwipeableScreenProps {
   children: React.ReactNode;
@@ -78,9 +82,21 @@ export function SwipeableScreen({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) => {
         // Only respond to horizontal swipes from the left edge
-        const startedNearEdge = gestureState.x0 < 30;
+        const startedNearEdge = gestureState.x0 < EDGE_DETECTION_WIDTH;
         const isHorizontalSwipe = Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
-        const isRightSwipe = gestureState.dx > 20;
+        const isRightSwipe = gestureState.dx > 10; // Lower threshold for better detection
+        
+        // Debug logging for production testing
+        logger.debug('[SwipeableScreen] Gesture detected:', {
+          startedNearEdge,
+          isHorizontalSwipe,
+          isRightSwipe,
+          x0: gestureState.x0,
+          dx: gestureState.dx,
+          dy: gestureState.dy,
+          swipeBackEnabled,
+          edgeWidth: EDGE_DETECTION_WIDTH
+        });
         
         return swipeBackEnabled && startedNearEdge && isHorizontalSwipe && isRightSwipe;
       },

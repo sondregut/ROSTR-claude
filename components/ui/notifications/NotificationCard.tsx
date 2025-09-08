@@ -107,14 +107,15 @@ export function NotificationCard({ notification, onPress, onDelete }: Notificati
 
       {onDelete && (
         <Pressable
-          style={styles.deleteButton}
+          style={[styles.deleteButton, { zIndex: 10 }]}
           onPress={(e) => {
+            console.log('Delete button pressed for notification');
             e.stopPropagation();
             onDelete();
           }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
         >
-          <Ionicons name="close" size={20} color={colors.textSecondary} />
+          <Ionicons name="trash-outline" size={18} color={colors.error || colors.textSecondary} />
         </Pressable>
       )}
     </Pressable>
@@ -126,8 +127,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
+    paddingRight: 56, // Make room for delete button
     borderBottomWidth: 1,
     position: 'relative',
+    minHeight: 80,
   },
   iconContainer: {
     width: 48,
@@ -169,8 +172,15 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    padding: 4,
+    top: 12,
+    right: 12,
+    padding: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
 });

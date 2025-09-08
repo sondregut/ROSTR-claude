@@ -248,4 +248,65 @@ export class RosterService {
       return null;
     }
   }
+
+  /**
+   * Get complete roster person data from friend including roster entry and user info
+   */
+  static async getFriendRosterPersonData(friendUsername: string, personName: string) {
+    try {
+      // Get friend's user data
+      let userData = null;
+      
+      const { data: userByUsername } = await supabase
+        .from('users')
+        .select('id, name, username')
+        .eq('username', friendUsername)
+        .maybeSingle();
+
+      if (userByUsername) {
+        userData = userByUsername;
+      } else {
+        // Try instagram_username or normalized name as fallback
+        const { data: users } = await supabase
+          .from('users')
+          .select('id, name, username');
+        
+        if (users) {
+          const normalizedUsername = friendUsername.toLowerCase().replace(/\s+/g, '');
+          userData = users.find(user => 
+            user.username?.toLowerCase() === friendUsername.toLowerCase() ||
+            user.name?.toLowerCase().replace(/\s+/g, '') === normalizedUsername
+          );
+        }
+      }
+
+      if (!userData) {
+        console.error('Could not find friend user for username:', friendUsername);
+        return null;
+      }
+
+      // Get the roster entry
+      const { data: rosterEntry, error } = await supabase
+        .from('roster_entries')
+        .select('*')
+        .eq('user_id', userData.id)
+        .ilike('name', personName)
+        .maybeSingle();
+
+      if (error || !rosterEntry) {
+        console.error('Roster entry not found for:', personName, 'in', userData.name, "'s roster");
+        return null;
+      }
+
+      return {
+        rosterEntry,
+        friendUserId: userData.id,
+        friendName: userData.name,
+        friendUsername: userData.username
+      };
+    } catch (error) {
+      console.error('Error in getFriendRosterPersonData:', error);
+      return null;
+    }
+  }
 }

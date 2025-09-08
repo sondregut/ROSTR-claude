@@ -1,6 +1,6 @@
 import React from 'react';
 import { Stack } from 'expo-router';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { View } from 'react-native';
 import { Colors } from '@/constants/Colors';
 
 export default function AuthLayout() {
@@ -8,7 +8,7 @@ export default function AuthLayout() {
   const colors = Colors.light;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <Stack
         screenOptions={{
           headerShown: false,
@@ -38,6 +38,6 @@ export default function AuthLayout() {
         <Stack.Screen name="trouble-signin" />
         <Stack.Screen name="friend-invite" />
       </Stack>
-    </GestureHandlerRootView>
+    </View>
   );
 }

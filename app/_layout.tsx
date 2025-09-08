@@ -9,6 +9,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { ThemeProvider as AppThemeProvider, useTheme } from '@/contexts/ThemeContext';
@@ -49,11 +50,17 @@ function RootLayoutNav() {
             gestureEnabled: true, // Enable swipe gestures
             animation: Platform.OS === 'ios' ? 'ios' : 'fade', // Native animations
             gestureDirection: 'horizontal',
-            gestureResponseDistance: {
-              horizontal: 50, // Start swipe from edge
-            },
+            gestureResponseDistance: Platform.select({
+              ios: { horizontal: 50 }, // iOS edge swipe distance
+              android: { horizontal: 80 }, // Android needs more distance
+              default: { horizontal: 50 },
+            }),
             customAnimationOnGesture: true,
-            fullScreenGestureEnabled: true,
+            fullScreenGestureEnabled: Platform.OS === 'ios', // Only iOS supports full screen gestures well
+            // Android-specific gesture settings
+            ...(Platform.OS === 'android' && {
+              gestureVelocityImpact: 0.3,
+            }),
           }}
         >
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
@@ -242,26 +249,28 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <ErrorBoundary>
-        <AppThemeProvider>
-          <ReferralProvider>
-            <SimpleAuthProvider>
-              <UserProvider>
-                <DateProvider>
-                  <RosterProvider>
-                    <CircleProvider>
-                      <NotificationProvider>
-                        <RootLayoutNav />
-                      </NotificationProvider>
-                    </CircleProvider>
-                  </RosterProvider>
-                </DateProvider>
-              </UserProvider>
-            </SimpleAuthProvider>
-          </ReferralProvider>
-        </AppThemeProvider>
-      </ErrorBoundary>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ErrorBoundary>
+          <AppThemeProvider>
+            <ReferralProvider>
+              <SimpleAuthProvider>
+                <UserProvider>
+                  <DateProvider>
+                    <RosterProvider>
+                      <CircleProvider>
+                        <NotificationProvider>
+                          <RootLayoutNav />
+                        </NotificationProvider>
+                      </CircleProvider>
+                    </RosterProvider>
+                  </DateProvider>
+                </UserProvider>
+              </SimpleAuthProvider>
+            </ReferralProvider>
+          </AppThemeProvider>
+        </ErrorBoundary>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

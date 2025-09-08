@@ -125,13 +125,33 @@ class NotificationService {
 
   // Delete a notification
   async deleteNotification(notificationId: string): Promise<void> {
-    const { error } = await supabase
-      .from('notifications')
-      .delete()
-      .eq('id', notificationId);
+    console.log('Attempting to delete notification:', notificationId);
+    
+    try {
+      // Try using the RPC function first for better error handling
+      const { data: deleted, error: rpcError } = await supabase
+        .rpc('delete_notification', { p_notification_id: notificationId });
+      
+      if (rpcError) {
+        console.log('RPC delete failed, trying direct delete:', rpcError);
+        
+        // Fallback to direct delete
+        const { error: deleteError } = await supabase
+          .from('notifications')
+          .delete()
+          .eq('id', notificationId);
 
-    if (error) {
-      console.error('Error deleting notification:', error);
+        if (deleteError) {
+          console.error('Direct delete also failed:', deleteError);
+          throw new Error(`Failed to delete notification: ${deleteError.message}`);
+        }
+      } else if (!deleted) {
+        throw new Error('Notification not found or you do not have permission to delete it');
+      }
+      
+      console.log('Notification deleted successfully');
+    } catch (error) {
+      console.error('Error in deleteNotification:', error);
       throw error;
     }
   }

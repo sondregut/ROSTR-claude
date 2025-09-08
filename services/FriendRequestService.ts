@@ -121,7 +121,23 @@ export class FriendRequestService {
         throw new Error('Friend request acceptance failed');
       }
 
-      console.log('Friend request accepted successfully');
+      console.log('Friend request accepted successfully, verifying...');
+      
+      // Wait for database to propagate the changes
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Verify the friendship was created successfully
+      const verifiedStatus = await this.getFriendshipStatusWithRetry(requesterId, 5);
+      
+      if (verifiedStatus !== 'friends') {
+        console.error('Friendship verification failed, status:', verifiedStatus);
+        // Try one more time with a longer delay
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const finalStatus = await this.getFriendshipStatus(requesterId);
+        if (finalStatus !== 'friends') {
+          console.error('Final verification failed, friendship may not be properly established');
+        }
+      }
 
       // Get user details for notification
       const { data: userDetails } = await supabase
@@ -164,20 +180,22 @@ export class FriendRequestService {
         return false;
       }
 
-      // Delete the friend request
-      const { error } = await supabase
-        .from('friendships')
-        .delete()
-        .eq('user_id', requesterId)
-        .eq('friend_id', user.id)
-        .eq('status', 'pending');
+      console.log('Rejecting friend request from:', requesterId, 'to:', user.id);
+
+      // Use the database function to reject the friend request
+      const { data, error } = await supabase
+        .rpc('reject_friend_request', {
+          p_requester_id: requesterId,
+          p_target_id: user.id
+        });
 
       if (error) {
-        console.error('Error rejecting friend request:', error);
+        console.error('Error calling reject_friend_request function:', error);
         return false;
       }
 
-      return true;
+      console.log('Friend request rejected, result:', data);
+      return data === true;
     } catch (error) {
       console.error('Error rejecting friend request:', error);
       return false;
@@ -263,7 +281,7 @@ export class FriendRequestService {
   /**
    * Check friendship status between two users
    */
-  static async getFriendshipStatus(otherUserId: string): Promise<'friends' | 'pending_sent' | 'pending_received' | 'none'> {
+  static async getFriendshipStatus(otherUserId: string, retryAttempts = 0): Promise<'friends' | 'pending_sent' | 'pending_received' | 'none'> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
@@ -323,6 +341,29 @@ export class FriendRequestService {
       console.error('Error checking friendship status:', error);
       return 'none';
     }
+  }
+
+  /**
+   * Check friendship status with retry logic for after acceptance
+   */
+  static async getFriendshipStatusWithRetry(otherUserId: string, maxRetries = 3): Promise<'friends' | 'pending_sent' | 'pending_received' | 'none'> {
+    console.log(`Checking friendship status with retry for user: ${otherUserId}`);
+    
+    for (let i = 0; i < maxRetries; i++) {
+      const status = await this.getFriendshipStatus(otherUserId);
+      console.log(`Attempt ${i + 1}/${maxRetries}: Status = ${status}`);
+      
+      if (status === 'friends' || i === maxRetries - 1) {
+        return status;
+      }
+      
+      // Wait before retrying (exponential backoff with longer initial delay)
+      const delay = Math.pow(2, i) * 1000; // Start with 1 second, then 2, 4, etc.
+      console.log(`Waiting ${delay}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    
+    return await this.getFriendshipStatus(otherUserId);
   }
 
   /**

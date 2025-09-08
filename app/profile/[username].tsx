@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   ScrollView,
@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { Avatar } from '@/components/ui/Avatar';
@@ -25,6 +25,7 @@ import { useAuth } from '@/contexts/SimpleAuthContext';
 import { DateService } from '@/services/supabase/dates';
 import { supabase } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { formatDate } from '@/lib/dateUtils';
 
 interface ProfileData {
   id: string;
@@ -47,7 +48,10 @@ interface ProfileData {
 }
 
 export default function MemberProfileScreen() {
-  const { username } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const username = params.username as string;
+  const fromNotification = params.fromNotification as string;
+  const refreshTimestamp = params.refreshTimestamp as string;
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -56,152 +60,220 @@ export default function MemberProfileScreen() {
   const [activeTab, setActiveTab] = useState<'roster' | 'dates' | 'future'>('roster');
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAccepting, setIsAccepting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFriend, setIsFriend] = useState(false);
   const [friendshipStatus, setFriendshipStatus] = useState<'friends' | 'pending_sent' | 'pending_received' | 'none'>('none');
   const [dateHistory, setDateHistory] = useState<any[]>([]);
-  const commentChannelRef = React.useRef<RealtimeChannel | null>(null);
+  const [shouldRefresh, setShouldRefresh] = useState(0); // Force refresh counter
+  const commentChannelRef = useRef<RealtimeChannel | null>(null);
+  const friendshipChannelRef = useRef<RealtimeChannel | null>(null);
   
-  // Load profile data from database
-  useEffect(() => {
-    const loadProfileData = async () => {
-      if (!username || typeof username !== 'string') {
-        console.error('❌ Profile: Invalid username provided:', username);
-        setError('Invalid username');
-        setIsLoading(false);
-        return;
-      }
+  // Wrap loadProfileData in useCallback so it can be called from multiple places
+  const loadProfileData = useCallback(async (forceReload = false) => {
+    if (!username || typeof username !== 'string') {
+      console.error('❌ Profile: Invalid username provided:', username);
+      setError('Invalid username');
+      setIsLoading(false);
+      return;
+    }
 
-      if (username.trim() === '') {
-        console.error('❌ Profile: Empty username provided');
-        setError('Username cannot be empty');
-        setIsLoading(false);
-        return;
-      }
+    if (username.trim() === '') {
+      console.error('❌ Profile: Empty username provided');
+      setError('Username cannot be empty');
+      setIsLoading(false);
+      return;
+    }
 
-      try {
+    try {
+      if (forceReload || !profileData) {
         setIsLoading(true);
-        setError(null);
-        
-        // Get user profile by username
-        console.log('🔍 Profile: Looking up user with username:', username);
-        const userProfile = await UserService.getUserByUsername(username);
-        
-        if (!userProfile) {
-          console.error('❌ Profile: User not found for username:', username);
-          setError('User not found');
-          setIsLoading(false);
-          return;
-        }
+      }
+      setError(null);
+      
+      // Get user profile by username
+      console.log('🔍 Profile: Looking up user with username:', username);
+      const userProfile = await UserService.getUserByUsername(username);
+      
+      if (!userProfile) {
+        console.error('❌ Profile: User not found for username:', username);
+        setError('User not found');
+        setIsLoading(false);
+        return;
+      }
 
-        console.log('✅ Profile: Found user:', userProfile.name, 'username:', userProfile.username);
+      console.log('✅ Profile: Found user:', userProfile.name, 'username:', userProfile.username);
 
-        // Check friendship status FIRST if user is logged in
-        let currentFriendshipStatus: 'friends' | 'pending_sent' | 'pending_received' | 'none' = 'none';
-        let areActualFriends = false;
-        
-        if (user?.id && user.id !== userProfile.id) {
-          currentFriendshipStatus = await FriendRequestService.getFriendshipStatus(userProfile.id);
-          areActualFriends = currentFriendshipStatus === 'friends';
-          console.log('🔍 Profile Debug - Other user:', userProfile.username, 'Friendship Status:', currentFriendshipStatus, 'Are Friends:', areActualFriends);
-        } else if (user?.id === userProfile.id) {
-          // User viewing their own profile - allow full access
-          areActualFriends = true;
-          currentFriendshipStatus = 'friends';
-          console.log('🔍 Profile Debug - Own profile:', userProfile.username, 'Full access granted');
-        }
-        
-        setFriendshipStatus(currentFriendshipStatus);
-        setIsFriend(areActualFriends);
+      // Check friendship status FIRST if user is logged in
+      let currentFriendshipStatus: 'friends' | 'pending_sent' | 'pending_received' | 'none' = 'none';
+      let areActualFriends = false;
+      
+      if (user?.id && user.id !== userProfile.id) {
+        currentFriendshipStatus = await FriendRequestService.getFriendshipStatus(userProfile.id);
+        areActualFriends = currentFriendshipStatus === 'friends';
+        console.log('🔍 Profile Debug - Other user:', userProfile.username, 'Friendship Status:', currentFriendshipStatus, 'Are Friends:', areActualFriends);
+      } else if (user?.id === userProfile.id) {
+        // User viewing their own profile - allow full access
+        areActualFriends = true;
+        currentFriendshipStatus = 'friends';
+        console.log('🔍 Profile Debug - Own profile:', userProfile.username, 'Full access granted');
+      }
+      
+      setFriendshipStatus(currentFriendshipStatus);
+      setIsFriend(areActualFriends);
 
-        // Create minimal profile with only name and username for non-friends
-        if (!areActualFriends) {
-          const minimalProfile: ProfileData = {
-            id: userProfile.id,
-            name: userProfile.name,
-            username: userProfile.username,
-            avatar: undefined, // Hide avatar for non-friends
-            bio: '', // Hide bio
-            location: '', // Hide location
-            joinedDate: '', // Hide join date
-            mutualCircles: [], // Hide mutual circles
-            stats: {
-              totalDates: 0,
-              activeDates: 0,
-              averageRating: 0,
-              datesThisMonth: 0,
-            },
-            datingRoster: [],
-            dateHistory: [],
-            futureDates: [],
-          };
-          
-          setProfileData(minimalProfile);
-          setIsLoading(false);
-          return;
-        }
-
-        // Only load full data for friends
-        const roster = await UserService.getUserRoster(userProfile.id);
-        const dateHistory = await UserService.getUserDateHistory(userProfile.id);
-        const futureDates = await UserService.getUserFutureDates(userProfile.id);
-        const sharedCircles = await UserService.getSharedCircles(userProfile.id, user?.id || '');
-        
-        // Transform roster data
-        const transformedRoster: RosterPersonData[] = roster.map(person => ({
-          id: person.id,
-          name: person.name,
-          avatar: person.photos?.[0] || '',
-          age: person.age,
-          occupation: person.occupation,
-          tags: [],
-          status: 'active' as const,
-          lastDate: person.last_date,
-          rating: person.rating || 0,
-          dateCount: person.date_count || 0,
-        }));
-        
-        // Calculate stats
-        const stats = {
-          totalDates: dateHistory.length,
-          activeDates: roster.filter(r => r.status === 'active').length,
-          averageRating: dateHistory.reduce((acc, d) => acc + (d.rating || 0), 0) / (dateHistory.length || 1),
-          datesThisMonth: dateHistory.filter(d => {
-            const dateTime = new Date(d.created_at);
-            const now = new Date();
-            return dateTime.getMonth() === now.getMonth() && dateTime.getFullYear() === now.getFullYear();
-          }).length,
-        };
-        
-        // Store date history in state separately for real-time updates
-        setDateHistory(dateHistory);
-        
-        const profile: ProfileData = {
+      // Create minimal profile with only name and username for non-friends
+      if (!areActualFriends) {
+        const minimalProfile: ProfileData = {
           id: userProfile.id,
           name: userProfile.name,
           username: userProfile.username,
-          avatar: userProfile.image_uri,
-          bio: userProfile.bio || '',
-          location: userProfile.location || '',
-          joinedDate: new Date(userProfile.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-          mutualCircles: sharedCircles.map(c => c.name),
-          stats,
-          datingRoster: transformedRoster,
-          dateHistory,
-          futureDates,
+          avatar: undefined, // Hide avatar for non-friends
+          bio: '', // Hide bio
+          location: '', // Hide location
+          joinedDate: '', // Hide join date
+          mutualCircles: [], // Hide mutual circles
+          stats: {
+            totalDates: 0,
+            activeDates: 0,
+            averageRating: 0,
+            datesThisMonth: 0,
+          },
+          datingRoster: [],
+          dateHistory: [],
+          futureDates: [],
         };
-
-        setProfileData(profile);
-      } catch (err) {
-        console.error('Error loading profile:', err);
-        setError('Failed to load profile');
-      } finally {
+        
+        setProfileData(minimalProfile);
         setIsLoading(false);
+        return;
+      }
+
+      // Only load full data for friends
+      const roster = await UserService.getUserRoster(userProfile.id);
+      const dateHistory = await UserService.getUserDateHistory(userProfile.id);
+      const futureDates = await UserService.getUserFutureDates(userProfile.id);
+      const sharedCircles = await UserService.getSharedCircles(userProfile.id, user?.id || '');
+      
+      // Transform roster data
+      const transformedRoster: RosterPersonData[] = roster.map(person => ({
+        id: person.id,
+        name: person.name,
+        avatar: person.photos?.[0] || '',
+        status: person.status || 'active' as const,
+        lastDate: person.last_date ? formatDate(person.last_date) : undefined,
+        totalDates: person.date_count || 0,
+        averageRating: person.rating || 0,
+        nextDate: person.next_date ? formatDate(person.next_date) : undefined,
+      }));
+      
+      // Calculate stats
+      const stats = {
+        totalDates: dateHistory.length,
+        activeDates: roster.filter(r => r.status === 'active').length,
+        averageRating: dateHistory.reduce((acc, d) => acc + (d.rating || 0), 0) / (dateHistory.length || 1),
+        datesThisMonth: dateHistory.filter(d => {
+          const dateTime = new Date(d.created_at);
+          const now = new Date();
+          return dateTime.getMonth() === now.getMonth() && dateTime.getFullYear() === now.getFullYear();
+        }).length,
+      };
+      
+      // Store date history in state separately for real-time updates
+      setDateHistory(dateHistory);
+      
+      const profile: ProfileData = {
+        id: userProfile.id,
+        name: userProfile.name,
+        username: userProfile.username,
+        avatar: userProfile.image_uri,
+        bio: userProfile.bio || '',
+        location: userProfile.location || '',
+        joinedDate: new Date(userProfile.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        mutualCircles: sharedCircles.map(c => c.name),
+        stats,
+        datingRoster: transformedRoster,
+        dateHistory,
+        futureDates,
+      };
+
+      setProfileData(profile);
+    } catch (err) {
+      console.error('Error loading profile:', err);
+      setError('Failed to load profile');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [username, user?.id, shouldRefresh]); // Add shouldRefresh to dependencies
+
+  // Initial load and refresh on params change
+  useEffect(() => {
+    console.log('Profile params:', { username, fromNotification, refreshTimestamp });
+    loadProfileData(true);
+  }, [username, refreshTimestamp]);
+
+  // Refresh when screen gains focus or when coming from notifications
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Profile screen gained focus, checking if refresh needed...');
+      // Always refresh if coming from notification or if viewing someone else's profile
+      if (fromNotification === 'true' || (profileData && user?.id && user.id !== profileData.id)) {
+        console.log('Forcing refresh due to notification navigation or other user profile');
+        loadProfileData(true);
+      }
+    }, [profileData?.id, user?.id, fromNotification, loadProfileData])
+  );
+
+  // Set up real-time subscription for friendship changes
+  useEffect(() => {
+    if (!profileData || !user?.id) return;
+
+    // Clean up existing subscription
+    if (friendshipChannelRef.current) {
+      supabase.removeChannel(friendshipChannelRef.current);
+    }
+
+    // Subscribe to friendship changes for this profile
+    const channel = supabase
+      .channel(`friendship-${profileData.id}-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'friendships',
+          filter: `user_id=eq.${profileData.id},friend_id=eq.${user.id}`
+        },
+        async (payload) => {
+          console.log('Friendship change detected (1):', payload);
+          // Reload profile data when friendship status changes
+          await loadProfileData(true);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'friendships',
+          filter: `user_id=eq.${user.id},friend_id=eq.${profileData.id}`
+        },
+        async (payload) => {
+          console.log('Friendship change detected (2):', payload);
+          // Reload profile data when friendship status changes
+          await loadProfileData(true);
+        }
+      )
+      .subscribe();
+
+    friendshipChannelRef.current = channel;
+
+    return () => {
+      if (friendshipChannelRef.current) {
+        supabase.removeChannel(friendshipChannelRef.current);
       }
     };
-
-    loadProfileData();
-  }, [username]);
+  }, [profileData?.id, user?.id]);
 
   // Set up real-time subscription for comments
   useEffect(() => {
@@ -366,25 +438,43 @@ export default function MemberProfileScreen() {
   };
 
   const handleAcceptRequest = async () => {
-    if (!profileData || !user?.id) return;
+    if (!profileData || !user?.id || isAccepting) return;
+    
+    setIsAccepting(true);
     
     try {
       console.log('Profile: Attempting to accept friend request from:', profileData.id);
       const success = await FriendRequestService.acceptFriendRequest(profileData.id);
       
       if (success) {
+        console.log('Friend request accepted successfully, waiting for full DB propagation...');
+        
+        // Show immediate feedback
         setFriendshipStatus('friends');
         setIsFriend(true);
-        Alert.alert('Success', `You are now friends with ${profileData.name}`, [
-          { text: 'OK', onPress: () => router.back() }
-        ]);
+        
+        // Wait longer for database to fully propagate
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Force reload the profile data to get updated friendship status and full profile
+        await loadProfileData(true);
+        
+        Alert.alert('Success', `You are now friends with ${profileData.name}!`);
       } else {
+        // Revert optimistic update
+        setFriendshipStatus('pending_received');
+        setIsFriend(false);
         Alert.alert('Error', 'Failed to accept friend request. Please try again.');
       }
     } catch (error: any) {
       console.error('Error accepting friend request:', error);
+      // Revert optimistic update
+      setFriendshipStatus('pending_received');
+      setIsFriend(false);
       const errorMessage = error.message || 'Failed to accept friend request';
       Alert.alert('Error', errorMessage);
+    } finally {
+      setIsAccepting(false);
     }
   };
 
@@ -471,7 +561,9 @@ export default function MemberProfileScreen() {
 
   const handlePersonPress = (person: RosterPersonData) => {
     // Navigate to person detail screen for friend's roster entry
-    router.push(`/person/${encodeURIComponent(person.name.toLowerCase())}?friendUsername=${encodeURIComponent(profileData.username)}&isOwnRoster=false`);
+    // Don't lowercase the name as it might cause mismatches with the actual roster entry
+    console.log(`Navigating to friend's roster person: ${person.name} from ${profileData.username}'s roster`);
+    router.push(`/person/${encodeURIComponent(person.name)}?friendUsername=${encodeURIComponent(profileData.username)}&isOwnRoster=false`);
   };
 
   if (isLoading) {
@@ -611,15 +703,37 @@ export default function MemberProfileScreen() {
               {friendshipStatus === 'pending_received' && (
                 <View style={styles.friendshipButtonGroup}>
                   <Pressable
-                    style={[styles.friendshipButton, styles.acceptButton, { backgroundColor: colors.primary }]}
+                    style={[
+                      styles.friendshipButton, 
+                      styles.acceptButton, 
+                      { 
+                        backgroundColor: isAccepting ? colors.textSecondary : colors.primary,
+                        opacity: isAccepting ? 0.7 : 1
+                      }
+                    ]}
                     onPress={handleAcceptRequest}
+                    disabled={isAccepting}
                   >
-                    <Ionicons name="checkmark" size={18} color="white" />
-                    <Text style={styles.friendshipButtonText}>Accept</Text>
+                    {isAccepting ? (
+                      <ActivityIndicator size="small" color="white" />
+                    ) : (
+                      <>
+                        <Ionicons name="checkmark" size={18} color="white" />
+                        <Text style={styles.friendshipButtonText}>Accept</Text>
+                      </>
+                    )}
                   </Pressable>
                   <Pressable
-                    style={[styles.friendshipButton, styles.declineButton, { backgroundColor: colors.textSecondary }]}
+                    style={[
+                      styles.friendshipButton, 
+                      styles.declineButton, 
+                      { 
+                        backgroundColor: colors.textSecondary,
+                        opacity: isAccepting ? 0.5 : 1
+                      }
+                    ]}
                     onPress={handleDeclineRequest}
+                    disabled={isAccepting}
                   >
                     <Ionicons name="close" size={18} color="white" />
                     <Text style={styles.friendshipButtonText}>Decline</Text>
@@ -746,8 +860,8 @@ export default function MemberProfileScreen() {
                   commentCount={date.comment_count || 0}
                   comments={date.comments || []}
                   isLiked={false}
-                  onPersonPress={() => router.push(`/person/${date.person_name.toLowerCase()}?friendUsername=${profileData.username}&isOwnRoster=false`)}
-                  onPersonHistoryPress={() => router.push(`/person/${date.person_name.toLowerCase()}?friendUsername=${profileData.username}&isOwnRoster=false`)}
+                  onPersonPress={() => router.push(`/person/${encodeURIComponent(date.person_name)}?friendUsername=${encodeURIComponent(profileData.username)}&isOwnRoster=false`)}
+                  onPersonHistoryPress={() => router.push(`/person/${encodeURIComponent(date.person_name)}?friendUsername=${encodeURIComponent(profileData.username)}&isOwnRoster=false`)}
                   onSubmitComment={(text) => handleSubmitComment(date.id, text)}
                 />
               ))}
@@ -790,7 +904,7 @@ export default function MemberProfileScreen() {
                     comments: [],
                   }}
                   onLike={() => {}}
-                  onPersonPress={() => router.push(`/person/${plan.person_name.toLowerCase()}?friendUsername=${profileData.username}&isOwnRoster=false`)}
+                  onPersonPress={() => router.push(`/person/${encodeURIComponent(plan.person_name)}?friendUsername=${encodeURIComponent(profileData.username)}&isOwnRoster=false`)}
                 />
               ))}
               

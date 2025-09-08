@@ -7,6 +7,7 @@ import {
   Pressable,
   Platform,
   Alert,
+  ActivityIndicator,
  Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -26,6 +27,7 @@ import { openInstagramProfile, getDisplayUsername } from '@/lib/instagramUtils';
 import { useRoster } from '@/contexts/RosterContext';
 import { useUser } from '@/contexts/UserContext';
 import { RosterService } from '@/services/supabase/roster';
+import { DateService } from '@/services/supabase/dates';
 import { OptimizedImage } from '@/components/ui/OptimizedImage';
 
 type TabType = 'overview' | 'plans';
@@ -41,7 +43,7 @@ export default function UnifiedPersonDetailScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { dates, plans, addPlan, updatePlan, updateDate, deleteDate, likeDate, likePlan, addComment, addPlanComment } = useDates();
+  const { dates, plans, addPlan, updatePlan, updateDate, deleteDate, deletePlan, likeDate, likePlan, addComment, addPlanComment } = useDates();
   const { activeRoster, pastConnections } = useRoster();
   const { userProfile } = useUser();
 
@@ -55,34 +57,94 @@ export default function UnifiedPersonDetailScreen() {
   const [selectedDateForEdit, setSelectedDateForEdit] = useState<any>(null);
   const [selectedPlanForEdit, setSelectedPlanForEdit] = useState<any>(null);
   const [friendRosterStatus, setFriendRosterStatus] = useState<string | null>(null);
+  const [friendPersonData, setFriendPersonData] = useState<any>(null);
+  const [friendPersonDates, setFriendPersonDates] = useState<any[]>([]);
+  const [isLoadingFriendData, setIsLoadingFriendData] = useState(false);
 
   // Determine if viewing own roster or friend's date
   const viewingFriendDate = !!friendUsername;
   
-  // Fetch friend's roster status for this person
+  // Fetch friend's roster data and dates for this person
   useEffect(() => {
-    const fetchFriendRosterStatus = async () => {
+    const fetchFriendRosterData = async () => {
       if (viewingFriendDate && friendUsername && personName) {
+        setIsLoadingFriendData(true);
+        console.log(`Fetching roster data for "${personName}" from ${friendUsername}'s roster`);
+        
         try {
-          const friendEntry = await RosterService.getFriendRosterEntry(
-            friendUsername as string, 
+          // Get friend's roster entry and user info
+          const friendData = await RosterService.getFriendRosterPersonData(
+            friendUsername as string,
             personName as string
           );
-          if (friendEntry) {
-            setFriendRosterStatus(friendEntry.status);
-          } else {
-            // Friend doesn't have this person in their roster
+          
+          if (!friendData || !friendData.rosterEntry) {
             console.log(`Person "${personName}" not found in ${friendUsername}'s roster`);
             setFriendRosterStatus(null);
+            setIsLoadingFriendData(false);
+            
+            Alert.alert(
+              'Person Not Available',
+              `${friendUsername} doesn't have details about ${personName} in their roster yet.`,
+              [{ text: 'Go Back', onPress: () => router.back() }]
+            );
+            return;
           }
+          
+          console.log(`Found ${personName} in ${friendData.friendName}'s roster with status: ${friendData.rosterEntry.status}`);
+          setFriendRosterStatus(friendData.rosterEntry.status);
+          
+          // Get friend's dates for this person
+          const dates = await DateService.getFriendDatesForPerson(
+            friendData.friendUserId,
+            personName as string
+          );
+          
+          console.log(`Found ${dates.length} dates for ${personName} from ${friendData.friendName}`);
+          setFriendPersonDates(dates);
+          
+          // Calculate average rating from friend's dates
+          const validRatingDates = dates.filter(date => date.rating != null && date.rating > 0);
+          const avgRating = validRatingDates.length > 0
+            ? validRatingDates.reduce((sum, date) => sum + date.rating, 0) / validRatingDates.length
+            : friendData.rosterEntry.rating || 0;
+          
+          // Build person data from friend's roster
+          const personDataFromFriend = {
+            name: friendData.rosterEntry.name,
+            age: friendData.rosterEntry.age || 0,
+            occupation: friendData.rosterEntry.occupation || '',
+            location: friendData.rosterEntry.location || '',
+            howWeMet: friendData.rosterEntry.how_we_met || '',
+            avatarUri: friendData.rosterEntry.photos?.[0] || dates[0]?.imageUri || null,
+            instagramUsername: friendData.rosterEntry.instagram || dates[0]?.instagramUsername || '',
+            status: friendData.rosterEntry.status,
+            totalDates: dates.length,
+            averageRating: avgRating,
+            lastDate: dates[0]?.date || friendData.rosterEntry.last_date,
+            upcomingPlans: 0, // Don't show friend's plans
+            notes: friendData.rosterEntry.notes || '',
+            interests: friendData.rosterEntry.interests ? friendData.rosterEntry.interests.split(',').map(i => i.trim()) : [],
+            dateHistory: dates,
+          };
+          
+          setFriendPersonData(personDataFromFriend);
+          
         } catch (error) {
-          console.error('Error fetching friend roster status:', error);
+          console.error('Error fetching friend roster data:', error);
           setFriendRosterStatus(null);
+          Alert.alert(
+            'Error',
+            'Unable to load person details. Please try again.',
+            [{ text: 'Go Back', onPress: () => router.back() }]
+          );
+        } finally {
+          setIsLoadingFriendData(false);
         }
       }
     };
     
-    fetchFriendRosterStatus();
+    fetchFriendRosterData();
   }, [viewingFriendDate, friendUsername, personName]);
   
   // Get person data based on context
@@ -151,66 +213,10 @@ export default function UnifiedPersonDetailScreen() {
       };
     }
   } else if (viewingFriendDate && friendUsername) {
-    // Viewing friend's date - check if we have this person in our own roster
-    const allRosterEntries = [...activeRoster, ...pastConnections];
-    const rosterEntry = allRosterEntries.find(e => e.name.toLowerCase() === (personName as string)?.toLowerCase());
-    
-    if (rosterEntry) {
-      // We have this person in our roster too, show their profile
-      personDates = dates.filter(date => 
-        date.personName.toLowerCase() === rosterEntry.name.toLowerCase() && 
-        date.authorName?.toLowerCase() === friendUsername.toLowerCase()
-      );
-      
-      const personPlans = plans.filter(plan => 
-        plan.personName.toLowerCase() === rosterEntry.name.toLowerCase()
-      );
-      
-      const avgRating = personDates.length > 0
-        ? personDates.reduce((sum, date) => sum + date.rating, 0) / personDates.length
-        : 0;
-      
-      personData = {
-        name: rosterEntry.name,
-        age: rosterEntry.age || 0,
-        occupation: rosterEntry.occupation || '',
-        location: rosterEntry.location || '',
-        howWeMet: rosterEntry.how_we_met || '',
-        avatarUri: rosterEntry.photos?.[0] || personDates[0]?.imageUri || null,
-        instagramUsername: rosterEntry.instagram || personDates[0]?.instagramUsername || '',
-        status: rosterEntry.status,
-        totalDates: personDates.length,
-        averageRating: avgRating !== null ? avgRating : (rosterEntry.rating || 0),
-        lastDate: personDates[0]?.date || rosterEntry.lastDate,
-        upcomingPlans: 0, // Don't show friend's plans
-        notes: rosterEntry.notes || '',
-        interests: rosterEntry.interests ? rosterEntry.interests.split(',').map(i => i.trim()) : [],
-        compatibility: {
-          communication: 0,
-          humor: 0,
-          values: 0,
-          physical: 0,
-          lifestyle: 0,
-        },
-        dateHistory: personDates.map(date => ({
-          id: date.id,
-          personName: date.personName,
-          date: date.date,
-          location: date.location,
-          rating: date.rating,
-          notes: date.notes,
-          tags: date.tags,
-          instagramUsername: date.instagramUsername,
-          imageUri: date.imageUri,
-          likeCount: date.likeCount,
-          commentCount: date.commentCount,
-          isLiked: date.isLiked,
-          comments: date.comments,
-          poll: date.poll,
-          authorName: date.authorName,
-          authorAvatar: date.authorAvatar,
-        })),
-      };
+    // Use the friend's roster data that was fetched
+    if (friendPersonData) {
+      personData = friendPersonData;
+      personDates = friendPersonDates;
     }
   } else {
     // Try to find the person in roster even without explicit flags
@@ -267,6 +273,20 @@ export default function UnifiedPersonDetailScreen() {
         })),
       };
     }
+  }
+  
+  // Show loading state while fetching friend's data
+  if (isLoadingFriendData) {
+    return (
+      <SwipeableScreen swipeBackEnabled={true}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+          <View style={styles.errorContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.errorText, { color: colors.text, marginTop: 16 }]}>Loading person details...</Text>
+          </View>
+        </SafeAreaView>
+      </SwipeableScreen>
+    );
   }
   
   if (!personData) {
