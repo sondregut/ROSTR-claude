@@ -507,22 +507,6 @@ const styles = StyleSheet.create({
   privacyContainer: {
     marginBottom: 24,
   },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 1,
-    borderRadius: 4,
-    marginRight: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxLabel: {
-    fontSize: 16,
-  },
   buttonsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',

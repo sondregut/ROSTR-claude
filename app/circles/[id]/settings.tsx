@@ -5,7 +5,6 @@ import {
   View,
   Text,
   TextInput,
-  Switch,
   Pressable,
   Alert,
   ActivityIndicator,
@@ -14,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Switch } from '@/components/ui/Switch';
 import { pickImageWithCrop, uploadImageToSupabase } from '@/lib/photoUpload';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -379,8 +379,6 @@ export default function CircleSettingsScreen() {
             <Switch
               value={isPrivate}
               onValueChange={setIsPrivate}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={isPrivate ? colors.background : colors.card}
             />
           </View>
         </View>

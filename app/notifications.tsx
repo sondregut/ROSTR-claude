@@ -148,6 +148,7 @@ export default function NotificationsScreen() {
         notification={item}
         onPress={() => handleNotificationPress(item)}
         onDelete={() => handleDeleteNotification(item.id)}
+        onFriendRequestAction={handleRefresh}
       />
     );
   };

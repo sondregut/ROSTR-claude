@@ -1,20 +1,70 @@
-import React from 'react';
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Pressable, Image, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { Notification, NotificationType } from '@/services/notifications/NotificationService';
 import { formatDistanceToNow } from '@/lib/dateUtils';
+import { FriendRequestService } from '@/services/FriendRequestService';
+import { logger } from '@/utils/productionLogger';
 
 interface NotificationCardProps {
   notification: Notification;
   onPress?: () => void;
   onDelete?: () => void;
+  onFriendRequestAction?: () => void;
 }
 
-export function NotificationCard({ notification, onPress, onDelete }: NotificationCardProps) {
+export function NotificationCard({ notification, onPress, onDelete, onFriendRequestAction }: NotificationCardProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleAcceptFriendRequest = async (e: any) => {
+    e.stopPropagation();
+    if (!notification.data?.senderId) return;
+
+    try {
+      setIsProcessing(true);
+      const success = await FriendRequestService.acceptFriendRequest(notification.data.senderId);
+
+      if (success) {
+        logger.debug('✅ Friend request accepted from notification');
+        Alert.alert('Success', 'Friend request accepted!');
+        onFriendRequestAction?.();
+      } else {
+        Alert.alert('Error', 'Failed to accept friend request. Please try again.');
+      }
+    } catch (error) {
+      logger.debug('Failed to accept friend request:', error);
+      Alert.alert('Error', 'Failed to accept friend request. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDeclineFriendRequest = async (e: any) => {
+    e.stopPropagation();
+    if (!notification.data?.senderId) return;
+
+    try {
+      setIsProcessing(true);
+      const success = await FriendRequestService.declineRequest(notification.data.senderId);
+
+      if (success) {
+        logger.debug('❌ Friend request declined from notification');
+        Alert.alert('Success', 'Friend request declined.');
+        onFriendRequestAction?.();
+      } else {
+        Alert.alert('Error', 'Failed to decline friend request. Please try again.');
+      }
+    } catch (error) {
+      logger.debug('Failed to decline friend request:', error);
+      Alert.alert('Error', 'Failed to decline friend request. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const getIcon = (type: NotificationType): { name: keyof typeof Ionicons.glyphMap; color: string } => {
     switch (type) {
@@ -105,7 +155,35 @@ export function NotificationCard({ notification, onPress, onDelete }: Notificati
         <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />
       )}
 
-      {onDelete && (
+      {/* Friend Request Action Buttons */}
+      {notification.type === 'friend_request' && notification.data?.senderId && (
+        <View style={styles.friendRequestActions}>
+          {isProcessing ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <>
+              <Pressable
+                style={[styles.actionButton, styles.declineButton, { borderColor: colors.border }]}
+                onPress={handleDeclineFriendRequest}
+                disabled={isProcessing}
+              >
+                <Ionicons name="close" size={16} color={colors.textSecondary} />
+                <Text style={[styles.actionButtonText, { color: colors.textSecondary }]}>Decline</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.actionButton, styles.acceptButton, { backgroundColor: colors.primary }]}
+                onPress={handleAcceptFriendRequest}
+                disabled={isProcessing}
+              >
+                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Accept</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+      )}
+
+      {onDelete && notification.type !== 'friend_request' && (
         <Pressable
           style={[styles.deleteButton, { zIndex: 10 }]}
           onPress={(e) => {
@@ -182,5 +260,29 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+  },
+  friendRequestActions: {
+    position: 'absolute',
+    right: 12,
+    top: '50%',
+    transform: [{ translateY: -18 }],
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  declineButton: {
+    borderWidth: 1,
+  },
+  acceptButton: {},
+  actionButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

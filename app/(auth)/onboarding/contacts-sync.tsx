@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/SimpleAuthContext';
 import { ContactSyncService } from '@/services/contacts/ContactSyncService';
 import { FriendService } from '@/services/supabase/friends';
+import { Switch } from '@/components/ui/Switch';
 
 export default function ContactsSyncScreen() {
   const router = useRouter();
@@ -193,19 +194,15 @@ export default function ContactsSyncScreen() {
           </View>
 
           <View style={styles.autoFriendOption}>
-            <Pressable
-              style={styles.checkboxContainer}
-              onPress={() => setAutoFriendEnabled(!autoFriendEnabled)}
-            >
-              <View style={[styles.checkbox, autoFriendEnabled && styles.checkboxChecked]}>
-                {autoFriendEnabled && (
-                  <Ionicons name="checkmark" size={16} color="white" />
-                )}
-              </View>
-              <Text style={styles.checkboxLabel}>
+            <View style={styles.switchContainer}>
+              <Text style={styles.switchLabel}>
                 Auto-connect with mutual contacts as friends
               </Text>
-            </Pressable>
+              <Switch
+                value={autoFriendEnabled}
+                onValueChange={setAutoFriendEnabled}
+              />
+            </View>
           </View>
 
           <View style={styles.buttonContainer}>
@@ -317,28 +314,18 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 32,
   },
-  checkboxContainer: {
+  switchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
   },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#FE5268',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: '#FE5268',
-  },
-  checkboxLabel: {
+  switchLabel: {
     flex: 1,
     fontSize: 14,
     color: '#333',
     lineHeight: 20,
+    marginRight: 12,
   },
   buttonContainer: {
     width: '100%',

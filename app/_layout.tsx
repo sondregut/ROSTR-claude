@@ -29,6 +29,7 @@ import { memoryMonitor } from '@/utils/memoryMonitor';
 import { SafeAnimated } from '@/utils/globalAnimationManager';
 import { thermalStateManager } from '@/utils/thermalStateManager';
 import { logger } from '@/utils/logger';
+import { FriendRequestPopup } from '@/components/FriendRequestPopup';
 
 // Verify URL polyfill is working
 if (typeof URL === 'undefined' && __DEV__) {
@@ -99,11 +100,17 @@ function RootLayoutNav() {
             name="notifications" 
             options={{ 
               headerShown: false,
+              animation: Platform.OS === 'ios' ? 'ios' : 'fade',
+              presentation: 'card',
+              gestureEnabled: true,
+              gestureDirection: 'horizontal',
+              customAnimationOnGesture: true,
             }} 
           />
           <Stack.Screen name="+not-found" />
         </Stack>
       </AuthenticatedApp>
+      <FriendRequestPopup />
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </ThemeProvider>
   );

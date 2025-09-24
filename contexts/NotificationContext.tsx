@@ -5,10 +5,10 @@ import { notificationService, Notification, NotificationPreferences } from '@/se
 import { pushNotificationService } from '@/services/notifications/PushNotificationService';
 import { supabase } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import Constants from 'expo-constants';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 
-// Check if we're in Expo Go (simulators with dev builds can handle push notifications)
-const isExpoGo = Constants.appOwnership === 'expo' || !Constants.appOwnership;
+// Check if we're in Expo Go (production builds and dev clients can handle push notifications)
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 interface NotificationContextType {
   notifications: Notification[];

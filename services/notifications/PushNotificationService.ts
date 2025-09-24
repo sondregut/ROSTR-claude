@@ -1,11 +1,11 @@
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { notificationService } from './NotificationService';
 import { Notifications, isNotificationsAvailable } from './notificationHelpers';
 import { Device } from '@/utils/deviceHelpers';
 
-// Check if running in Expo Go
-const isExpoGo = Constants.appOwnership === 'expo' || !Constants.appOwnership;
+// Check if running in Expo Go (production builds and dev clients can handle push notifications)
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 // Configure notification handler only if notifications are available
 if (isNotificationsAvailable) {

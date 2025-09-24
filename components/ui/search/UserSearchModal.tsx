@@ -131,13 +131,13 @@ export function UserSearchModal({ visible, onClose, onFriendAdded }: UserSearchM
 
       // Use FriendRequestService for proper pending state handling
       const success = await FriendRequestService.sendFriendRequest(friendId);
-      
+
       if (success) {
         // Update local state to show request sent
-        setSearchResults(prev => 
+        setSearchResults(prev =>
           prev.map(u => u.id === friendId ? { ...u, friendshipStatus: 'pending_sent' } : u)
         );
-        
+
         onFriendAdded?.();
         Alert.alert('Success', 'Friend request sent!');
       } else {
@@ -146,6 +146,37 @@ export function UserSearchModal({ visible, onClose, onFriendAdded }: UserSearchM
     } catch (error) {
       console.error('Error sending friend request:', error);
       Alert.alert('Error', 'Failed to send friend request. Please try again.');
+    } finally {
+      setAddingFriends(prev => {
+        const next = new Set(prev);
+        next.delete(friendId);
+        return next;
+      });
+    }
+  };
+
+  const cancelFriendRequest = async (friendId: string) => {
+    if (!user) return;
+
+    try {
+      setAddingFriends(prev => new Set(prev).add(friendId));
+
+      // Use FriendRequestService to cancel the request
+      const success = await FriendRequestService.cancelFriendRequest(friendId);
+
+      if (success) {
+        // Update local state to show request cancelled
+        setSearchResults(prev =>
+          prev.map(u => u.id === friendId ? { ...u, friendshipStatus: 'none' } : u)
+        );
+
+        Alert.alert('Success', 'Friend request cancelled.');
+      } else {
+        Alert.alert('Error', 'Failed to cancel friend request. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error cancelling friend request:', error);
+      Alert.alert('Error', 'Failed to cancel friend request. Please try again.');
     } finally {
       setAddingFriends(prev => {
         const next = new Set(prev);
@@ -249,10 +280,27 @@ export function UserSearchModal({ visible, onClose, onFriendAdded }: UserSearchM
         )}
 
         {item.friendshipStatus === 'pending_sent' && (
-          <View style={[styles.pendingBadge, { backgroundColor: colors.textSecondary + '20' }]}>
-            <Ionicons name="time" size={16} color={colors.textSecondary} />
-            <Text style={[styles.pendingText, { color: colors.textSecondary }]}>Request Sent</Text>
-          </View>
+          <Pressable
+            style={[
+              styles.cancelRequestButton,
+              { backgroundColor: colors.textSecondary + '20', borderColor: colors.textSecondary },
+              isAdding && styles.addingButton
+            ]}
+            onPress={(e) => {
+              e.stopPropagation();
+              cancelFriendRequest(item.id);
+            }}
+            disabled={isAdding}
+          >
+            {isAdding ? (
+              <ActivityIndicator size="small" color={colors.textSecondary} />
+            ) : (
+              <>
+                <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
+                <Text style={[styles.cancelRequestButtonText, { color: colors.textSecondary }]}>Cancel</Text>
+              </>
+            )}
+          </Pressable>
         )}
 
         {item.friendshipStatus === 'pending_received' && (
@@ -522,6 +570,19 @@ const styles = StyleSheet.create({
   pendingText: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  cancelRequestButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 4,
+  },
+  cancelRequestButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   separator: {
     height: 8,

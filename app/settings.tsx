@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, Pressable, useColorScheme as useRNColorScheme, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Switch } from '@/components/ui/Switch';
 
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -12,10 +13,10 @@ import { useSafeUser } from '@/hooks/useSafeUser';
 import { openFeatureRequest } from '@/lib/featurebase';
 import { useNotifications } from '@/contexts/NotificationContext';
 import * as Haptics from 'expo-haptics';
-import Constants from 'expo-constants';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 
-// Check if we're in Expo Go (simulators with dev builds can handle push notifications)
-const isExpoGo = Constants.appOwnership === 'expo';
+// Check if we're in Expo Go (production builds and dev clients can handle push notifications)
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();
@@ -246,9 +247,8 @@ export default function SettingsScreen() {
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Notifications</Text>
           
           {/* Master Push Notification Toggle */}
-          <Pressable
+          <View
             style={[styles.notificationCard, { backgroundColor: colors.background, borderColor: colors.border }]}
-            onPress={handleToggleNotifications}
           >
             <View style={styles.notificationCardIcon}>
               <Ionicons name="notifications" size={24} color={pushEnabled ? colors.primary : colors.textSecondary} />
@@ -259,17 +259,17 @@ export default function SettingsScreen() {
                 Enable to receive notifications about your dating activity
               </Text>
             </View>
-            <View style={[styles.toggle, { backgroundColor: pushEnabled ? colors.primary : colors.border }]}>
-              <View style={[styles.toggleThumb, { transform: [{ translateX: pushEnabled ? 22 : 2 }] }]} />
-            </View>
-          </Pressable>
+            <Switch
+              value={pushEnabled}
+              onValueChange={handleToggleNotifications}
+            />
+          </View>
 
           {pushEnabled && preferences && (
             <View style={styles.notificationPreferences}>
               {/* Likes & Reactions Card */}
-              <Pressable
+              <View
                 style={[styles.notificationCard, { backgroundColor: colors.background, borderColor: colors.border }]}
-                onPress={() => handleToggleNotificationPreference('likes_reactions', !preferences.likes_reactions)}
               >
                 <View style={styles.notificationCardIcon}>
                   <Ionicons name="heart" size={24} color={preferences.likes_reactions ? colors.primary : colors.textSecondary} />
@@ -280,15 +280,15 @@ export default function SettingsScreen() {
                     When someone likes your dates or roster entries
                   </Text>
                 </View>
-                <View style={[styles.toggle, { backgroundColor: preferences.likes_reactions ? colors.primary : colors.border }]}>
-                  <View style={[styles.toggleThumb, { transform: [{ translateX: preferences.likes_reactions ? 22 : 2 }] }]} />
-                </View>
-              </Pressable>
+                <Switch
+                  value={preferences.likes_reactions}
+                  onValueChange={(value) => handleToggleNotificationPreference('likes_reactions', value)}
+                />
+              </View>
 
               {/* Comments Card */}
-              <Pressable
+              <View
                 style={[styles.notificationCard, { backgroundColor: colors.background, borderColor: colors.border }]}
-                onPress={() => handleToggleNotificationPreference('comments', !preferences.comments)}
               >
                 <View style={styles.notificationCardIcon}>
                   <Ionicons name="chatbubble" size={24} color={preferences.comments ? colors.primary : colors.textSecondary} />
@@ -299,15 +299,15 @@ export default function SettingsScreen() {
                     When someone comments on your dates or mentions you
                   </Text>
                 </View>
-                <View style={[styles.toggle, { backgroundColor: preferences.comments ? colors.primary : colors.border }]}>
-                  <View style={[styles.toggleThumb, { transform: [{ translateX: preferences.comments ? 22 : 2 }] }]} />
-                </View>
-              </Pressable>
+                <Switch
+                  value={preferences.comments}
+                  onValueChange={(value) => handleToggleNotificationPreference('comments', value)}
+                />
+              </View>
 
               {/* Friend Activity Card */}
-              <Pressable
+              <View
                 style={[styles.notificationCard, { backgroundColor: colors.background, borderColor: colors.border }]}
-                onPress={() => handleToggleNotificationPreference('friend_activity', !preferences.friend_activity)}
               >
                 <View style={styles.notificationCardIcon}>
                   <Ionicons name="people" size={24} color={preferences.friend_activity ? colors.primary : colors.textSecondary} />
@@ -318,15 +318,15 @@ export default function SettingsScreen() {
                     Friend requests, new dates, and roster updates
                   </Text>
                 </View>
-                <View style={[styles.toggle, { backgroundColor: preferences.friend_activity ? colors.primary : colors.border }]}>
-                  <View style={[styles.toggleThumb, { transform: [{ translateX: preferences.friend_activity ? 22 : 2 }] }]} />
-                </View>
-              </Pressable>
+                <Switch
+                  value={preferences.friend_activity}
+                  onValueChange={(value) => handleToggleNotificationPreference('friend_activity', value)}
+                />
+              </View>
 
               {/* Circle Updates Card */}
-              <Pressable
+              <View
                 style={[styles.notificationCard, { backgroundColor: colors.background, borderColor: colors.border }]}
-                onPress={() => handleToggleNotificationPreference('circle_updates', !preferences.circle_updates)}
               >
                 <View style={styles.notificationCardIcon}>
                   <Ionicons name="people-circle" size={24} color={preferences.circle_updates ? colors.primary : colors.textSecondary} />
@@ -337,10 +337,11 @@ export default function SettingsScreen() {
                     Circle invites, messages, and member activity
                   </Text>
                 </View>
-                <View style={[styles.toggle, { backgroundColor: preferences.circle_updates ? colors.primary : colors.border }]}>
-                  <View style={[styles.toggleThumb, { transform: [{ translateX: preferences.circle_updates ? 22 : 2 }] }]} />
-                </View>
-              </Pressable>
+                <Switch
+                  value={preferences.circle_updates}
+                  onValueChange={(value) => handleToggleNotificationPreference('circle_updates', value)}
+                />
+              </View>
             </View>
           )}
         </View>
@@ -572,20 +573,6 @@ const styles = StyleSheet.create({
   settingDescription: {
     fontSize: 14,
     lineHeight: 18,
-  },
-  toggle: {
-    width: 50,
-    height: 30,
-    borderRadius: 15,
-    padding: 2,
-    justifyContent: 'center',
-  },
-  toggleThumb: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: 'white',
-    position: 'absolute',
   },
   deleteAccountButton: {
     flexDirection: 'row',

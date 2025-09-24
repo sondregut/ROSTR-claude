@@ -10,6 +10,29 @@ import { supabase } from '@/lib/supabase';
 import { logger } from '@/utils/productionLogger';
 import { useReferral } from '@/contexts/ReferralContext';
 
+/**
+ * Supported Deep Link Patterns:
+ *
+ * Friend Referral Links (auto-sends friend request):
+ * - https://rostrdating.com/?ref=userId
+ * - https://rostrdating.com/?ref=userId&invited_by=John%20Doe
+ * - https://rostrdating.com/?ref=userId&phone=hash123&invited_by=Sarah
+ *
+ * Profile Share Links:
+ * - https://rostrdating.com/profile/johndoe?ref=userId
+ * - https://rostrdating.com/@sarahsmith?ref=userId
+ *
+ * Invite Links:
+ * - https://rostrdating.com/invite/ABC123?ref=userId
+ * - https://rostrdating.com/c/circleId?ref=userId&invited_by=Mike
+ *
+ * App Link:
+ * - https://rostrdating.com/app?ref=userId
+ *
+ * Custom Schemes:
+ * - rostrdating://invite?circle=ABC123&ref=userId
+ * - rostrdating://profile/username?ref=userId
+ */
 interface InviteParams {
   circle?: string;
   invited_by?: string;
@@ -140,7 +163,7 @@ export function useDeepLinks() {
   const handlePhoneBasedInvite = async (referrerId: string, phoneHash: string) => {
     try {
       logger.debug('📞 Processing phone-based invite from:', referrerId, 'phone:', phoneHash);
-      
+
       // Get the referrer user info
       const { data: referrer } = await supabase
         .from('users')
@@ -149,24 +172,54 @@ export function useDeepLinks() {
         .single();
 
       const referrerName = referrer?.name || 'A friend';
-      
+
       // Store referral data in context
       await setReferralData({
         ref: referrerId,
         phone: phoneHash,
         invited_by: referrerName,
       });
-      
+
       if (auth?.user) {
-        // User is already authenticated, show friend invite screen directly
-        router.push({
-          pathname: '/(auth)/friend-invite',
-          params: {
-            ref: referrerId,
-            phone: phoneHash,
-            invited_by: referrerName,
+        // User is already authenticated
+        // First, try to auto-send friend request
+        try {
+          const success = await FriendRequestService.sendFriendRequest(referrerId);
+          if (success) {
+            logger.debug('✅ Auto-sent friend request to referrer:', referrerId);
+
+            // Show success alert and navigate to main app
+            Alert.alert(
+              'Connected!',
+              `You're now connected with ${referrerName}! 🎉`,
+              [{ text: 'Great!', onPress: () => router.push('/(tabs)') }]
+            );
+
+            // Clear referral data after successful connection
+            await setReferralData(null);
+          } else {
+            // Friend request already exists or failed - still navigate to friend invite screen
+            router.push({
+              pathname: '/(auth)/friend-invite',
+              params: {
+                ref: referrerId,
+                phone: phoneHash,
+                invited_by: referrerName,
+              }
+            });
           }
-        });
+        } catch (error) {
+          logger.debug('Failed to auto-connect:', error);
+          // Fall back to showing friend invite screen
+          router.push({
+            pathname: '/(auth)/friend-invite',
+            params: {
+              ref: referrerId,
+              phone: phoneHash,
+              invited_by: referrerName,
+            }
+          });
+        }
       } else {
         // User needs to authenticate, context will handle showing invite after auth
         logger.debug('🔐 User not authenticated, referral data stored for after auth');
@@ -184,6 +237,18 @@ export function useDeepLinks() {
 
   const handleInviteLink = async (params: InviteParams) => {
     try {
+      // If there's a ref parameter, handle friend connection first/alongside
+      if (params.ref && auth?.user) {
+        try {
+          const success = await FriendRequestService.sendFriendRequest(params.ref);
+          if (success) {
+            logger.debug('✅ Auto-sent friend request from referral link');
+          }
+        } catch (error) {
+          logger.debug('Failed to auto-connect with referrer:', error);
+        }
+      }
+
       if (params.circle) {
         // Handle circle invitation
         const invitedBy = params.invited_by ? decodeURIComponent(params.invited_by) : undefined;
@@ -205,21 +270,48 @@ export function useDeepLinks() {
       } else if (params.ref) {
         // Handle general app referral
         const referrerName = params.invited_by ? decodeURIComponent(params.invited_by) : 'a friend';
-        
+
         // Store referral data in context for general referrals too
         await setReferralData({
           ref: params.ref,
           invited_by: referrerName,
           circle: params.circle,
         });
-        
-        Alert.alert(
-          'Welcome to RostrDating!',
-          `${referrerName} invited you to join RostrDating! 🎉`,
-          [
-            { text: 'Get Started', onPress: () => router.push('/(tabs)') },
-          ]
-        );
+
+        if (auth?.user) {
+          // User is already authenticated, try to auto-connect
+          try {
+            const success = await FriendRequestService.sendFriendRequest(params.ref);
+            if (success) {
+              logger.debug('✅ Auto-sent friend request to referrer:', params.ref);
+              Alert.alert(
+                'Connected!',
+                `You're now connected with ${referrerName}! 🎉`,
+                [{ text: 'Great!', onPress: () => router.push('/(tabs)') }]
+              );
+              // Clear referral data after successful connection
+              await setReferralData(null);
+            } else {
+              // Friend request already exists or user is already friends
+              logger.debug('Friend request already exists or users are already friends');
+              Alert.alert(
+                'Welcome to RostrDating!',
+                `${referrerName} invited you to join RostrDating! 🎉`,
+                [{ text: 'Get Started', onPress: () => router.push('/(tabs)') }]
+              );
+            }
+          } catch (error) {
+            logger.debug('Failed to auto-connect:', error);
+            Alert.alert(
+              'Welcome to RostrDating!',
+              `${referrerName} invited you to join RostrDating! 🎉`,
+              [{ text: 'Get Started', onPress: () => router.push('/(tabs)') }]
+            );
+          }
+        } else {
+          // User not authenticated, referral data stored for after auth
+          logger.debug('🔐 User not authenticated, referral data stored for after auth');
+        }
       }
     } catch (error) {
       console.error('Error handling invite link:', error);
@@ -278,13 +370,42 @@ export function useDeepLinks() {
         });
         
         if (pathParts[0] === 'invite' && pathParts[1]) {
-          // Handle invite links like https://rostrdating.com/invite/circle-id
-          console.log('🎉 Processing circle invite via universal link:', pathParts[1]);
+          // Handle invite links - could be circle or general invite
+          console.log('🎉 Processing invite via universal link:', pathParts[1]);
           const invitedBy = searchParams.get('invited_by');
-          await handleInviteLink({ 
+          const referrerId = searchParams.get('ref');
+
+          // For now, treat as circle invite but include ref param
+          await handleInviteLink({
             circle: pathParts[1],
-            invited_by: invitedBy || undefined
+            invited_by: invitedBy || undefined,
+            ref: referrerId || undefined
           });
+        } else if (pathParts[0] === 'c' && pathParts[1]) {
+          // Handle circle links like https://rostrdating.com/c/circle-id
+          console.log('🎯 Processing circle link via universal link:', pathParts[1]);
+          const invitedBy = searchParams.get('invited_by');
+          const referrerId = searchParams.get('ref');
+          await handleInviteLink({
+            circle: pathParts[1],
+            invited_by: invitedBy || undefined,
+            ref: referrerId || undefined
+          });
+        } else if (pathParts[0] === 'app') {
+          // Handle app download links like https://rostrdating.com/app
+          console.log('📱 Processing app link via universal link');
+          const referrerId = searchParams.get('ref');
+          const invitedBy = searchParams.get('invited_by');
+
+          if (referrerId) {
+            await handleInviteLink({
+              ref: referrerId,
+              invited_by: invitedBy || undefined
+            });
+          } else {
+            // Just open the app main screen
+            router.push('/(tabs)');
+          }
         } else if (pathParts[0]?.startsWith('@')) {
           // Handle profile links like rostrdating.com/@username
           const username = pathParts[0].substring(1);

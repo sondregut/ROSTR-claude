@@ -7,6 +7,10 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
@@ -66,8 +70,11 @@ export default function MemberProfileScreen() {
   const [friendshipStatus, setFriendshipStatus] = useState<'friends' | 'pending_sent' | 'pending_received' | 'none'>('none');
   const [dateHistory, setDateHistory] = useState<any[]>([]);
   const [shouldRefresh, setShouldRefresh] = useState(0); // Force refresh counter
+  const [lastLoadTime, setLastLoadTime] = useState<number>(0); // Track last load time
+  const [isRefreshing, setIsRefreshing] = useState(false); // For pull to refresh
   const commentChannelRef = useRef<RealtimeChannel | null>(null);
   const friendshipChannelRef = useRef<RealtimeChannel | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
   
   // Wrap loadProfileData in useCallback so it can be called from multiple places
   const loadProfileData = useCallback(async (forceReload = false) => {
@@ -198,6 +205,7 @@ export default function MemberProfileScreen() {
       };
 
       setProfileData(profile);
+      setLastLoadTime(Date.now()); // Track when we loaded
     } catch (err) {
       console.error('Error loading profile:', err);
       setError('Failed to load profile');
@@ -216,12 +224,19 @@ export default function MemberProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       console.log('Profile screen gained focus, checking if refresh needed...');
-      // Always refresh if coming from notification or if viewing someone else's profile
-      if (fromNotification === 'true' || (profileData && user?.id && user.id !== profileData.id)) {
-        console.log('Forcing refresh due to notification navigation or other user profile');
+      const now = Date.now();
+      const timeSinceLastLoad = now - lastLoadTime;
+      
+      // Only refresh if:
+      // 1. Coming from notification
+      // 2. It's been more than 30 seconds since last load
+      // 3. No profile data exists yet
+      if (fromNotification === 'true' || timeSinceLastLoad > 30000 || !profileData) {
+        console.log('Refreshing profile data...');
         loadProfileData(true);
+        setLastLoadTime(now);
       }
-    }, [profileData?.id, user?.id, fromNotification, loadProfileData])
+    }, [fromNotification, lastLoadTime, profileData])
   );
 
   // Set up real-time subscription for friendship changes
@@ -377,6 +392,9 @@ export default function MemberProfileScreen() {
         content: text,
         imageUri: user.user_metadata?.image_uri,
       }, user.id);
+      
+      // Dismiss keyboard after successful comment
+      Keyboard.dismiss();
 
     } catch (error) {
       console.error('Error adding comment:', error);
@@ -593,7 +611,28 @@ export default function MemberProfileScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView 
+          ref={scrollViewRef}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={async () => {
+                setIsRefreshing(true);
+                await loadProfileData(true);
+                setLastLoadTime(Date.now());
+                setIsRefreshing(false);
+              }}
+              tintColor={colors.primary}
+            />
+          }
+        >
         {/* Navigation Bar */}
         <View style={[styles.navBar, { backgroundColor: colors.background }]}>
           <Pressable onPress={() => router.back()} style={styles.backButton}>
@@ -931,7 +970,8 @@ export default function MemberProfileScreen() {
             </Text>
           </View>
         )}
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

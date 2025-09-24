@@ -20,6 +20,7 @@ import { useSafeUser } from '@/hooks/useSafeUser';
 import { UserService } from '@/services/supabase/users';
 import { ContactService } from '@/services/contacts/ContactService';
 import { PhoneInput } from '@/components/ui/auth/PhoneInput';
+import { Switch } from '@/components/ui/Switch';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import * as Haptics from 'expo-haptics';
 
@@ -75,12 +76,11 @@ export default function PhoneSettingsScreen() {
       
       console.log('Saving phone number:', normalizedPhone, 'Country:', countryCode);
       
-      // Update user profile with phone number and country code
+      // Update user profile with phone number
       await UserService.updateProfile(user.id, {
         phone: normalizedPhone,
         phone_verified: false,
         allow_phone_discovery: allowDiscovery,
-        country_code: countryCode,
       });
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -195,12 +195,8 @@ export default function PhoneSettingsScreen() {
 
           {/* Privacy Settings */}
           <View style={[styles.privacySection, { backgroundColor: colors.card }]}>
-            <Pressable
+            <View
               style={styles.privacyRow}
-              onPress={() => {
-                setAllowDiscovery(!allowDiscovery);
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }}
             >
               <View style={styles.privacyInfo}>
                 <Text style={[styles.privacyLabel, { color: colors.text }]}>
@@ -210,10 +206,14 @@ export default function PhoneSettingsScreen() {
                   Let friends who have your number find you on RostrDating
                 </Text>
               </View>
-              <View style={[styles.toggle, { backgroundColor: allowDiscovery ? colors.primary : colors.border }]}>
-                <View style={[styles.toggleThumb, { transform: [{ translateX: allowDiscovery ? 22 : 2 }] }]} />
-              </View>
-            </Pressable>
+              <Switch
+                value={allowDiscovery}
+                onValueChange={(value) => {
+                  setAllowDiscovery(value);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+              />
+            </View>
           </View>
 
           {/* Action Buttons */}
@@ -332,20 +332,6 @@ const styles = StyleSheet.create({
   privacyDescription: {
     fontSize: 14,
     lineHeight: 18,
-  },
-  toggle: {
-    width: 50,
-    height: 30,
-    borderRadius: 15,
-    padding: 2,
-    justifyContent: 'center',
-  },
-  toggleThumb: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: 'white',
-    position: 'absolute',
   },
   buttonContainer: {
     gap: 12,
